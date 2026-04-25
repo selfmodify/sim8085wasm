@@ -220,6 +220,7 @@ body {
   background: rgba(74,240,160,.06);
 }
 .reg-row.wide {}
+.reg-row.pair { padding-left: 18px; opacity: .8 }
 .reg-name { color: var(--text3); width: 28px; font-size: 12px }
 .reg-hex  { color: var(--accent); font-weight: 600; width: 40px }
 .reg-dec  { color: var(--text3); font-size: 12px; flex: 1; text-align: right }

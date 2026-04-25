@@ -341,9 +341,9 @@ function RegPanel({ regs, prev }) {
       </div>
     )
   }
-  function Row16({ name, val, prevVal }) {
+  function Row16({ name, val, prevVal, pair }) {
     return (
-      <div className={`reg-row wide${prevVal !== undefined && val !== prevVal ? ' changed' : ''}`}>
+      <div className={`reg-row wide${pair ? ' pair' : ''}${prevVal !== undefined && val !== prevVal ? ' changed' : ''}`}>
         <span className="reg-name">{name}</span>
         <span className="reg-hex">{hex4(val)}</span>
         <span className="reg-dec">{val}</span>
@@ -354,13 +354,16 @@ function RegPanel({ regs, prev }) {
   return (
     <div className="panel reg-panel">
       <div className="panel-hd">REGISTERS</div>
-      <Row name="A"  val={regs.a}  prevVal={p.a} />
-      <Row name="B"  val={regs.b}  prevVal={p.b} />
-      <Row name="C"  val={regs.c}  prevVal={p.c} />
-      <Row name="D"  val={regs.d}  prevVal={p.d} />
-      <Row name="E"  val={regs.e}  prevVal={p.e} />
-      <Row name="H"  val={regs.h}  prevVal={p.h} />
-      <Row name="L"  val={regs.l}  prevVal={p.l} />
+      <Row   name="A"  val={regs.a}  prevVal={p.a} />
+      <Row   name="B"  val={regs.b}  prevVal={p.b} />
+      <Row   name="C"  val={regs.c}  prevVal={p.c} />
+      <Row16 name="BC" val={(regs.b<<8)|regs.c} prevVal={p.b !== undefined ? (p.b<<8)|p.c : undefined} pair />
+      <Row   name="D"  val={regs.d}  prevVal={p.d} />
+      <Row   name="E"  val={regs.e}  prevVal={p.e} />
+      <Row16 name="DE" val={(regs.d<<8)|regs.e} prevVal={p.d !== undefined ? (p.d<<8)|p.e : undefined} pair />
+      <Row   name="H"  val={regs.h}  prevVal={p.h} />
+      <Row   name="L"  val={regs.l}  prevVal={p.l} />
+      <Row16 name="HL" val={(regs.h<<8)|regs.l} prevVal={p.h !== undefined ? (p.h<<8)|p.l : undefined} pair />
       <div className="reg-sep" />
       <Row16 name="PC" val={regs.pc} prevVal={p.pc} />
       <Row16 name="SP" val={regs.sp} prevVal={p.sp} />
