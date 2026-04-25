@@ -214,7 +214,11 @@ const INST_HELP = {
   DI:   { brief:'Disable maskable interrupts', flags:'—', bytes:1, cycles:'4', desc:'Resets INTE so maskable interrupts (INTR, RST5.5, RST6.5, RST7.5) are ignored.', ex:'DI' },
   RIM:  { brief:'Read interrupt mask into A', flags:'—', bytes:1, cycles:'4', desc:'Loads A with interrupt mask bits, pending interrupt flags, and the SID (serial input data) bit.', ex:'RIM           ; read interrupt status' },
   SIM:  { brief:'Set interrupt mask from A', flags:'—', bytes:1, cycles:'4', desc:'Uses A to set RST5.5/RST6.5/RST7.5 masks and write the SOD (serial output data) bit.', ex:'SIM           ; write interrupt mask' },
-  ORG:  { brief:'Set assembly origin address (assembler directive)', flags:'—', bytes:0, cycles:'—', desc:'Tells the assembler to place subsequent code/data at the given address. Not a CPU instruction.', ex:'ORG 0100H' },
+  // Assembler directives
+  ORG:     { brief:'Set assembly origin address', flags:'—', bytes:0, cycles:'—', desc:'Moves the assembly pointer to the given address. All instructions and data after ORG are placed starting at that address. Does not emit any machine code.', ex:'ORG 0100H\nMVI A, 42H    ; assembled at 0100H' },
+  KICKOFF: { brief:'Set the program entry point (start address)', flags:'—', bytes:0, cycles:'—', desc:'Tells the simulator which address to load into PC when the program is reset or first built. Unlike ORG it does not move the assembly pointer — use it once, usually before your first ORG or at the top of the file.', ex:'KICKOFF 0200H ; PC starts at 0200H\nORG 0200H\nMVI A, 01H' },
+  SETBYTE: { brief:'Write a byte into memory at assembly time', flags:'—', bytes:1, cycles:'—', desc:'Writes a single 8-bit value directly into the simulator RAM at the specified address during assembly. Useful for pre-initialising data areas before the program runs.', ex:'SETBYTE 2050H, 0FFH  ; mem[2050H] = FFH' },
+  SETWORD: { brief:'Write a 16-bit word into memory at assembly time (little-endian)', flags:'—', bytes:2, cycles:'—', desc:'Writes a 16-bit value into two consecutive bytes in little-endian order: low byte at addr, high byte at addr+1. Handy for pre-loading address tables or 16-bit constants.', ex:'SETWORD 2060H, 1A2BH ; mem[2060H]=2BH, mem[2061H]=1AH' },
 }
 
 function getInstWord(state, pos) {
