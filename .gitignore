@@ -1,0 +1,6 @@
+build/
+build-wasm/
+web/node_modules/
+web/dist/
+*.o
+*.a
