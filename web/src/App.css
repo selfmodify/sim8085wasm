@@ -356,8 +356,9 @@ body {
 }
 .mem-cell:hover { background: var(--bg2); color: var(--text) }
 .mem-cell.mem-nz  { color: var(--text2) }
-.mem-cell.mem-pc  { background: rgba(74,240,160,.2); color: var(--accent); font-weight: 700 }
-.mem-cell.mem-sp  { background: rgba(240,168,64,.15); color: var(--amber); font-weight: 700 }
+.mem-cell.mem-pc     { background: rgba(74,240,160,.2); color: var(--accent); font-weight: 700 }
+.mem-cell.mem-sp     { background: rgba(240,168,64,.15); color: var(--amber); font-weight: 700 }
+.mem-cell.mem-cursor { outline: 1px solid rgba(100,160,255,.7); outline-offset: -1px }
 .mem-cell.editing { padding: 0 }
 .mem-cell.editing input {
   width: 22px;

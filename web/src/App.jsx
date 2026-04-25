@@ -450,12 +450,21 @@ function MemPanel({ memStart, onJump, regs, buildId }) {
   const [editBuf, setEditBuf] = useState('')
   const [rows, setRows] = useState(8)
   const [addrBuf, setAddrBuf] = useState(hex4(memStart))
+  const [cursor, setCursor] = useState(memStart)
   const addrFocused = useRef(false)
   const COLS = 16
   const scrollRef = useRef(null)
   const panelRef  = useRef(null)
 
   useEffect(() => { if (!addrFocused.current) setAddrBuf(hex4(memStart)) }, [memStart])
+
+  // When viewport jumps externally (address input, ◀/▶), clamp cursor into view
+  useEffect(() => {
+    setCursor(c => {
+      const visEnd = memStart + COLS * rows - 1
+      return (c < memStart || c > visEnd) ? memStart : c
+    })
+  }, [memStart, rows])
 
   useEffect(() => {
     if (!scrollRef.current) return
@@ -491,13 +500,26 @@ function MemPanel({ memStart, onJump, regs, buildId }) {
     refresh()
   }
 
+  function moveCursor(delta) {
+    const next = Math.max(0, Math.min(0xFFFF, cursor + delta))
+    setCursor(next)
+    const visEnd = memStart + COLS * rows - 1
+    if (next < memStart) {
+      onJump((next >> 4) << 4)
+    } else if (next > visEnd) {
+      onJump(Math.max(0, ((next >> 4) << 4) - COLS * (rows - 1)))
+    }
+  }
+
   function onPanelKey(e) {
     if (addrFocused.current || editing !== null) return
     const pageSize = COLS * rows
-    if (e.key === 'ArrowUp')   { e.preventDefault(); onJump(Math.max(0,      memStart - COLS)) }
-    if (e.key === 'ArrowDown') { e.preventDefault(); onJump(Math.min(0x3F00, memStart + COLS)) }
-    if (e.key === 'PageUp')    { e.preventDefault(); onJump(Math.max(0,      memStart - pageSize)) }
-    if (e.key === 'PageDown')  { e.preventDefault(); onJump(Math.min(0x3F00, memStart + pageSize)) }
+    if (e.key === 'ArrowUp')    { e.preventDefault(); moveCursor(-COLS) }
+    if (e.key === 'ArrowDown')  { e.preventDefault(); moveCursor(+COLS) }
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); moveCursor(-1) }
+    if (e.key === 'ArrowRight') { e.preventDefault(); moveCursor(+1) }
+    if (e.key === 'PageUp')     { e.preventDefault(); moveCursor(-pageSize) }
+    if (e.key === 'PageDown')   { e.preventDefault(); moveCursor(+pageSize) }
   }
 
   return (
@@ -540,8 +562,9 @@ function MemPanel({ memStart, onJump, regs, buildId }) {
                   {Array.from({length:COLS},(_,col)=>{
                     const addr = base + col
                     const val  = mem[row*COLS+col] ?? 0
-                    const isPC = addr === regs.pc
-                    const isSP = addr === regs.sp
+                    const isPC     = addr === regs.pc
+                    const isSP     = addr === regs.sp
+                    const isCursor = addr === cursor
                     if (editing === addr)
                       return (
                         <td key={col} className="mem-cell editing">
@@ -554,7 +577,7 @@ function MemPanel({ memStart, onJump, regs, buildId }) {
                       )
                     return (
                       <td key={col}
-                        className={`mem-cell${isPC?' mem-pc':''}${isSP?' mem-sp':''}${val?' mem-nz':''}`}
+                        className={`mem-cell${isPC?' mem-pc':''}${isSP?' mem-sp':''}${isCursor?' mem-cursor':''}${val?' mem-nz':''}`}
                         title={`${hex4(addr)}: ${hex2(val)}H = ${val}`}
                         onDoubleClick={()=>{setEditing(addr);setEditBuf(hex2(val))}}
                       >{hex2(val)}</td>
