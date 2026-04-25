@@ -370,22 +370,23 @@ function RegPanel({ regs, prev }) {
 
 // ── Register pairs panel ─────────────────────────────────────────────────
 function PairPanel({ regs, prev }) {
-  function Row({ name, val, prevVal }) {
-    return (
-      <div className={`reg-row wide${prevVal !== undefined && val !== prevVal ? ' changed' : ''}`}>
-        <span className="reg-name">{name}</span>
-        <span className="reg-hex">{hex4(val)}</span>
-        <span className="reg-dec">{val}</span>
-      </div>
-    )
-  }
   const p = prev || {}
+  const pairs = useMemo(() => [
+    { name: 'BC', val: (regs.b<<8)|regs.c, prevVal: p.b !== undefined ? (p.b<<8)|p.c : undefined },
+    { name: 'DE', val: (regs.d<<8)|regs.e, prevVal: p.d !== undefined ? (p.d<<8)|p.e : undefined },
+    { name: 'HL', val: (regs.h<<8)|regs.l, prevVal: p.h !== undefined ? (p.h<<8)|p.l : undefined },
+  ].map(pair => ({ ...pair, mem: sim.simGetMemory(pair.val, 1)[0] ?? 0 })),
+    [regs.b, regs.c, regs.d, regs.e, regs.h, regs.l]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="panel reg-panel">
       <div className="panel-hd">REGISTER PAIRS</div>
-      <Row name="BC" val={(regs.b<<8)|regs.c} prevVal={p.b !== undefined ? (p.b<<8)|p.c : undefined} />
-      <Row name="DE" val={(regs.d<<8)|regs.e} prevVal={p.d !== undefined ? (p.d<<8)|p.e : undefined} />
-      <Row name="HL" val={(regs.h<<8)|regs.l} prevVal={p.h !== undefined ? (p.h<<8)|p.l : undefined} />
+      {pairs.map(({ name, val, prevVal, mem }) => (
+        <div key={name} className={`reg-row wide${prevVal !== undefined && val !== prevVal ? ' changed' : ''}`}>
+          <span className="reg-name">{name}</span>
+          <span className="reg-hex">{hex4(val)}</span>
+          <span className="reg-deref" title={`Memory[${hex4(val)}H] = ${hex2(mem)}H (${mem})`}>[{hex2(mem)}]</span>
+        </div>
+      ))}
     </div>
   )
 }
