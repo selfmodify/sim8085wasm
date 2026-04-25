@@ -331,7 +331,7 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail }
 }
 
 // ── Register panel ───────────────────────────────────────────────────────
-function RegPanel({ regs, prev }) {
+function RegPanel({ regs, prev, onJump }) {
   function Row({ name, val, prevVal }) {
     return (
       <div className={`reg-row${prevVal !== undefined && val !== prevVal ? ' changed' : ''}`}>
@@ -343,7 +343,9 @@ function RegPanel({ regs, prev }) {
   }
   function Row16({ name, val, prevVal }) {
     return (
-      <div className={`reg-row wide${prevVal !== undefined && val !== prevVal ? ' changed' : ''}`}>
+      <div className={`reg-row wide clickable${prevVal !== undefined && val !== prevVal ? ' changed' : ''}`}
+           onClick={() => onJump(val & 0xFFF0)}
+           title={`Jump memory to ${hex4(val)}H`}>
         <span className="reg-name">{name}</span>
         <span className="reg-hex">{hex4(val)}</span>
         <span className="reg-dec">{val}</span>
@@ -369,7 +371,7 @@ function RegPanel({ regs, prev }) {
 }
 
 // ── Register pairs panel ─────────────────────────────────────────────────
-function PairPanel({ regs, prev }) {
+function PairPanel({ regs, prev, onJump }) {
   const p = prev || {}
   const pairs = useMemo(() => [
     { name: 'BC', val: (regs.b<<8)|regs.c, prevVal: p.b !== undefined ? (p.b<<8)|p.c : undefined },
@@ -381,10 +383,12 @@ function PairPanel({ regs, prev }) {
     <div className="panel reg-panel">
       <div className="panel-hd">REGISTER PAIRS</div>
       {pairs.map(({ name, val, prevVal, mem }) => (
-        <div key={name} className={`reg-row wide${prevVal !== undefined && val !== prevVal ? ' changed' : ''}`}>
+        <div key={name} className={`reg-row wide clickable${prevVal !== undefined && val !== prevVal ? ' changed' : ''}`}
+             onClick={() => onJump(val & 0xFFF0)}
+             title={`Jump memory to ${hex4(val)}H  •  [${hex4(val)}H] = ${hex2(mem)}H (${mem})`}>
           <span className="reg-name">{name}</span>
           <span className="reg-hex">{hex4(val)}</span>
-          <span className="reg-deref" title={`Memory[${hex4(val)}H] = ${hex2(mem)}H (${mem})`}>[{hex2(mem)}]</span>
+          <span className="reg-deref">[{hex2(mem)}]</span>
         </div>
       ))}
     </div>
@@ -899,8 +903,8 @@ export default function App() {
 
         {/* Registers column */}
         <div className="col col-right">
-          <RegPanel   regs={regs} prev={prevRegs} />
-          <PairPanel  regs={regs} prev={prevRegs} />
+          <RegPanel   regs={regs} prev={prevRegs} onJump={setMemStart} />
+          <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} />
           <FlagPanel  regs={regs} />
           <StackPanel regs={regs} />
         </div>

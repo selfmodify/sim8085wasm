@@ -215,6 +215,8 @@ body {
   transition: background .1s;
 }
 .reg-row:hover { background: var(--bg2) }
+.reg-row.clickable { cursor: pointer }
+.reg-row.clickable:hover { background: var(--bg3) }
 .reg-row.changed {
   border-left-color: var(--accent);
   background: rgba(74,240,160,.06);
