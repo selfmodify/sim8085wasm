@@ -302,15 +302,31 @@ function MemPanel({ memStart, onJump, regs }) {
   const [rows, setRows] = useState(8)
   const COLS = 16
   const scrollRef = useRef(null)
+  const panelRef  = useRef(null)
 
   useEffect(() => {
     if (!scrollRef.current) return
     const ro = new ResizeObserver(([e]) => {
-      setRows(r => { const n = Math.max(4, Math.floor((e.contentRect.height - 20) / 17)); return n !== r ? n : r })
+      setRows(r => { const n = Math.max(2, Math.floor((e.contentRect.height - 20) / 17)); return n !== r ? n : r })
     })
     ro.observe(scrollRef.current)
     return () => ro.disconnect()
   }, [])
+
+  function onHandleMouseDown(e) {
+    e.preventDefault()
+    const startY = e.clientY
+    const startH = panelRef.current.getBoundingClientRect().height
+    function onMove(ev) {
+      panelRef.current.style.height = Math.max(80, startH + (startY - ev.clientY)) + 'px'
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
 
   function refresh() { setMem(sim.simGetMemory(memStart, COLS * rows)) }
   useEffect(refresh, [memStart, regs.pc, rows])
@@ -323,13 +339,14 @@ function MemPanel({ memStart, onJump, regs }) {
   }
 
   return (
-    <div className="panel mem-panel">
+    <div className="panel mem-panel" ref={panelRef}>
+      <div className="mem-resize-handle" onMouseDown={onHandleMouseDown} />
       <div className="panel-hd">
         MEMORY
         <span className="mem-ctrl">
-          <button className="mem-btn" onClick={() => onJump(Math.max(0, memStart - COLS*ROWS))}>◀</button>
+          <button className="mem-btn" onClick={() => onJump(Math.max(0, memStart - COLS*rows))}>◀</button>
           <code className="mem-cur-addr">{hex4(memStart)}</code>
-          <button className="mem-btn" onClick={() => onJump(Math.min(0x3F00, memStart + COLS*ROWS))}>▶</button>
+          <button className="mem-btn" onClick={() => onJump(Math.min(0x3F00, memStart + COLS*rows))}>▶</button>
         </span>
       </div>
       <div className="mem-scroll" ref={scrollRef}>

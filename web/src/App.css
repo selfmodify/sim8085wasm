@@ -281,6 +281,15 @@ body {
 
 /* ── Memory ───────────────────────────────────────────────────────── */
 .mem-panel { flex: 0 0 auto }
+.mem-resize-handle {
+  height: 5px;
+  flex-shrink: 0;
+  cursor: ns-resize;
+  background: transparent;
+  border-top: 2px solid var(--border);
+  transition: border-color .15s;
+}
+.mem-resize-handle:hover { border-top-color: var(--accent) }
 .mem-ctrl { display: flex; align-items: center; gap: 6px }
 .mem-btn {
   background: none;
@@ -294,7 +303,7 @@ body {
 .mem-btn:hover { border-color: var(--border2); background: var(--bg3) }
 .mem-cur-addr { color: var(--amber); font-family: var(--mono); font-size: 10px }
 
-.mem-scroll { overflow: auto; resize: vertical; min-height: 100px; height: 160px }
+.mem-scroll { overflow: auto; flex: 1; min-height: 60px }
 .mem-tbl { border-collapse: collapse; font-family: var(--mono); font-size: 11px; width: 100% }
 .mem-th-addr, .mem-th {
   padding: 2px 3px;
