@@ -20,14 +20,13 @@
   --sans:     "IBM Plex Sans", system-ui, sans-serif;
 }
 
-html { zoom: 1.25 }
 html, body, #root { height: 100%; overflow: hidden }
 
 body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.4;
 }
 
@@ -45,7 +44,7 @@ body {
   align-items: center;
   gap: 16px;
   padding: 0 14px;
-  height: 52px;
+  height: 60px;
   background: var(--bg1);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
@@ -57,14 +56,14 @@ body {
   color: #050a14;
   font-family: var(--mono);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 16px;
   padding: 3px 8px;
   border-radius: 4px;
   letter-spacing: 1px;
 }
 .brand-text { display: flex; flex-direction: column; line-height: 1.2 }
-.brand-title { font-weight: 600; font-size: 15px; color: var(--text) }
-.brand-sub { font-size: 10px; color: var(--text3); font-family: var(--mono) }
+.brand-title { font-weight: 600; font-size: 17px; color: var(--text) }
+.brand-sub { font-size: 12px; color: var(--text3); font-family: var(--mono) }
 
 .toolbar {
   display: flex;
@@ -79,7 +78,7 @@ body {
   color: var(--text2);
   padding: 5px 8px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
   outline: none;
 }
@@ -95,7 +94,7 @@ body {
   background: var(--bg2);
   color: var(--text);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   cursor: pointer;
   white-space: nowrap;
   transition: all .12s;
@@ -107,7 +106,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 3px;
   padding: 0 4px;
-  font-size: 9px;
+  font-size: 11px;
   color: var(--text3);
 }
 .btn-asm   { border-color: #3a5080; color: #80b0ff }
@@ -121,7 +120,7 @@ body {
 .btn-reset { color: var(--amber) }
 .btn-xs {
   padding: 3px 7px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .status {
@@ -130,7 +129,7 @@ body {
   gap: 10px;
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   white-space: nowrap;
 }
 .status-msg { color: var(--text2) }
@@ -188,7 +187,7 @@ body {
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 2px;
   color: var(--text3);
@@ -210,7 +209,7 @@ body {
   gap: 6px;
   padding: 2px 10px;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 14px;
   border-left: 2px solid transparent;
   transition: background .1s;
 }
@@ -220,9 +219,9 @@ body {
   background: rgba(74,240,160,.06);
 }
 .reg-row.wide {}
-.reg-name { color: var(--text3); width: 24px; font-size: 11px }
-.reg-hex  { color: var(--accent); font-weight: 600; width: 36px }
-.reg-dec  { color: var(--text3); font-size: 10px; flex: 1; text-align: right }
+.reg-name { color: var(--text3); width: 28px; font-size: 12px }
+.reg-hex  { color: var(--accent); font-weight: 600; width: 40px }
+.reg-dec  { color: var(--text3); font-size: 12px; flex: 1; text-align: right }
 .reg-sep  { height: 1px; background: var(--border); margin: 4px 10px }
 
 /* ── Flags ────────────────────────────────────────────────────────── */
@@ -246,13 +245,13 @@ body {
 }
 .flag-lbl {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: 11px;
   color: var(--text3);
   font-weight: 700;
 }
 .flag-val {
   font-family: var(--mono);
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--text2);
 }
@@ -265,7 +264,7 @@ body {
   flex: 1;
   overflow-y: auto;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
 }
 .disasm-row {
   display: flex;
@@ -286,7 +285,7 @@ body {
 
 .disasm-bp { color: var(--text3); width: 10px; text-align: center; flex-shrink: 0 }
 .disasm-text { color: var(--text2); flex: 1; white-space: pre }
-.disasm-pc-arrow { color: var(--accent); font-size: 10px; margin-left: 4px }
+.disasm-pc-arrow { color: var(--accent); font-size: 12px; margin-left: 4px }
 
 /* ── Memory ───────────────────────────────────────────────────────── */
 .mem-panel { flex: 0 0 auto }
@@ -307,18 +306,18 @@ body {
   padding: 1px 5px;
   cursor: pointer;
   border-radius: 3px;
-  font-size: 10px;
+  font-size: 12px;
 }
 .mem-btn:hover { border-color: var(--border2); background: var(--bg3) }
 .mem-cur-addr {
   color: var(--amber);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 12px;
   background: none;
   border: none;
   border-bottom: 1px solid transparent;
   outline: none;
-  width: 36px;
+  width: 44px;
   text-align: center;
   cursor: default;
   padding: 0;
@@ -327,13 +326,13 @@ body {
 .mem-cur-addr:focus { border-bottom-color: var(--amber); cursor: text }
 
 .mem-scroll { overflow: auto; flex: 1; min-height: 60px }
-.mem-tbl { border-collapse: collapse; font-family: var(--mono); font-size: 11px; width: 100% }
+.mem-tbl { border-collapse: collapse; font-family: var(--mono); font-size: 13px; width: 100% }
 .mem-th-addr, .mem-th {
   padding: 2px 3px;
   color: var(--text3);
   font-weight: 400;
   text-align: center;
-  font-size: 10px;
+  font-size: 12px;
   border-bottom: 1px solid var(--border);
 }
 .mem-th-addr { text-align: left; width: 40px }
@@ -341,7 +340,7 @@ body {
 .mem-row-addr {
   color: var(--text3);
   padding: 1px 6px 1px 4px;
-  font-size: 10px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -364,7 +363,7 @@ body {
   border: 1px solid var(--accent);
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   text-align: center;
   outline: none;
   padding: 0;
@@ -372,7 +371,7 @@ body {
 
 .mem-legend {
   padding: 3px 8px;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text3);
   border-top: 1px solid var(--border);
   font-family: var(--mono);
@@ -382,7 +381,7 @@ body {
 }
 .legend-pc { color: var(--accent) }
 .legend-sp { color: var(--amber) }
-.legend-tip { margin-left: auto; color: var(--text3); font-size: 9px }
+.legend-tip { margin-left: auto; color: var(--text3); font-size: 11px }
 
 .jump-row {
   display: flex;
@@ -395,14 +394,14 @@ body {
 /* ── Stack ────────────────────────────────────────────────────────── */
 .stack-panel { padding: 4px 0 }
 .sp-val { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--amber) }
-.stack-empty { color: var(--text3); font-family: var(--mono); font-size: 11px; padding: 6px 10px }
+.stack-empty { color: var(--text3); font-family: var(--mono); font-size: 13px; padding: 6px 10px }
 .stack-row {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 2px 10px;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
 }
 .stack-row.stack-top { background: rgba(74,240,160,.06) }
 .stack-addr { color: var(--text3); width: 36px }
@@ -428,7 +427,7 @@ body {
 .led-digit svg { filter: drop-shadow(0 0 4px rgba(255, 40, 0, 0.75)) }
 .led-lbl {
   font-family: var(--mono);
-  font-size: 8px;
+  font-size: 10px;
   color: var(--text3);
   letter-spacing: 0;
 }
@@ -436,13 +435,13 @@ body {
 /* ── Instruction tooltip (CodeMirror hover) ───────────────────────── */
 .cm-tooltip { border: 1px solid var(--border2) !important; border-radius: 5px !important; background: var(--bg2) !important; box-shadow: 0 4px 16px rgba(0,0,0,.5) !important }
 .asm-tooltip { padding: 7px 11px; font-family: var(--mono) }
-.asm-tt-name  { color: var(--accent); font-size: 13px; font-weight: 700; margin-bottom: 2px }
-.asm-tt-brief { color: var(--text); font-size: 11px; margin-bottom: 4px }
-.asm-tt-meta  { color: var(--text3); font-size: 10px; margin-bottom: 2px }
-.asm-tt-tip   { color: var(--text3); font-size: 9px; opacity: .7 }
+.asm-tt-name  { color: var(--accent); font-size: 15px; font-weight: 700; margin-bottom: 2px }
+.asm-tt-brief { color: var(--text); font-size: 13px; margin-bottom: 4px }
+.asm-tt-meta  { color: var(--text3); font-size: 12px; margin-bottom: 2px }
+.asm-tt-tip   { color: var(--text3); font-size: 11px; opacity: .7 }
 
 /* ── Status bar instruction hint ─────────────────────────────────── */
-.status-inst { display: flex; align-items: center; gap: 6px; color: var(--text3); font-size: 10px; max-width: 340px; overflow: hidden }
+.status-inst { display: flex; align-items: center; gap: 6px; color: var(--text3); font-size: 12px; max-width: 360px; overflow: hidden }
 .status-inst-name { color: var(--accent); font-weight: 700; flex-shrink: 0 }
 .status-inst-brief { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .status-inst-tip { background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; font-size: 9px; flex-shrink: 0; color: var(--text2) }

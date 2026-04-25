@@ -268,7 +268,7 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail }
           keymap.of([...defaultKeymap, ...historyKeymap]),
           oneDark,
           EditorView.theme({
-            '&': { height:'100%', fontFamily:'"JetBrains Mono","Fira Code",monospace', fontSize:'13px' },
+            '&': { height:'100%', fontFamily:'"JetBrains Mono","Fira Code",monospace', fontSize:'15px' },
             '.cm-scroller': { overflow:'auto' },
             '.cm-content': { padding:'8px 0', minHeight:'100%' },
           }),
@@ -447,7 +447,7 @@ function MemPanel({ memStart, onJump, regs }) {
   useEffect(() => {
     if (!scrollRef.current) return
     const ro = new ResizeObserver(([e]) => {
-      setRows(r => { const n = Math.max(2, Math.floor((e.contentRect.height - 20) / 17)); return n !== r ? n : r })
+      setRows(r => { const n = Math.max(2, Math.floor((e.contentRect.height - 22) / 20)); return n !== r ? n : r })
     })
     ro.observe(scrollRef.current)
     return () => ro.disconnect()
