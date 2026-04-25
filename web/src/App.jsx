@@ -695,7 +695,8 @@ export default function App() {
       setMsg(`✗ ${res.errorMsg}`)
     } else {
       setAppState('idle')
-      setMsg(`✓ ${res.bytesEmitted} bytes assembled at ${hex4(res.entryPoint)}H — ready.`)
+      const t = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})
+      setMsg(`✓ ${res.bytesEmitted}B at ${hex4(res.entryPoint)}H — ready  ${t}`)
       refresh()
     }
   }
