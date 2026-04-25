@@ -393,7 +393,7 @@ function FlagPanel({ regs }) {
 }
 
 // ── Disassembly panel ────────────────────────────────────────────────────
-function DisasmPanel({ regs, breakpoints, onToggleBp }) {
+function DisasmPanel({ regs, breakpoints, onToggleBp, buildId }) {
   const lines = useMemo(() => {
     const out = []
     let addr = Math.max(0, regs.pc - 6)
@@ -403,7 +403,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp }) {
       addr += Math.max(1, d.len)
     }
     return out
-  }, [regs.pc])
+  }, [regs.pc, buildId])
 
   return (
     <div className="panel disasm-panel">
@@ -431,7 +431,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp }) {
 }
 
 // ── Memory dump panel ────────────────────────────────────────────────────
-function MemPanel({ memStart, onJump, regs }) {
+function MemPanel({ memStart, onJump, regs, buildId }) {
   const [mem, setMem] = useState(new Uint8Array(128))
   const [editing, setEditing] = useState(null)
   const [editBuf, setEditBuf] = useState('')
@@ -469,7 +469,7 @@ function MemPanel({ memStart, onJump, regs }) {
   }
 
   function refresh() { setMem(sim.simGetMemory(memStart, COLS * rows)) }
-  useEffect(refresh, [memStart, regs.pc, rows])
+  useEffect(refresh, [memStart, regs.pc, rows, buildId])
 
   function commit(addr, raw) {
     const v = parseInt(raw, 16)
@@ -651,6 +651,7 @@ export default function App() {
   const [appState, setAppState] = useState('idle')  // idle | running | halted | error
   const [msg, setMsg]           = useState('Load an example or write code, then click Build.')
   const [steps, setSteps]       = useState(0)
+  const [buildId, setBuildId]   = useState(0)
   const [cursorInst, setCursorInst] = useState(null)
   const [helpInst, setHelpInst]     = useState(null)
   const timerRef    = useRef(null)
@@ -701,7 +702,9 @@ export default function App() {
       sim.simInit()
       const res = sim.simAssemble(code)
       console.log('[doAssemble] result=', res)
+      setBuildId(id => id + 1)
       setSteps(0)
+      refresh()
       if (!res.ok) {
         setAppState('error')
         setMsg(`✗ ${res.errorMsg}`)
@@ -709,7 +712,6 @@ export default function App() {
         setAppState('idle')
         const t = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})
         setMsg(`✓ ${res.bytesEmitted}B at ${hex4(res.entryPoint)}H — ready  ${t}`)
-        refresh()
       }
     } catch (err) {
       console.error('[doAssemble] EXCEPTION:', err)
@@ -822,11 +824,12 @@ export default function App() {
 
         {/* Code + Memory column */}
         <div className="col col-center">
-          <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} />
+          <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} buildId={buildId} />
           <MemPanel
             memStart={memStart}
             onJump={setMemStart}
             regs={regs}
+            buildId={buildId}
           />
           <div className="jump-row">
             <button className="btn btn-xs" onClick={()=>setMemStart(regs.pc & 0xFFF0)}>→ PC</button>
