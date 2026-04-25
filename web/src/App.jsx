@@ -129,7 +129,7 @@ const hex4 = n => (n >>> 0 & 0xFFFF).toString(16).toUpperCase().padStart(4,'0')
 
 // ── 7-segment LED digit ──────────────────────────────────────────────────
 function SevenSeg({ value }) {
-  const ON = '#FF4628', OFF = 'rgba(255,70,40,0.08)'
+  const ON = '#FF2200', OFF = 'rgba(255,34,0,0.15)'
   const segs = [
     { id:'a', d:'M3 1 L11 1 L10 3 L4 3 Z', bit:1 },
     { id:'b', d:'M11 2 L13 4 L12 10 L10 8 L10 3 Z', bit:2 },
@@ -299,10 +299,21 @@ function MemPanel({ memStart, onJump, regs }) {
   const [mem, setMem] = useState(new Uint8Array(128))
   const [editing, setEditing] = useState(null)
   const [editBuf, setEditBuf] = useState('')
-  const COLS = 16, ROWS = 8
+  const [rows, setRows] = useState(8)
+  const COLS = 16
+  const scrollRef = useRef(null)
 
-  function refresh() { setMem(sim.simGetMemory(memStart, COLS * ROWS)) }
-  useEffect(refresh, [memStart, regs.pc])
+  useEffect(() => {
+    if (!scrollRef.current) return
+    const ro = new ResizeObserver(([e]) => {
+      setRows(r => { const n = Math.max(4, Math.floor((e.contentRect.height - 20) / 17)); return n !== r ? n : r })
+    })
+    ro.observe(scrollRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  function refresh() { setMem(sim.simGetMemory(memStart, COLS * rows)) }
+  useEffect(refresh, [memStart, regs.pc, rows])
 
   function commit(addr, raw) {
     const v = parseInt(raw, 16)
@@ -321,7 +332,7 @@ function MemPanel({ memStart, onJump, regs }) {
           <button className="mem-btn" onClick={() => onJump(Math.min(0x3F00, memStart + COLS*ROWS))}>▶</button>
         </span>
       </div>
-      <div className="mem-scroll">
+      <div className="mem-scroll" ref={scrollRef}>
         <table className="mem-tbl">
           <thead>
             <tr>
@@ -330,7 +341,7 @@ function MemPanel({ memStart, onJump, regs }) {
             </tr>
           </thead>
           <tbody>
-            {Array.from({length:ROWS},(_,row)=>{
+            {Array.from({length:rows},(_,row)=>{
               const base = memStart + row*COLS
               return (
                 <tr key={row}>
@@ -522,7 +533,7 @@ export default function App() {
             <option value="" disabled>Load example…</option>
             {Object.keys(EXAMPLES).map(k => <option key={k} value={k}>{k}</option>)}
           </select>
-          <button className="btn btn-asm"   onClick={()=>doAssemble(src)}>⚙ Assemble  <kbd>F5</kbd></button>
+          <button className="btn btn-asm"   onClick={()=>doAssemble(src)}>⚙ Build  <kbd>F5</kbd></button>
           <button className="btn btn-step"  onClick={doStep}  disabled={running}>↓ Step  <kbd>F7</kbd></button>
           <button className={`btn ${running ? 'btn-stop':'btn-run'}`} onClick={handleRun}>
             {running ? '■ Stop' : '▶ Run'}  <kbd>{running?'F9':'F9'}</kbd>

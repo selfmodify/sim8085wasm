@@ -294,7 +294,7 @@ body {
 .mem-btn:hover { border-color: var(--border2); background: var(--bg3) }
 .mem-cur-addr { color: var(--amber); font-family: var(--mono); font-size: 10px }
 
-.mem-scroll { overflow: auto }
+.mem-scroll { overflow: auto; resize: vertical; min-height: 100px; height: 160px }
 .mem-tbl { border-collapse: collapse; font-family: var(--mono); font-size: 11px; width: 100% }
 .mem-th-addr, .mem-th {
   padding: 2px 3px;
@@ -393,6 +393,7 @@ body {
   align-items: center;
   gap: 2px;
 }
+.led-digit svg { filter: drop-shadow(0 0 4px rgba(255, 40, 0, 0.75)) }
 .led-lbl {
   font-family: var(--mono);
   font-size: 8px;
