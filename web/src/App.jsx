@@ -394,16 +394,29 @@ function FlagPanel({ regs }) {
 
 // ── Disassembly panel ────────────────────────────────────────────────────
 function DisasmPanel({ regs, breakpoints, onToggleBp, buildId }) {
+  const [viewStart, setViewStart] = useState(() => regs.pc)
+
   const lines = useMemo(() => {
     const out = []
-    let addr = Math.max(0, regs.pc - 6)
+    let addr = viewStart
     for (let i = 0; i < 20 && addr < 0x4000; i++) {
       const d = sim.simDisassemble(addr)
       out.push({ addr, ...d })
       addr += Math.max(1, d.len)
     }
     return out
-  }, [regs.pc, buildId])
+  }, [viewStart, buildId])
+
+  // After a build snap the view to the new entry point
+  useEffect(() => { setViewStart(regs.pc) }, [buildId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // While stepping/running: scroll only when PC leaves the visible range
+  useEffect(() => {
+    if (!lines.length) return
+    const lo = lines[0].addr
+    const hi = lines[lines.length - 1].addr
+    if (regs.pc < lo || regs.pc > hi) setViewStart(regs.pc)
+  }, [regs.pc, lines])
 
   return (
     <div className="panel disasm-panel">
