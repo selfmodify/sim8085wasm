@@ -300,9 +300,13 @@ function MemPanel({ memStart, onJump, regs }) {
   const [editing, setEditing] = useState(null)
   const [editBuf, setEditBuf] = useState('')
   const [rows, setRows] = useState(8)
+  const [addrBuf, setAddrBuf] = useState(hex4(memStart))
+  const addrFocused = useRef(false)
   const COLS = 16
   const scrollRef = useRef(null)
   const panelRef  = useRef(null)
+
+  useEffect(() => { if (!addrFocused.current) setAddrBuf(hex4(memStart)) }, [memStart])
 
   useEffect(() => {
     if (!scrollRef.current) return
@@ -345,7 +349,19 @@ function MemPanel({ memStart, onJump, regs }) {
         MEMORY
         <span className="mem-ctrl">
           <button className="mem-btn" onClick={() => onJump(Math.max(0, memStart - COLS*rows))}>◀</button>
-          <code className="mem-cur-addr">{hex4(memStart)}</code>
+          <input
+            className="mem-cur-addr"
+            value={addrBuf}
+            maxLength={4}
+            spellCheck={false}
+            onChange={e => setAddrBuf(e.target.value.toUpperCase())}
+            onFocus={e => { addrFocused.current = true; e.target.select() }}
+            onBlur={() => { addrFocused.current = false; setAddrBuf(hex4(memStart)) }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { const v = parseInt(addrBuf, 16); if (!isNaN(v)) onJump(v & 0xFFF0); e.target.blur() }
+              if (e.key === 'Escape') { setAddrBuf(hex4(memStart)); e.target.blur() }
+            }}
+          />
           <button className="mem-btn" onClick={() => onJump(Math.min(0x3F00, memStart + COLS*rows))}>▶</button>
         </span>
       </div>
@@ -459,7 +475,23 @@ export default function App() {
   const [appState, setAppState] = useState('idle')  // idle | running | halted | error
   const [msg, setMsg]           = useState('Load an example or write code, then click Assemble.')
   const [steps, setSteps]       = useState(0)
-  const timerRef = useRef(null)
+  const timerRef    = useRef(null)
+  const editorColRef = useRef(null)
+
+  function onEditorResizeDown(e) {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = editorColRef.current.getBoundingClientRect().width
+    function onMove(ev) {
+      editorColRef.current.style.flexBasis = Math.max(180, Math.min(640, startW + (ev.clientX - startX))) + 'px'
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
 
   useEffect(() => { sim.simInit(); doAssemble(src); }, [])
 
@@ -567,13 +599,14 @@ export default function App() {
       {/* ── Workspace ── */}
       <div className="workspace">
         {/* Editor column */}
-        <div className="col col-editor">
+        <div className="col col-editor" ref={editorColRef}>
           <div className="panel editor-panel">
             <div className="panel-hd">EDITOR  <span className="editor-hint">; semicolons for comments</span></div>
             <AsmEditor value={src} onChange={v => setSrc(v)} />
           </div>
           <LedDisplay leds={leds} />
         </div>
+        <div className="col-resize-handle" onMouseDown={onEditorResizeDown} />
 
         {/* Code + Memory column */}
         <div className="col col-center">
