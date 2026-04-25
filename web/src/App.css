@@ -201,6 +201,23 @@ body {
 .editor-inner { flex: 1; height: 100%; min-height: 0 }
 .editor-hint  { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--text3) }
 
+/* ── Inline help panel ────────────────────────────────────────────── */
+.help-panel { height: 180px; flex-shrink: 0 }
+.help-resize-handle {
+  height: 5px;
+  flex-shrink: 0;
+  cursor: ns-resize;
+  background: transparent;
+  border-top: 2px solid var(--border);
+  transition: border-color .15s;
+}
+.help-resize-handle:hover { border-top-color: var(--accent) }
+.help-scroll { flex: 1 1 0; overflow-y: auto; min-height: 0 }
+.help-inline-body { padding: 8px 12px; display: flex; flex-direction: column; gap: 8px }
+.help-inline-hd { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap }
+.help-mnem-sm { font-size: 14px }
+.help-empty { padding: 12px; color: var(--text3); font-size: 12px; font-style: italic }
+
 /* ── Registers ────────────────────────────────────────────────────── */
 .reg-panel { padding: 2px 0 }
 
