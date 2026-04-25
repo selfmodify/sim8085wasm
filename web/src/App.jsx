@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view'
+import { EditorView, keymap, lineNumbers, highlightActiveLine, hoverTooltip } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -127,6 +127,106 @@ xloop:
 const hex2 = n => (n >>> 0 & 0xFF).toString(16).toUpperCase().padStart(2,'0')
 const hex4 = n => (n >>> 0 & 0xFFFF).toString(16).toUpperCase().padStart(4,'0')
 
+// ── 8085 instruction reference ───────────────────────────────────────────
+const INST_HELP = {
+  // Data transfer
+  MOV:  { brief:'Copy register/memory to register/memory', flags:'—', bytes:1, cycles:'4 / 7 (M)', desc:'MOV dst, src copies 8-bit content of src into dst. Either operand can be M (memory at HL).', ex:'MOV A, B      ; A ← B\nMOV M, C      ; mem[HL] ← C' },
+  MVI:  { brief:'Load immediate byte into register/memory', flags:'—', bytes:2, cycles:'7 / 10 (M)', desc:'MVI dst, imm8 loads an 8-bit constant. dst can be A B C D E H L or M (memory at HL).', ex:'MVI A, 42H    ; A ← 42H\nMVI M, 00H    ; mem[HL] ← 0' },
+  LDA:  { brief:'Load A from 16-bit memory address', flags:'—', bytes:3, cycles:'13', desc:'Loads the byte stored at the given 16-bit address into the accumulator.', ex:'LDA 2050H     ; A ← mem[2050H]' },
+  STA:  { brief:'Store A to 16-bit memory address', flags:'—', bytes:3, cycles:'13', desc:'Stores the accumulator into the byte at the given 16-bit address.', ex:'STA 2050H     ; mem[2050H] ← A' },
+  LHLD: { brief:'Load HL from memory (16-bit)', flags:'—', bytes:3, cycles:'16', desc:'Loads L from addr and H from addr+1.', ex:'LHLD 2040H    ; L←mem[2040H], H←mem[2041H]' },
+  SHLD: { brief:'Store HL to memory (16-bit)', flags:'—', bytes:3, cycles:'16', desc:'Stores L at addr and H at addr+1.', ex:'SHLD 2040H    ; mem[2040H]←L, mem[2041H]←H' },
+  LDAX: { brief:'Load A from address in BC or DE', flags:'—', bytes:1, cycles:'7', desc:'Loads A from the address held in BC (LDAX B) or DE (LDAX D).', ex:'LDAX D        ; A ← mem[DE]' },
+  STAX: { brief:'Store A to address in BC or DE', flags:'—', bytes:1, cycles:'7', desc:'Stores A at the address held in BC (STAX B) or DE (STAX D).', ex:'STAX B        ; mem[BC] ← A' },
+  XCHG: { brief:'Exchange HL and DE registers', flags:'—', bytes:1, cycles:'4', desc:'Swaps the full contents of the HL and DE register pairs.', ex:'XCHG          ; HL ↔ DE' },
+  LXI:  { brief:'Load register pair with 16-bit immediate', flags:'—', bytes:3, cycles:'10', desc:'Loads a 16-bit constant into BC (B), DE (D), HL (H), or SP.', ex:'LXI H, 1000H  ; HL ← 1000H' },
+  PUSH: { brief:'Push register pair onto stack', flags:'—', bytes:1, cycles:'12', desc:'SP decrements by 2; high byte pushed first, then low byte. PUSH PSW pushes A and flags.', ex:'PUSH B        ; push BC\nPUSH PSW      ; push A + flags' },
+  POP:  { brief:'Pop register pair from stack', flags:'— (PSW restores flags)', bytes:1, cycles:'10', desc:'Pops 2 bytes from stack into the pair. POP PSW restores A and all flags.', ex:'POP H         ; pop into HL' },
+  XTHL: { brief:'Exchange HL with top of stack', flags:'—', bytes:1, cycles:'16', desc:'Swaps H with (SP+1) and L with (SP) without changing SP.', ex:'XTHL' },
+  SPHL: { brief:'Copy HL into SP', flags:'—', bytes:1, cycles:'6', desc:'Loads the stack pointer with the content of HL.', ex:'SPHL          ; SP ← HL' },
+  PCHL: { brief:'Jump indirect through HL', flags:'—', bytes:1, cycles:'6', desc:'Loads the program counter with HL — an indirect/computed jump.', ex:'PCHL          ; PC ← HL' },
+  // Arithmetic
+  ADD:  { brief:'Add register/memory to A', flags:'S Z AC P CY', bytes:1, cycles:'4 / 7 (M)', desc:'A ← A + src. Sets all arithmetic flags.', ex:'ADD B         ; A ← A + B\nADD M         ; A ← A + mem[HL]' },
+  ADC:  { brief:'Add register/memory to A with carry', flags:'S Z AC P CY', bytes:1, cycles:'4 / 7 (M)', desc:'A ← A + src + CY. Used for multi-byte addition.', ex:'ADC C         ; A ← A + C + CY' },
+  ADI:  { brief:'Add immediate byte to A', flags:'S Z AC P CY', bytes:2, cycles:'7', desc:'A ← A + imm8.', ex:'ADI 05H       ; A ← A + 5' },
+  ACI:  { brief:'Add immediate to A with carry', flags:'S Z AC P CY', bytes:2, cycles:'7', desc:'A ← A + imm8 + CY.', ex:'ACI 02H       ; A ← A + 2 + CY' },
+  DAD:  { brief:'Add register pair to HL', flags:'CY only', bytes:1, cycles:'10', desc:'HL ← HL + rp. Only CY is affected; other flags unchanged.', ex:'DAD B         ; HL ← HL + BC\nDAD SP        ; HL ← HL + SP' },
+  SUB:  { brief:'Subtract register/memory from A', flags:'S Z AC P CY', bytes:1, cycles:'4 / 7 (M)', desc:'A ← A − src. CY=1 indicates a borrow.', ex:'SUB D         ; A ← A − D' },
+  SBB:  { brief:'Subtract register/memory from A with borrow', flags:'S Z AC P CY', bytes:1, cycles:'4 / 7 (M)', desc:'A ← A − src − CY. Used for multi-byte subtraction.', ex:'SBB E         ; A ← A − E − CY' },
+  SUI:  { brief:'Subtract immediate from A', flags:'S Z AC P CY', bytes:2, cycles:'7', desc:'A ← A − imm8.', ex:'SUI 10H       ; A ← A − 16' },
+  SBI:  { brief:'Subtract immediate from A with borrow', flags:'S Z AC P CY', bytes:2, cycles:'7', desc:'A ← A − imm8 − CY.', ex:'SBI 05H' },
+  INR:  { brief:'Increment register/memory by 1', flags:'S Z AC P (not CY)', bytes:1, cycles:'4 / 10 (M)', desc:'dst ← dst + 1. Does NOT affect the carry flag.', ex:'INR A         ; A ← A + 1\nINR M         ; mem[HL] ← mem[HL] + 1' },
+  DCR:  { brief:'Decrement register/memory by 1', flags:'S Z AC P (not CY)', bytes:1, cycles:'4 / 10 (M)', desc:'dst ← dst − 1. Does NOT affect the carry flag.', ex:'DCR B         ; B ← B − 1' },
+  INX:  { brief:'Increment register pair by 1', flags:'—', bytes:1, cycles:'6', desc:'rp ← rp + 1. No flags are affected (including CY).', ex:'INX H         ; HL ← HL + 1' },
+  DCX:  { brief:'Decrement register pair by 1', flags:'—', bytes:1, cycles:'6', desc:'rp ← rp − 1. No flags are affected.', ex:'DCX D         ; DE ← DE − 1' },
+  DAA:  { brief:'Decimal adjust accumulator after BCD operation', flags:'S Z AC P CY', bytes:1, cycles:'4', desc:'Corrects A after BCD addition/subtraction so both nibbles hold valid BCD digits (0–9). Must follow ADD/ADC/SUB/SBB on BCD data.', ex:'ADD B\nDAA           ; adjust for BCD' },
+  // Logic
+  ANA:  { brief:'AND register/memory with A', flags:'S Z P  AC=1  CY=0', bytes:1, cycles:'4 / 7 (M)', desc:'A ← A & src. Resets CY, sets AC.', ex:'ANA B         ; A ← A & B' },
+  ANI:  { brief:'AND immediate with A', flags:'S Z P  AC=1  CY=0', bytes:2, cycles:'7', desc:'A ← A & imm8. Common use: masking bits.', ex:'ANI 0FH       ; keep lower nibble' },
+  ORA:  { brief:'OR register/memory with A', flags:'S Z P  AC=0  CY=0', bytes:1, cycles:'4 / 7 (M)', desc:'A ← A | src. Resets CY and AC.', ex:'ORA C         ; A ← A | C' },
+  ORI:  { brief:'OR immediate with A', flags:'S Z P  AC=0  CY=0', bytes:2, cycles:'7', desc:'A ← A | imm8. Common use: setting specific bits.', ex:'ORI 80H       ; set bit 7' },
+  XRA:  { brief:'XOR register/memory with A', flags:'S Z P  AC=0  CY=0', bytes:1, cycles:'4 / 7 (M)', desc:'A ← A ⊕ src. XRA A is the standard way to clear A quickly.', ex:'XRA A         ; A ← 0, clears flags' },
+  XRI:  { brief:'XOR immediate with A', flags:'S Z P  AC=0  CY=0', bytes:2, cycles:'7', desc:'A ← A ⊕ imm8. Common use: toggling bits.', ex:'XRI 0FFH      ; invert all bits' },
+  CMA:  { brief:'Complement accumulator (bitwise NOT)', flags:'—', bytes:1, cycles:'4', desc:'A ← ~A. Inverts every bit; no flags changed.', ex:'CMA           ; A ← ~A' },
+  CMC:  { brief:'Complement carry flag', flags:'CY', bytes:1, cycles:'4', desc:'CY ← ~CY. Other flags unaffected.', ex:'CMC' },
+  STC:  { brief:'Set carry flag to 1', flags:'CY=1', bytes:1, cycles:'4', desc:'Sets CY to 1. Other flags unaffected.', ex:'STC' },
+  CMP:  { brief:'Compare register/memory with A (sets flags only)', flags:'S Z AC P CY', bytes:1, cycles:'4 / 7 (M)', desc:'Performs A − src and sets flags without modifying A. ZF=1 means equal; CY=1 means A < src.', ex:'CMP B         ; set flags for A vs B\nJZ equal      ; jump if equal' },
+  CPI:  { brief:'Compare immediate with A (sets flags only)', flags:'S Z AC P CY', bytes:2, cycles:'7', desc:'Performs A − imm8 and sets flags without changing A.', ex:'CPI 0AH       ; compare A with 10' },
+  RLC:  { brief:'Rotate A left, MSB goes to CY and bit 0', flags:'CY', bytes:1, cycles:'4', desc:'Bit 7 is copied to CY and also wraps into bit 0. Other flags unchanged.', ex:'RLC           ; A: b7→CY, b7→b0' },
+  RRC:  { brief:'Rotate A right, LSB goes to CY and bit 7', flags:'CY', bytes:1, cycles:'4', desc:'Bit 0 is copied to CY and also wraps into bit 7. Other flags unchanged.', ex:'RRC           ; A: b0→CY, b0→b7' },
+  RAL:  { brief:'Rotate A left through carry (9-bit)', flags:'CY', bytes:1, cycles:'4', desc:'Bit 7 → CY; old CY → bit 0. All 9 bits (A + CY) rotate together.', ex:'RAL           ; CY←b7, b0←old CY' },
+  RAR:  { brief:'Rotate A right through carry (9-bit)', flags:'CY', bytes:1, cycles:'4', desc:'Bit 0 → CY; old CY → bit 7. All 9 bits (A + CY) rotate together.', ex:'RAR           ; CY←b0, b7←old CY' },
+  // Branch
+  JMP:  { brief:'Unconditional jump to address', flags:'—', bytes:3, cycles:'10', desc:'PC ← addr. Program continues at the specified address.', ex:'JMP 0100H' },
+  JC:   { brief:'Jump if carry set (CY=1)', flags:'—', bytes:3, cycles:'10 / 7', desc:'PC ← addr only if CY=1, otherwise executes next instruction.', ex:'JC carry_err' },
+  JNC:  { brief:'Jump if no carry (CY=0)', flags:'—', bytes:3, cycles:'10 / 7', desc:'PC ← addr only if CY=0.', ex:'JNC continue' },
+  JZ:   { brief:'Jump if zero flag set (ZF=1)', flags:'—', bytes:3, cycles:'10 / 7', desc:'PC ← addr only if ZF=1 (last result was zero).', ex:'JZ done' },
+  JNZ:  { brief:'Jump if not zero (ZF=0)', flags:'—', bytes:3, cycles:'10 / 7', desc:'PC ← addr only if ZF=0. Classic loop instruction.', ex:'DCR B\nJNZ loop' },
+  JP:   { brief:'Jump if positive (SF=0)', flags:'—', bytes:3, cycles:'10 / 7', desc:'PC ← addr only if SF=0 (result was non-negative).', ex:'JP positive' },
+  JM:   { brief:'Jump if minus (SF=1)', flags:'—', bytes:3, cycles:'10 / 7', desc:'PC ← addr only if SF=1 (result was negative / bit 7 set).', ex:'JM negative' },
+  JPE:  { brief:'Jump if parity even (PF=1)', flags:'—', bytes:3, cycles:'10 / 7', desc:'PC ← addr only if PF=1 (even number of 1-bits in result).', ex:'JPE even' },
+  JPO:  { brief:'Jump if parity odd (PF=0)', flags:'—', bytes:3, cycles:'10 / 7', desc:'PC ← addr only if PF=0.', ex:'JPO odd' },
+  CALL: { brief:'Unconditional subroutine call', flags:'—', bytes:3, cycles:'18', desc:'Pushes the return address (PC+3) onto the stack, then jumps to addr.', ex:'CALL delay    ; call subroutine' },
+  CC:   { brief:'Call subroutine if carry (CY=1)', flags:'—', bytes:3, cycles:'18 / 9', desc:'Conditional call — pushes return addr and jumps only if CY=1.', ex:'CC overflow' },
+  CNC:  { brief:'Call subroutine if no carry (CY=0)', flags:'—', bytes:3, cycles:'18 / 9', desc:'Conditional call if CY=0.', ex:'CNC proceed' },
+  CZ:   { brief:'Call subroutine if zero (ZF=1)', flags:'—', bytes:3, cycles:'18 / 9', desc:'Conditional call if ZF=1.', ex:'CZ zero_case' },
+  CNZ:  { brief:'Call subroutine if not zero (ZF=0)', flags:'—', bytes:3, cycles:'18 / 9', desc:'Conditional call if ZF=0.', ex:'CNZ loop' },
+  CP:   { brief:'Call subroutine if positive (SF=0)', flags:'—', bytes:3, cycles:'18 / 9', desc:'Conditional call if SF=0.', ex:'CP pos_handler' },
+  CM:   { brief:'Call subroutine if minus (SF=1)', flags:'—', bytes:3, cycles:'18 / 9', desc:'Conditional call if SF=1.', ex:'CM neg_handler' },
+  CPE:  { brief:'Call subroutine if parity even (PF=1)', flags:'—', bytes:3, cycles:'18 / 9', desc:'Conditional call if PF=1.', ex:'CPE even_handler' },
+  CPO:  { brief:'Call subroutine if parity odd (PF=0)', flags:'—', bytes:3, cycles:'18 / 9', desc:'Conditional call if PF=0.', ex:'CPO odd_handler' },
+  RET:  { brief:'Return from subroutine', flags:'—', bytes:1, cycles:'10', desc:'Pops the return address from the stack back into PC.', ex:'RET' },
+  RC:   { brief:'Return if carry (CY=1)', flags:'—', bytes:1, cycles:'12 / 6', desc:'Conditional return — pops PC only if CY=1.', ex:'RC' },
+  RNC:  { brief:'Return if no carry (CY=0)', flags:'—', bytes:1, cycles:'12 / 6', desc:'Conditional return if CY=0.', ex:'RNC' },
+  RZ:   { brief:'Return if zero (ZF=1)', flags:'—', bytes:1, cycles:'12 / 6', desc:'Conditional return if ZF=1.', ex:'RZ' },
+  RNZ:  { brief:'Return if not zero (ZF=0)', flags:'—', bytes:1, cycles:'12 / 6', desc:'Conditional return if ZF=0.', ex:'RNZ' },
+  RP:   { brief:'Return if positive (SF=0)', flags:'—', bytes:1, cycles:'12 / 6', desc:'Conditional return if SF=0.', ex:'RP' },
+  RM:   { brief:'Return if minus (SF=1)', flags:'—', bytes:1, cycles:'12 / 6', desc:'Conditional return if SF=1.', ex:'RM' },
+  RPE:  { brief:'Return if parity even (PF=1)', flags:'—', bytes:1, cycles:'12 / 6', desc:'Conditional return if PF=1.', ex:'RPE' },
+  RPO:  { brief:'Return if parity odd (PF=0)', flags:'—', bytes:1, cycles:'12 / 6', desc:'Conditional return if PF=0.', ex:'RPO' },
+  RST:  { brief:'Software restart (interrupt vector call)', flags:'—', bytes:1, cycles:'12', desc:'RST n pushes PC and jumps to address n×8 (0H–38H). Used for interrupt service routines.', ex:'RST 7         ; push PC, jump to 0038H' },
+  // I/O and control
+  IN:   { brief:'Read byte from I/O port into A', flags:'—', bytes:2, cycles:'10', desc:'A ← port(imm8). Reads from the given 8-bit I/O port number.', ex:'IN 01H        ; A ← port 1' },
+  OUT:  { brief:'Write A to I/O port', flags:'—', bytes:2, cycles:'10', desc:'port(imm8) ← A. Writes the accumulator to the given 8-bit I/O port.', ex:'OUT 01H       ; port 1 ← A' },
+  HLT:  { brief:'Halt the processor', flags:'—', bytes:1, cycles:'5', desc:'Stops execution. The CPU enters a halted state until an interrupt or hardware reset occurs.', ex:'HLT' },
+  NOP:  { brief:'No operation — does nothing for 4 cycles', flags:'—', bytes:1, cycles:'4', desc:'Advances PC by 1 and burns 4 clock cycles. Used for timing delays and code alignment.', ex:'NOP' },
+  EI:   { brief:'Enable maskable interrupts', flags:'—', bytes:1, cycles:'4', desc:'Sets the interrupt-enable flip-flop (INTE). Interrupts are acknowledged after the next instruction completes.', ex:'EI\nRET           ; enable before return' },
+  DI:   { brief:'Disable maskable interrupts', flags:'—', bytes:1, cycles:'4', desc:'Resets INTE so maskable interrupts (INTR, RST5.5, RST6.5, RST7.5) are ignored.', ex:'DI' },
+  RIM:  { brief:'Read interrupt mask into A', flags:'—', bytes:1, cycles:'4', desc:'Loads A with interrupt mask bits, pending interrupt flags, and the SID (serial input data) bit.', ex:'RIM           ; read interrupt status' },
+  SIM:  { brief:'Set interrupt mask from A', flags:'—', bytes:1, cycles:'4', desc:'Uses A to set RST5.5/RST6.5/RST7.5 masks and write the SOD (serial output data) bit.', ex:'SIM           ; write interrupt mask' },
+  ORG:  { brief:'Set assembly origin address (assembler directive)', flags:'—', bytes:0, cycles:'—', desc:'Tells the assembler to place subsequent code/data at the given address. Not a CPU instruction.', ex:'ORG 0100H' },
+}
+
+function getInstWord(state, pos) {
+  const line = state.doc.lineAt(pos)
+  const text = line.text
+  const lp = pos - line.from
+  let s = lp, e = lp
+  while (s > 0 && /[A-Za-z]/.test(text[s - 1])) s--
+  while (e < text.length && /[A-Za-z]/.test(text[e])) e++
+  return s < e ? text.slice(s, e).toUpperCase() : null
+}
+
 // ── 7-segment LED digit ──────────────────────────────────────────────────
 function SevenSeg({ value }) {
   const ON = '#FF2200', OFF = 'rgba(255,34,0,0.15)'
@@ -148,10 +248,14 @@ function SevenSeg({ value }) {
 }
 
 // ── CodeMirror editor ────────────────────────────────────────────────────
-function AsmEditor({ value, onChange }) {
-  const elRef  = useRef(null)
-  const viewRef = useRef(null)
-  const syncing = useRef(false)
+function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail }) {
+  const elRef    = useRef(null)
+  const viewRef  = useRef(null)
+  const syncing  = useRef(false)
+  const cursorCb = useRef(onCursorInstruction)
+  const detailCb = useRef(onInstructionDetail)
+  useEffect(() => { cursorCb.current = onCursorInstruction }, [onCursorInstruction])
+  useEffect(() => { detailCb.current = onInstructionDetail }, [onInstructionDetail])
 
   useEffect(() => {
     const view = new EditorView({
@@ -170,6 +274,38 @@ function AsmEditor({ value, onChange }) {
           }),
           EditorView.updateListener.of(u => {
             if (u.docChanged && !syncing.current) onChange(u.state.doc.toString())
+            if (u.selectionSet || u.docChanged) {
+              const word = getInstWord(u.state, u.state.selection.main.head)
+              cursorCb.current?.(word && INST_HELP[word] ? word : null)
+            }
+          }),
+          hoverTooltip((view, pos) => {
+            const word = getInstWord(view.state, pos)
+            if (!word || !INST_HELP[word]) return null
+            const inst = INST_HELP[word]
+            return {
+              pos, above: true,
+              create() {
+                const dom = document.createElement('div')
+                dom.className = 'asm-tooltip'
+                dom.innerHTML =
+                  `<div class="asm-tt-name">${word}</div>` +
+                  `<div class="asm-tt-brief">${inst.brief}</div>` +
+                  `<div class="asm-tt-meta">Flags: ${inst.flags} &nbsp;·&nbsp; ${inst.bytes}B &nbsp;·&nbsp; ${inst.cycles} cycles</div>` +
+                  `<div class="asm-tt-tip">Ctrl+click for full details</div>`
+                return { dom }
+              }
+            }
+          }),
+          EditorView.domEventHandlers({
+            click(e, view) {
+              if (!e.ctrlKey) return false
+              const pos = view.posAtCoords({ x: e.clientX, y: e.clientY })
+              if (pos == null) return false
+              const word = getInstWord(view.state, pos)
+              if (word && INST_HELP[word]) { detailCb.current?.(word); return true }
+              return false
+            }
           }),
         ],
       }),
@@ -464,6 +600,37 @@ function LedDisplay({ leds }) {
   )
 }
 
+// ── Instruction help modal ───────────────────────────────────────────────
+function HelpModal({ instruction, onClose }) {
+  const inst = INST_HELP[instruction]
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  if (!inst) return null
+  return (
+    <div className="help-overlay" onClick={onClose}>
+      <div className="help-modal" onClick={e => e.stopPropagation()}>
+        <div className="help-hd">
+          <span className="help-mnem">{instruction}</span>
+          <button className="help-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="help-body">
+          <p className="help-brief">{inst.brief}</p>
+          <div className="help-meta">
+            <span><span className="help-lbl">Flags</span>{inst.flags}</span>
+            <span><span className="help-lbl">Size</span>{inst.bytes} byte{inst.bytes !== 1 ? 's' : ''}</span>
+            <span><span className="help-lbl">Cycles</span>{inst.cycles}</span>
+          </div>
+          <p className="help-desc">{inst.desc}</p>
+          <pre className="help-ex">{inst.ex}</pre>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Root app ─────────────────────────────────────────────────────────────
 export default function App() {
   const [src, setSrc]           = useState(EXAMPLES['Counter'])
@@ -473,8 +640,10 @@ export default function App() {
   const [bps, setBps]           = useState(new Set())
   const [memStart, setMemStart] = useState(0x100)
   const [appState, setAppState] = useState('idle')  // idle | running | halted | error
-  const [msg, setMsg]           = useState('Load an example or write code, then click Assemble.')
+  const [msg, setMsg]           = useState('Load an example or write code, then click Build.')
   const [steps, setSteps]       = useState(0)
+  const [cursorInst, setCursorInst] = useState(null)
+  const [helpInst, setHelpInst]     = useState(null)
   const timerRef    = useRef(null)
   const editorColRef = useRef(null)
 
@@ -592,6 +761,13 @@ export default function App() {
 
         <div className={`status status-${appState}`}>
           <span className="status-msg">{msg}</span>
+          {cursorInst && INST_HELP[cursorInst] && (
+            <span className="status-inst">
+              <span className="status-inst-name">{cursorInst}</span>
+              <span className="status-inst-brief">{INST_HELP[cursorInst].brief}</span>
+              <kbd className="status-inst-tip">Ctrl+click</kbd>
+            </span>
+          )}
           {steps > 0 && <span className="status-steps">{steps.toLocaleString()} steps</span>}
         </div>
       </div>
@@ -602,7 +778,9 @@ export default function App() {
         <div className="col col-editor" ref={editorColRef}>
           <div className="panel editor-panel">
             <div className="panel-hd">EDITOR  <span className="editor-hint">; semicolons for comments</span></div>
-            <AsmEditor value={src} onChange={v => setSrc(v)} />
+            <AsmEditor value={src} onChange={v => setSrc(v)}
+              onCursorInstruction={setCursorInst}
+              onInstructionDetail={setHelpInst} />
           </div>
           <LedDisplay leds={leds} />
         </div>
@@ -631,6 +809,7 @@ export default function App() {
           <StackPanel regs={regs} />
         </div>
       </div>
+      {helpInst && <HelpModal instruction={helpInst} onClose={() => setHelpInst(null)} />}
     </div>
   )
 }
