@@ -646,6 +646,7 @@ export default function App() {
   const [helpInst, setHelpInst]     = useState(null)
   const timerRef    = useRef(null)
   const editorColRef = useRef(null)
+  const srcRef      = useRef(src)
 
   function onEditorResizeDown(e) {
     e.preventDefault()
@@ -719,7 +720,7 @@ export default function App() {
 
   function handleRun() { appState === 'running' ? stopRun() : startRun() }
 
-  function handleReset() { doAssemble(src) }
+  function handleReset() { doAssemble(srcRef.current) }
 
   function toggleBp(addr) {
     sim.simSetBreakpoint(addr)
@@ -751,7 +752,7 @@ export default function App() {
             <option value="" disabled>Load example…</option>
             {Object.keys(EXAMPLES).map(k => <option key={k} value={k}>{k}</option>)}
           </select>
-          <button className="btn btn-asm"   onClick={()=>doAssemble(src)}>⚙ Build  <kbd>F5</kbd></button>
+          <button className="btn btn-asm"   onClick={()=>doAssemble(srcRef.current)}>⚙ Build  <kbd>F5</kbd></button>
           <button className="btn btn-step"  onClick={doStep}  disabled={running}>↓ Step  <kbd>F7</kbd></button>
           <button className={`btn ${running ? 'btn-stop':'btn-run'}`} onClick={handleRun}>
             {running ? '■ Stop' : '▶ Run'}  <kbd>{running?'F9':'F9'}</kbd>
@@ -778,7 +779,7 @@ export default function App() {
         <div className="col col-editor" ref={editorColRef}>
           <div className="panel editor-panel">
             <div className="panel-hd">EDITOR  <span className="editor-hint">; semicolons for comments</span></div>
-            <AsmEditor value={src} onChange={v => setSrc(v)}
+            <AsmEditor value={src} onChange={v => { srcRef.current = v; setSrc(v) }}
               onCursorInstruction={setCursorInst}
               onInstructionDetail={setHelpInst} />
           </div>
