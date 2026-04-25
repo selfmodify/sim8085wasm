@@ -709,12 +709,10 @@ export default function App() {
   }
 
   function doAssemble(code) {
-    console.log('[doAssemble] called, code length=', code?.length)
     try {
       stopRun()
       sim.simInit()
       const res = sim.simAssemble(code)
-      console.log('[doAssemble] result=', res)
       setBuildId(id => id + 1)
       setSteps(0)
       refresh()
@@ -800,7 +798,7 @@ export default function App() {
             <option value="" disabled>Load example…</option>
             {Object.keys(EXAMPLES).map(k => <option key={k} value={k}>{k}</option>)}
           </select>
-          <button className="btn btn-asm"   onClick={()=>{ console.log('[BUILD] click fired, srcRef.current length=', srcRef.current?.length, 'preview=', srcRef.current?.slice(0,40)); doAssemble(srcRef.current) }}>⚙ Build  <kbd>F5</kbd></button>
+          <button className="btn btn-asm"   onClick={() => doAssemble(srcRef.current)}>⚙ Build  <kbd>F5</kbd></button>
           <button className="btn btn-step"  onClick={doStep}  disabled={running}>↓ Step  <kbd>F7</kbd></button>
           <button className={`btn ${running ? 'btn-stop':'btn-run'}`} onClick={handleRun}>
             {running ? '■ Stop' : '▶ Run'}  <kbd>{running?'F9':'F9'}</kbd>
