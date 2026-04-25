@@ -665,6 +665,20 @@ export default function App() {
 
   useEffect(() => { sim.simInit(); doAssemble(src); }, [])
 
+  const hotkeysRef = useRef(null)
+  useEffect(() => { hotkeysRef.current = { doAssemble, handleReset, doStep, handleRun, running } })
+  useEffect(() => {
+    function onKey(e) {
+      const h = hotkeysRef.current
+      if (e.key === 'F5') { e.preventDefault(); h.doAssemble(srcRef.current) }
+      if (e.key === 'F6') { e.preventDefault(); h.handleReset() }
+      if (e.key === 'F7') { e.preventDefault(); if (!h.running) h.doStep() }
+      if (e.key === 'F9') { e.preventDefault(); h.handleRun() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
   function refresh() {
     const r = sim.simGetRegisters()
     setRegs(old => { setPrev(old); return r })
@@ -729,6 +743,7 @@ export default function App() {
 
   function loadExample(name) {
     const code = EXAMPLES[name]
+    srcRef.current = code
     setSrc(code)
     doAssemble(code)
   }
