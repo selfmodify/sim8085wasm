@@ -579,6 +579,7 @@ function MemPanel({ memStart, onJump, regs, buildId }) {
                       <td key={col}
                         className={`mem-cell${isPC?' mem-pc':''}${isSP?' mem-sp':''}${isCursor?' mem-cursor':''}${val?' mem-nz':''}`}
                         title={`${hex4(addr)}: ${hex2(val)}H = ${val}`}
+                        onClick={()=>setCursor(addr)}
                         onDoubleClick={()=>{setEditing(addr);setEditBuf(hex2(val))}}
                       >{hex2(val)}</td>
                     )
