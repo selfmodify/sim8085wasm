@@ -478,8 +478,17 @@ function MemPanel({ memStart, onJump, regs }) {
     refresh()
   }
 
+  function onPanelKey(e) {
+    if (addrFocused.current || editing !== null) return
+    const pageSize = COLS * rows
+    if (e.key === 'ArrowUp')   { e.preventDefault(); onJump(Math.max(0,      memStart - COLS)) }
+    if (e.key === 'ArrowDown') { e.preventDefault(); onJump(Math.min(0x3F00, memStart + COLS)) }
+    if (e.key === 'PageUp')    { e.preventDefault(); onJump(Math.max(0,      memStart - pageSize)) }
+    if (e.key === 'PageDown')  { e.preventDefault(); onJump(Math.min(0x3F00, memStart + pageSize)) }
+  }
+
   return (
-    <div className="panel mem-panel" ref={panelRef}>
+    <div className="panel mem-panel" ref={panelRef} tabIndex={0} onKeyDown={onPanelKey}>
       <div className="mem-resize-handle" onMouseDown={onHandleMouseDown} />
       <div className="panel-hd">
         MEMORY
@@ -547,7 +556,7 @@ function MemPanel({ memStart, onJump, regs }) {
       <div className="mem-legend">
         <span className="legend-pc">■</span> PC &nbsp;
         <span className="legend-sp">■</span> SP &nbsp;
-        <span className="legend-tip">double-click to edit</span>
+        <span className="legend-tip">double-click to edit · click + ↑↓ PgUp/Dn to scroll</span>
       </div>
     </div>
   )
