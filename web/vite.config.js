@@ -4,5 +4,5 @@ import react from '@vitejs/plugin-react'
 // Change base to '/your-repo-name/' for GitHub Pages, or '/' for Netlify/Vercel
 export default defineConfig({
   plugins: [react()],
-  base: '/sim8085/',
+  base: '/sim8085wasm/',   // ← must match your repo name exactly
 })
