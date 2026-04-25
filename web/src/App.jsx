@@ -695,18 +695,26 @@ export default function App() {
   }
 
   function doAssemble(code) {
-    stopRun()
-    sim.simInit()
-    const res = sim.simAssemble(code)
-    setSteps(0)
-    if (!res.ok) {
+    console.log('[doAssemble] called, code length=', code?.length)
+    try {
+      stopRun()
+      sim.simInit()
+      const res = sim.simAssemble(code)
+      console.log('[doAssemble] result=', res)
+      setSteps(0)
+      if (!res.ok) {
+        setAppState('error')
+        setMsg(`✗ ${res.errorMsg}`)
+      } else {
+        setAppState('idle')
+        const t = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})
+        setMsg(`✓ ${res.bytesEmitted}B at ${hex4(res.entryPoint)}H — ready  ${t}`)
+        refresh()
+      }
+    } catch (err) {
+      console.error('[doAssemble] EXCEPTION:', err)
       setAppState('error')
-      setMsg(`✗ ${res.errorMsg}`)
-    } else {
-      setAppState('idle')
-      const t = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})
-      setMsg(`✓ ${res.bytesEmitted}B at ${hex4(res.entryPoint)}H — ready  ${t}`)
-      refresh()
+      setMsg(`✗ Internal error: ${err.message}`)
     }
   }
 
@@ -777,7 +785,7 @@ export default function App() {
             <option value="" disabled>Load example…</option>
             {Object.keys(EXAMPLES).map(k => <option key={k} value={k}>{k}</option>)}
           </select>
-          <button className="btn btn-asm"   onClick={()=>doAssemble(srcRef.current)}>⚙ Build  <kbd>F5</kbd></button>
+          <button className="btn btn-asm"   onClick={()=>{ console.log('[BUILD] click fired, srcRef.current length=', srcRef.current?.length, 'preview=', srcRef.current?.slice(0,40)); doAssemble(srcRef.current) }}>⚙ Build  <kbd>F5</kbd></button>
           <button className="btn btn-step"  onClick={doStep}  disabled={running}>↓ Step  <kbd>F7</kbd></button>
           <button className={`btn ${running ? 'btn-stop':'btn-run'}`} onClick={handleRun}>
             {running ? '■ Stop' : '▶ Run'}  <kbd>{running?'F9':'F9'}</kbd>
