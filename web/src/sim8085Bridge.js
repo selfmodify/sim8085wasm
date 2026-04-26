@@ -446,6 +446,34 @@ function stepOne() {
     case 0xDB: { const port = memR(pc+1); regs.a = ioIn[port]; inc=2; break; } // IN port
     case 0xD3: { const port = memR(pc+1); ioOut[port] = regs.a; ioOutTouched.add(port); inc=2; break; } // OUT port
 
+    // ── ASSERT (0xDD — undefined opcode repurposed for testing) ──────
+    case 0xDD: {
+      const sub = memR(pc+1);
+      const REG8_N = ['B','C','D','E','H','L','M','A'];
+      const REG8_V = [regs.b,regs.c,regs.d,regs.e,regs.h,regs.l,memR(getHL()),regs.a];
+      const FLAG_N = ['CY','Z','S','P','AC'];
+      const FLAG_V = [getCarry(),getZero(),getSign(),getParity(),getAuxCarry()];
+      const PAIR_N = ['BC','DE','HL','SP','PC'];
+      const PAIR_V = [getBC(),getDE(),getHL(),regs.sp,pc];
+      let fail=false, msg='';
+      if (sub <= 0x07) {                           // 8-bit register
+        const exp=memR(pc+2), act=REG8_V[sub]; inc=3;
+        if (act!==exp){fail=true; msg=`${REG8_N[sub]}=${h(exp)}H got ${h(act)}H`;}
+      } else if (sub>=0x10 && sub<=0x14) {         // flag
+        const fi=sub-0x10, exp=memR(pc+2)&1, act=FLAG_V[fi]; inc=3;
+        if (act!==exp){fail=true; msg=`${FLAG_N[fi]}=${exp} got ${act}`;}
+      } else if (sub>=0x20 && sub<=0x24) {         // 16-bit pair/register
+        const pi=sub-0x20, exp=memR16(pc+2); inc=4;
+        const act=pi===4?regs.pc:PAIR_V[pi]; // PC assertion: current PC = pc (before this instruction)
+        if (act!==exp){fail=true; msg=`${PAIR_N[pi]}=${h(exp,4)}H got ${h(act,4)}H`;}
+      } else if (sub===0x30) {                     // memory byte
+        const addr=memR16(pc+2), exp=memR(pc+4), act=memR(addr); inc=5;
+        if (act!==exp){fail=true; msg=`mem[${h(addr,4)}H]=${h(exp)}H got ${h(act)}H`;}
+      } else { inc=2; }                            // unknown sub-type, skip 2 bytes
+      if (fail) { lastError=`[${h(pc,4)}H] Assertion failed: ${msg}`; status|=SEVERE_ERROR; }
+      break;
+    }
+
     default: break; // invalid - skip
   }
 
@@ -699,6 +727,32 @@ function assemble(source) {
       case 'SIM': emit(0x30); break;
       case 'IN':  { emit(0xDB); emit(getImm8()); break; }
       case 'OUT': { emit(0xD3); emit(getImm8()); break; }
+      case 'ASSERT': {
+        // Syntax: ASSERT subject, value
+        //   subject: A B C D E H L  (8-bit reg)   → 0xDD, code, val8
+        //            CY Z S P AC    (flag)         → 0xDD, code, 0|1
+        //            BC DE HL SP PC (16-bit pair)  → 0xDD, code, val16(le)
+        //            MEM            (mem byte)     → 0xDD, 0x30, addr16(le), val8
+        const REG8  = {B:0x00,C:0x01,D:0x02,E:0x03,H:0x04,L:0x05,A:0x07};
+        const FLAGS = {CY:0x10,Z:0x11,S:0x12,P:0x13,AC:0x14};
+        const PAIRS = {BC:0x20,DE:0x21,HL:0x22,SP:0x23,PC:0x24};
+        const subj  = next();
+        const sn    = subj?.val ?? '';
+        expect('comma');
+        emit(0xDD);
+        if      (REG8[sn]  !== undefined) { emit(REG8[sn]);  emit(getImm8()); }
+        else if (FLAGS[sn] !== undefined) { emit(FLAGS[sn]); emit(getImm8() & 1); }
+        else if (PAIRS[sn] !== undefined) { emit(PAIRS[sn]); emit16(getImm16()); }
+        else if (sn === 'MEM') {
+          const addr = getImm16();
+          expect('comma');
+          emit(0x30); emit16(addr); emit(getImm8());
+        } else {
+          errors.push(`Line ${lineNo+1}: unknown ASSERT subject '${sn}'`);
+          emit(0x00); // placeholder to avoid misalignment
+        }
+        break;
+      }
       default:
         errors.push(`Line ${lineNo+1}: unknown mnemonic '${mnem}'`);
     }

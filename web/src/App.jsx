@@ -464,6 +464,855 @@ xloop:
     hlt`,
   },
 
+  'Tests': {
+
+    'Data Transfer': `; ── DATA TRANSFER TESTS ──────────────────────────────────────────
+; Tests: MVI, MOV, MOV M, LDA/STA, LHLD/SHLD, LDAX/STAX, XCHG, LXI
+; Run → should reach HLT cleanly. Any ASSERT failure stops with error.
+    org     100H
+    kickoff 100H
+
+; MVI: load immediate value
+    mvi a, 42H
+    assert A, 42H
+
+; MOV r,r: register to register
+    mvi b, 0AAH
+    mov a, b
+    assert A, 0AAH
+    mvi c, 55H
+    mov b, c
+    assert B, 55H
+
+; MOV to/from M (memory via HL)
+    lxi h, 300H
+    mvi m, 7FH
+    mov a, m
+    assert A, 7FH
+    assert MEM, 300H, 7FH
+
+; STA / LDA: direct memory access
+    mvi a, 0A5H
+    sta 400H
+    mvi a, 00H
+    lda 400H
+    assert A, 0A5H
+    assert MEM, 400H, 0A5H
+
+; SHLD / LHLD: 16-bit memory access (HL stored little-endian)
+    lxi h, 1234H
+    shld 500H
+    lxi h, 0000H
+    lhld 500H
+    assert HL, 1234H
+    assert MEM, 500H, 34H     ; low byte first
+    assert MEM, 501H, 12H     ; high byte second
+
+; STAX / LDAX via BC
+    lxi b, 600H
+    mvi a, 0CDH
+    stax b
+    mvi a, 00H
+    ldax b
+    assert A, 0CDH
+    assert MEM, 600H, 0CDH
+
+; STAX / LDAX via DE
+    lxi d, 601H
+    mvi a, 0EFH
+    stax d
+    mvi a, 00H
+    ldax d
+    assert A, 0EFH
+
+; XCHG: swap DE and HL
+    lxi h, 1111H
+    lxi d, 2222H
+    xchg
+    assert HL, 2222H
+    assert DE, 1111H
+
+; LXI SP
+    lxi sp, 3FFEH
+    assert SP, 3FFEH
+
+    hlt`,
+
+    'ADD & ADC': `; ── ADD & ADC TESTS ──────────────────────────────────────────────
+; Covers: ADD r, ADD M, ADI, ADC r, ACI, ADD A (self)
+; Corner cases: carry out, zero result, sign bit, carry propagation
+    org     100H
+    kickoff 100H
+
+; ADD r: basic addition
+    mvi a, 05H
+    mvi b, 03H
+    add b
+    assert A, 08H
+    assert CY, 0
+    assert Z,  0
+    assert S,  0
+
+; ADD r: result is zero
+    mvi a, 00H
+    mvi b, 00H
+    add b
+    assert A, 00H
+    assert Z,  1
+    assert CY, 0
+
+; ADD r: overflow → carry out (FFH + 01H = 00H, CY=1)
+    mvi a, 0FFH
+    mvi b, 01H
+    add b
+    assert A, 00H
+    assert CY, 1
+    assert Z,  1
+
+; ADD r: result is negative (bit 7 set) → S=1
+    mvi a, 7FH
+    mvi b, 01H
+    add b
+    assert A, 80H
+    assert S,  1
+    assert CY, 0
+
+; ADI: add immediate (wraps with carry)
+    mvi a, 0FAH
+    adi 0AH
+    assert A, 04H
+    assert CY, 1
+
+; ADD A: double accumulator (A = A + A)
+    mvi a, 40H
+    add a
+    assert A, 80H
+    assert S,  1
+    assert CY, 0
+
+; ADD M: add memory byte via HL
+    lxi h, 300H
+    mvi m, 22H
+    mvi a, 11H
+    add m
+    assert A, 33H
+    assert CY, 0
+
+; ADC r: add with carry (CY acts as extra +1)
+    stc              ; CY = 1
+    mvi a, 10H
+    mvi b, 20H
+    adc b            ; A = 10 + 20 + 1 = 31H
+    assert A, 31H
+    assert CY, 0
+
+; ACI: add immediate with carry
+    stc              ; CY = 1
+    mvi a, 0FFH
+    aci 00H          ; FFH + 00H + 1 = 00H, CY=1
+    assert A, 00H
+    assert CY, 1
+    assert Z,  1
+
+; ADC A with carry: A = A + A + CY
+    stc              ; CY = 1
+    mvi a, 40H
+    adc a            ; 40 + 40 + 1 = 81H
+    assert A, 81H
+    assert S,  1
+    assert CY, 0
+
+    hlt`,
+
+    'SUB & SBB': `; ── SUB & SBB TESTS ──────────────────────────────────────────────
+; Covers: SUB r, SUB A, SUI, SBB r, SBI
+; Corner cases: borrow (CY=1), zero result, sign, SBB propagation
+    org     100H
+    kickoff 100H
+
+; SUB r: basic subtraction
+    mvi a, 0AH
+    mvi b, 03H
+    sub b
+    assert A, 07H
+    assert CY, 0
+    assert Z,  0
+    assert S,  0
+
+; SUB r: result is zero
+    mvi a, 05H
+    mvi b, 05H
+    sub b
+    assert A, 00H
+    assert Z,  1
+    assert CY, 0
+
+; SUB r: borrow (underflow) → CY=1, S=1
+    mvi a, 02H
+    mvi b, 05H
+    sub b
+    assert A, 0FDH
+    assert CY, 1
+    assert S,  1
+    assert Z,  0
+
+; SUB A: A - A = 0  (CY and S always clear, Z always set)
+    mvi a, 55H
+    sub a
+    assert A, 00H
+    assert Z,  1
+    assert CY, 0
+    assert S,  0
+
+; SUI: subtract immediate, no borrow
+    mvi a, 50H
+    sui 10H
+    assert A, 40H
+    assert CY, 0
+
+; SUI: subtract immediate with borrow
+    mvi a, 10H
+    sui 20H
+    assert A, 0F0H
+    assert CY, 1
+    assert S,  1
+
+; SBB r: subtract with borrow-in (CY=1 → result is one less)
+    stc              ; set borrow in
+    mvi a, 10H
+    mvi b, 05H
+    sbb b            ; A = 10H - 05H - 1 = 0AH
+    assert A, 0AH
+    assert CY, 0
+
+; SBB r: borrow propagation (00H - 00H - 1 = FFH, CY=1)
+    stc
+    mvi a, 00H
+    mvi b, 00H
+    sbb b
+    assert A, 0FFH
+    assert CY, 1
+    assert S,  1
+
+; SBI: subtract immediate with borrow
+    stc
+    mvi a, 20H
+    sbi 10H          ; 20H - 10H - 1 = 0FH
+    assert A, 0FH
+    assert CY, 0
+
+    hlt`,
+
+    'INC & DEC': `; ── INR / DCR / INX / DCX TESTS ──────────────────────────────────
+; KEY RULE: INR/DCR do NOT affect CY.  INX/DCX affect NO flags at all.
+    org     100H
+    kickoff 100H
+
+; INR r: basic increment
+    mvi b, 05H
+    inr b
+    assert B, 06H
+    assert Z,  0
+    assert S,  0
+
+; INR r: FFH → 00H  (Z=1, but CY NOT set — INR never touches CY)
+    stc              ; pre-set CY=1 to prove INR preserves it
+    mvi a, 0FFH
+    inr a
+    assert A, 00H
+    assert Z,  1
+    assert CY, 1     ; CY unchanged from before INR
+
+; INR r: 7FH → 80H  (S=1, AC=1, Z=0, CY unchanged)
+    mvi a, 7FH
+    inr a
+    assert A, 80H
+    assert S,  1
+    assert Z,  0
+
+; DCR r: basic decrement
+    mvi c, 05H
+    dcr c
+    assert C, 04H
+    assert Z,  0
+
+; DCR r: 01H → 00H  (Z=1)
+    mvi a, 01H
+    dcr a
+    assert A, 00H
+    assert Z,  1
+    assert S,  0
+
+; DCR r: 00H → FFH  (S=1, CY NOT set — DCR never touches CY)
+    mvi a, 00H
+    sub a            ; clear CY explicitly via SUB A
+    dcr a
+    assert A, 0FFH
+    assert S,  1
+    assert Z,  0
+    assert CY, 0     ; CY still 0 (from SUB A), not touched by DCR
+
+; INR M: increment memory byte
+    lxi h, 300H
+    mvi m, 0FEH
+    inr m
+    assert MEM, 300H, 0FFH
+    inr m            ; FFH → 00H
+    assert MEM, 300H, 00H
+    assert Z,  1
+
+; INX: 16-bit increment — wraps FFFFH → 0000H, NO flags touched
+    stc              ; CY=1 before INX to prove flags unchanged
+    lxi b, 0FFFFH
+    inx b
+    assert BC, 0000H
+    assert CY, 1     ; INX must not clear CY
+
+; DCX: 16-bit decrement — wraps 0000H → FFFFH, NO flags touched
+    lxi d, 0000H
+    dcx d
+    assert DE, 0FFFFH
+
+    hlt`,
+
+    'AND / OR / XOR': `; ── ANA / ORA / XRA / CMA TESTS ──────────────────────────────────
+; KEY FLAG RULES: all logical ops → CY=0 always.
+; ANA also sets AC=0.  ORA/XRA set AC=0.
+    org     100H
+    kickoff 100H
+
+; ANA r: bitwise AND, CY always 0
+    stc              ; pre-set CY to prove AND clears it
+    mvi a, 0FFH
+    mvi b, 0F0H
+    ana b
+    assert A, 0F0H
+    assert CY, 0
+    assert S,  1
+    assert Z,  0
+
+; ANA r: result zero
+    mvi a, 0F0H
+    mvi b, 0FH
+    ana b
+    assert A, 00H
+    assert Z,  1
+    assert CY, 0
+
+; ANI: AND immediate
+    mvi a, 0ABH
+    ani 0FH
+    assert A, 0BH
+    assert CY, 0
+
+; ORA r: bitwise OR, CY always 0
+    stc              ; prove CY gets cleared
+    mvi a, 0F0H
+    mvi b, 0FH
+    ora b
+    assert A, 0FFH
+    assert CY, 0
+    assert S,  1
+
+; ORA A: self-OR (no change, just updates flags)
+    mvi a, 55H
+    ora a
+    assert A, 55H
+    assert CY, 0
+
+; ORI: OR immediate
+    mvi a, 00H
+    ori 0FFH
+    assert A, 0FFH
+    assert Z,  0
+    assert S,  1
+
+; XRA r: bitwise XOR
+    mvi a, 0FFH
+    mvi b, 0FFH
+    xra b
+    assert A, 00H
+    assert Z,  1
+    assert CY, 0
+
+; XRA A: self-XOR always gives zero — fastest way to clear A and set Z
+    mvi a, 0ABH
+    xra a
+    assert A, 00H
+    assert Z,  1
+    assert CY, 0
+
+; XRI: XOR immediate, toggle bits
+    mvi a, 0F0H
+    xri 0FFH
+    assert A, 0FH
+    assert S,  0
+    assert CY, 0
+
+; CMA: complement A (bitwise NOT) — does NOT affect flags
+    stc
+    mvi a, 55H
+    cma
+    assert A, 0AAH
+    assert CY, 1     ; CMA leaves flags untouched
+
+    hlt`,
+
+    'Compare & Flags': `; ── CMP / CPI / STC / CMC / CMA TESTS ────────────────────────────
+; CMP subtracts but discards result. CY=1 means A < operand (borrow).
+    org     100H
+    kickoff 100H
+
+; CMP r: equal  (Z=1, CY=0)
+    mvi a, 42H
+    mvi b, 42H
+    cmp b
+    assert Z,  1
+    assert CY, 0
+    assert A, 42H    ; CMP must NOT change A
+
+; CMP r: A > B  (Z=0, CY=0, no borrow)
+    mvi a, 50H
+    mvi b, 30H
+    cmp b
+    assert Z,  0
+    assert CY, 0
+
+; CMP r: A < B  (Z=0, CY=1, borrow occurred)
+    mvi a, 10H
+    mvi b, 20H
+    cmp b
+    assert Z,  0
+    assert CY, 1
+
+; CMP A: self-compare always equal (Z=1, CY=0, A unchanged)
+    mvi a, 0ABH
+    cmp a
+    assert Z,  1
+    assert CY, 0
+    assert A, 0ABH
+
+; CPI: compare with immediate
+    mvi a, 80H
+    cpi 80H
+    assert Z,  1
+    assert CY, 0
+
+    mvi a, 7FH
+    cpi 80H          ; 7FH < 80H unsigned → CY=1
+    assert Z,  0
+    assert CY, 1
+
+    mvi a, 90H
+    cpi 80H          ; 90H > 80H unsigned → CY=0
+    assert Z,  0
+    assert CY, 0
+
+; STC: set carry unconditionally
+    xra a            ; clear flags
+    stc
+    assert CY, 1
+
+; CMC: complement carry
+    stc
+    cmc
+    assert CY, 0
+    cmc
+    assert CY, 1
+
+    hlt`,
+
+    'Rotate': `; ── ROTATE INSTRUCTION TESTS ──────────────────────────────────────
+; RLC/RRC: circular (bit wraps around, also goes into CY)
+; RAL/RAR: rotate through CY (9-bit rotation)
+    org     100H
+    kickoff 100H
+
+; RLC: bit 7 → CY and bit 0
+    mvi a, 80H       ; 10000000
+    rlc              ; → 00000001, CY=1
+    assert A, 01H
+    assert CY, 1
+
+    mvi a, 55H       ; 01010101
+    rlc              ; → 10101010, CY=0
+    assert A, 0AAH
+    assert CY, 0
+
+; RLC four times: should rotate 80H back to 80H
+    mvi a, 80H
+    rlc
+    rlc
+    rlc
+    rlc
+    rlc
+    rlc
+    rlc
+    rlc              ; 8 times = full rotation back
+    assert A, 80H
+
+; RRC: bit 0 → CY and bit 7
+    mvi a, 01H       ; 00000001
+    rrc              ; → 10000000, CY=1
+    assert A, 80H
+    assert CY, 1
+
+    mvi a, 0AAH      ; 10101010
+    rrc              ; → 01010101, CY=0
+    assert A, 55H
+    assert CY, 0
+
+; RAL: rotate left through CY (9-bit ring)
+    mvi a, 80H       ; b7=1
+    stc              ; CY=1 going in
+    ral              ; A = 00000001 | cy=1 = 01H, new CY = old b7 = 1
+    assert A, 01H
+    assert CY, 1
+
+    mvi a, 55H       ; 01010101, CY=1 from above
+    ral              ; A = 10101010 | 1 = ABH, new CY = old b7(01010101)=0
+    assert A, 0ABH
+    assert CY, 0
+
+; RAR: rotate right through CY (9-bit ring)
+    mvi a, 01H       ; b0=1
+    stc              ; CY=1 going in
+    rar              ; A = 10000000 = 80H, new CY = old b0 = 1
+    assert A, 80H
+    assert CY, 1
+
+    mvi a, 0AAH      ; 10101010, CY=1 from above
+    rar              ; A = 11010101 = D5H, new CY = old b0(0AAH)=0
+    assert A, 0D5H
+    assert CY, 0
+
+    hlt`,
+
+    'Jumps': `; ── CONDITIONAL JUMP TESTS ────────────────────────────────────────
+; Each test uses ORA A or ADI to set flags, then checks the branch.
+; If a jump fails to take (or takes when it should not), HLT is hit early.
+    org     100H
+    kickoff 100H
+
+; JNZ: jump if Z=0
+    mvi a, 01H
+    ora a            ; Z=0 (nonzero result)
+    jnz t2
+    hlt              ; must not reach
+t2: assert A, 01H
+
+; JZ: jump if Z=1
+    mvi a, 00H
+    ora a            ; Z=1
+    jz t3
+    hlt
+t3: assert Z, 1
+
+; JNC: jump if CY=0
+    mvi a, 0FFH
+    adi 00H          ; FF+00 = FF, no carry
+    jnc t4
+    hlt
+t4: assert CY, 0
+
+; JC: jump if CY=1
+    mvi a, 0FFH
+    adi 01H          ; FF+01 overflows → CY=1
+    jc t5
+    hlt
+t5: assert CY, 1
+
+; JP: jump if S=0 (positive / non-negative result)
+    mvi a, 7FH
+    ora a            ; S=0
+    jp t6
+    hlt
+t6: assert S, 0
+
+; JM: jump if S=1 (minus / bit 7 set)
+    mvi a, 80H
+    ora a            ; S=1
+    jm t7
+    hlt
+t7: assert S, 1
+
+; JPO: jump if parity odd (P=0) — 01H has one 1-bit = odd
+    mvi a, 01H
+    ora a
+    jpo t8
+    hlt
+t8: assert P, 0
+
+; JPE: jump if parity even (P=1) — 03H = 00000011 has two 1-bits = even
+    mvi a, 03H
+    ora a
+    jpe t9
+    hlt
+t9: assert P, 1
+
+; JNZ NOT taken: Z=1, JNZ should fall through
+    mvi a, 00H
+    ora a            ; Z=1
+    jnz bad_jnz
+    jmp t10
+bad_jnz: hlt
+t10: assert Z, 1
+
+    hlt`,
+
+    'CALL & RET': `; ── CALL / RET / CONDITIONAL CALL & RETURN TESTS ─────────────────
+; CALL pushes PC+3, jumps to subroutine. RET pops and resumes.
+    org     100H
+    kickoff 100H
+    lxi sp, 3FFEH
+
+; Basic CALL / RET
+    call sub_basic
+    assert A, 0AAH
+
+; CZ: conditional call when Z=1
+    mvi a, 00H
+    ora a            ; Z=1
+    cz sub_cz
+    assert A, 0BBH
+
+; CNZ: conditional call when Z=0
+    mvi a, 01H
+    ora a            ; Z=0
+    cnz sub_cnz
+    assert A, 0CCH
+
+; CC: conditional call when CY=1
+    stc
+    cc sub_cc
+    assert A, 0DDH
+
+; CNC: conditional call when CY=0 (after CMC, CY becomes 0)
+    stc
+    cmc              ; CY=0
+    cnc sub_cnc
+    assert A, 0EEH
+
+; RNZ: return if Z=0 — should return, leaving B unchanged
+    mvi b, 01H
+    call sub_rnz
+    assert B, 01H    ; B stays 01H because RNZ returned before INR B
+
+    hlt
+
+sub_basic:
+    mvi a, 0AAH
+    ret
+
+sub_cz:
+    mvi a, 0BBH
+    ret
+
+sub_cnz:
+    mvi a, 0CCH
+    ret
+
+sub_cc:
+    mvi a, 0DDH
+    ret
+
+sub_cnc:
+    mvi a, 0EEH
+    ret
+
+sub_rnz:
+    mvi a, 01H
+    ora a            ; Z=0
+    rnz              ; taken — return here
+    inr b            ; NOT reached
+    ret`,
+
+    'PUSH & POP': `; ── PUSH / POP TESTS ──────────────────────────────────────────────
+; PUSH decrements SP by 2 then writes; POP reads then increments SP by 2.
+; Data is stored little-endian: low byte at lower address.
+    org     100H
+    kickoff 100H
+    lxi sp, 3FFEH
+
+; PUSH/POP B: round-trip
+    lxi b, 1234H
+    push b
+    lxi b, 0000H     ; clear BC
+    pop b
+    assert BC, 1234H
+
+; PUSH/POP D: round-trip
+    lxi d, 5678H
+    push d
+    lxi d, 0000H
+    pop d
+    assert DE, 5678H
+
+; PUSH/POP H: round-trip
+    lxi h, 9ABCH
+    push h
+    lxi h, 0000H
+    pop h
+    assert HL, 9ABCH
+
+; SP movement: each PUSH decrements SP by 2, each POP increments
+    lxi sp, 3FFEH
+    assert SP, 3FFEH
+    push b
+    assert SP, 3FFCH
+    push d
+    assert SP, 3FFAH
+    pop d
+    assert SP, 3FFCH
+    pop b
+    assert SP, 3FFEH
+
+; Stack memory layout: little-endian (low byte at lower address)
+    lxi b, 0AABBH
+    lxi sp, 3FFEH
+    push b
+    assert MEM, 3FFCH, 0BBH   ; B=BB is the low byte → [SP]
+    assert MEM, 3FFDH, 0AAH   ; B=AA is the high byte → [SP+1]
+
+; PUSH/POP PSW: saves A and flags together
+    mvi a, 0F0H
+    stc              ; CY=1
+    push psw         ; saves A=F0H, flags (with CY=1)
+    mvi a, 00H
+    xra a            ; A=0, CY=0, Z=1 — overwrites flags
+    pop psw          ; restore A=F0H, flags with CY=1
+    assert A, 0F0H
+    assert CY, 1
+
+    hlt`,
+
+    '16-bit Arithmetic': `; ── DAD / INX / DCX / SPHL TESTS ─────────────────────────────────
+; DAD: 16-bit HL = HL + pair.  Only CY is affected.
+; INX / DCX: 16-bit inc/dec.  NO flags are changed at all.
+    org     100H
+    kickoff 100H
+
+; DAD B: HL = HL + BC, no carry
+    lxi h, 1000H
+    lxi b, 0200H
+    dad b
+    assert HL, 1200H
+    assert CY, 0
+
+; DAD B: carry out (overflow 16 bits)
+    lxi h, 0FF00H
+    lxi b, 0200H
+    dad b
+    assert HL, 0100H
+    assert CY, 1
+
+; DAD D
+    lxi h, 2000H
+    lxi d, 3000H
+    dad d
+    assert HL, 5000H
+    assert CY, 0
+
+; DAD H: HL = HL + HL (double HL)
+    lxi h, 1000H
+    dad h
+    assert HL, 2000H
+    assert CY, 0
+
+; DAD SP
+    lxi h, 1000H
+    lxi sp, 2000H
+    dad sp
+    assert HL, 3000H
+
+; INX: wraps FFFFH → 0000H, does NOT affect CY
+    stc              ; CY=1 before INX
+    lxi b, 0FFFFH
+    inx b
+    assert BC, 0000H
+    assert CY, 1     ; CY must be unchanged by INX
+
+; INX: regular increment
+    lxi d, 1234H
+    inx d
+    assert DE, 1235H
+
+; DCX: wraps 0000H → FFFFH
+    lxi h, 0000H
+    dcx h
+    assert HL, 0FFFFH
+
+; DCX: regular decrement
+    lxi b, 0500H
+    dcx b
+    assert BC, 04FFH
+
+; SPHL: SP = HL
+    lxi h, 2000H
+    sphl
+    assert SP, 2000H
+
+    hlt`,
+
+    'DAA (BCD)': `; ── DAA — DECIMAL ADJUST ACCUMULATOR TESTS ───────────────────────
+; After binary addition, DAA corrects A to a valid packed-BCD byte.
+; Two decimal digits per byte: upper nibble = tens, lower = units.
+    org     100H
+    kickoff 100H
+
+; 09 + 01 = BCD 10 (adjust lower nibble: 0AH → 10H)
+    mvi a, 09H
+    adi 01H          ; A = 0AH (invalid BCD)
+    daa              ; → 10H  (BCD 10)
+    assert A, 10H
+    assert CY, 0
+
+; 09 + 09 = BCD 18
+    mvi a, 09H
+    adi 09H          ; A = 12H, AC=1 (9+9=18, lower nibble carries)
+    daa              ; → 18H  (BCD 18)
+    assert A, 18H
+    assert CY, 0
+
+; 08 + 08 = BCD 16 (AC set because 8+8=16, lower nibble carry)
+    mvi a, 08H
+    adi 08H          ; A = 10H, AC=1
+    daa              ; → 16H  (BCD 16)
+    assert A, 16H
+    assert CY, 0
+
+; 47 + 35 = BCD 82
+    mvi a, 47H
+    adi 35H          ; A = 7CH
+    daa              ; → 82H  (BCD 82)
+    assert A, 82H
+    assert CY, 0
+
+; 99 + 01 = BCD 00 with carry (BCD overflow: 99+1=100)
+    mvi a, 99H
+    adi 01H          ; A = 9AH, no binary carry
+    daa              ; → 00H, CY=1  (BCD 100)
+    assert A, 00H
+    assert CY, 1
+
+; 99 + 99 = BCD 98 with carry (199 in BCD)
+    mvi a, 99H
+    adi 99H          ; A = 32H, binary CY=1
+    daa              ; → 98H, CY=1
+    assert A, 98H
+    assert CY, 1
+
+; 50 + 50 = BCD 00 with carry (100 in BCD)
+    mvi a, 50H
+    adi 50H          ; A = A0H
+    daa              ; → 00H, CY=1
+    assert A, 00H
+    assert CY, 1
+
+    hlt`,
+
+  },
+
   'I/O': {
     'Port Echo': `; Read a byte from input port 01H, write it to output port 02H.
 ; Before running: set port 01H value in the I/O Ports panel.
