@@ -392,7 +392,7 @@ body {
   align-items: center;
   gap: 6px;
   padding: 2px 6px;
-  cursor: pointer;
+  cursor: default;
   border-left: 2px solid transparent;
   transition: background .08s;
 }
@@ -404,7 +404,8 @@ body {
 .disasm-row.bp .disasm-bp { color: var(--red) }
 .disasm-row.cur.bp { border-left-color: var(--red) }
 
-.disasm-bp { color: var(--text3); width: 10px; text-align: center; flex-shrink: 0 }
+.disasm-bp { color: var(--text3); width: 14px; text-align: center; flex-shrink: 0; cursor: pointer; padding: 0 2px }
+.disasm-bp:hover { color: var(--red) }
 .disasm-text { color: var(--text2); flex: 1; white-space: pre }
 .disasm-pc-arrow { color: var(--accent); font-size: 12px; margin-left: 4px }
 

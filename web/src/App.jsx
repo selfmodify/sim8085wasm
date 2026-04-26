@@ -248,6 +248,24 @@ const errorLineField  = StateField.define({
   provide: f => EditorView.decorations.from(f),
 })
 
+function buildAddrLineMap(code) {
+  const map = new Map()
+  let pc = 0
+  const lines = code.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    let text = lines[i].replace(/;.*$/, '').trim().toLowerCase()
+    if (!text) continue
+    if (text.startsWith('org ')) { pc = parseInt(text.slice(4).replace(/h$/,''), 16) || pc; continue }
+    if (text.startsWith('kickoff ') || text.startsWith('setbyte ') || text.startsWith('setword ')) continue
+    text = text.replace(/^[a-z_]\w*:\s*/, '')
+    if (!text) continue
+    map.set(pc, i + 1)
+    const d = sim.simDisassemble(pc)
+    pc += Math.max(1, d.len)
+  }
+  return map
+}
+
 function getInstWord(state, pos) {
   const line = state.doc.lineAt(pos)
   const text = line.text
@@ -279,7 +297,7 @@ function SevenSeg({ value }) {
 }
 
 // ── CodeMirror editor ────────────────────────────────────────────────────
-function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine }) {
+function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, gotoRef }) {
   const elRef    = useRef(null)
   const viewRef  = useRef(null)
   const syncing  = useRef(false)
@@ -332,6 +350,13 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
       parent: elRef.current,
     })
     viewRef.current = view
+    if (gotoRef) gotoRef.current = (lineNum) => {
+      try {
+        const line = view.state.doc.line(lineNum)
+        view.dispatch({ selection: { anchor: line.from }, effects: EditorView.scrollIntoView(line.from, { y: 'center' }) })
+        view.focus()
+      } catch {}
+    }
     return () => view.destroy()
   }, [])
 
@@ -547,7 +572,7 @@ function FlagPanel({ regs }) {
 }
 
 // ── Disassembly panel ────────────────────────────────────────────────────
-function DisasmPanel({ regs, breakpoints, onToggleBp, buildId }) {
+function DisasmPanel({ regs, breakpoints, onToggleBp, onGotoLine, buildId }) {
   const [viewStart, setViewStart] = useState(() => regs.pc)
 
   const lines = useMemo(() => {
@@ -583,10 +608,13 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, buildId }) {
             <div
               key={row.addr}
               className={`disasm-row${cur ? ' cur' : ''}${bp ? ' bp' : ''}`}
-              onClick={() => onToggleBp(row.addr)}
-              title="Click to toggle breakpoint"
+              onClick={() => onGotoLine?.(row.addr)}
+              title="Click to go to source line"
             >
-              <span className="disasm-bp">{bp ? '●' : '·'}</span>
+              <span className="disasm-bp" title="Click to toggle breakpoint"
+                onClick={e => { e.stopPropagation(); onToggleBp(row.addr) }}>
+                {bp ? '●' : '·'}
+              </span>
               <span className="disasm-text">{row.text}</span>
               {cur && <span className="disasm-pc-arrow">◀</span>}
             </div>
@@ -1181,6 +1209,8 @@ export default function App() {
   const timerRef    = useRef(null)
   const editorColRef = useRef(null)
   const rightColRef  = useRef(null)
+  const gotoLineRef  = useRef(null)
+  const [addrLineMap, setAddrLineMap] = useState(new Map())
   const srcRef      = useRef(src)
   const speedRef    = useRef(3)
   const historyRef  = useRef([])                         // undo snapshots, max 10
@@ -1255,6 +1285,7 @@ export default function App() {
       } else {
         setErrorLine(null)
         setAppState('idle')
+        setAddrLineMap(buildAddrLineMap(code))
         const t = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})
         setMsg(`✓ ${res.bytesEmitted}B at ${hex4(res.entryPoint)}H — ready  ${t}`)
       }
@@ -1385,7 +1416,7 @@ export default function App() {
         <div className="col col-editor" ref={editorColRef}>
           <div className="panel editor-panel">
             <div className="panel-hd">EDITOR  <span className="editor-hint">; semicolons for comments</span></div>
-            <AsmEditor value={src} onChange={v => { srcRef.current = v; setSrc(v) }}
+            <AsmEditor value={src} onChange={v => { srcRef.current = v; setSrc(v) }} gotoRef={gotoLineRef}
               onCursorInstruction={setCursorInst}
               onInstructionDetail={setHelpInst}
               errorLine={errorLine} />
@@ -1397,7 +1428,8 @@ export default function App() {
 
         {/* Code + Memory column */}
         <div className="col col-center">
-          <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} buildId={buildId} />
+          <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} buildId={buildId}
+            onGotoLine={addr => { const ln = addrLineMap.get(addr); if (ln) gotoLineRef.current?.(ln) }} />
           <ChatPanel regs={regs} src={src} />
           <MemPanel
             memStart={memStart}
