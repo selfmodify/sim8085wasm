@@ -1186,8 +1186,8 @@ export default function App() {
             regBase={regBase} onRegBase={setRegBase} onEdit={refresh} />
           <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh} />
           <FlagPanel  regs={regs} />
-          <CalcPanel />
           <StackPanel regs={regs} />
+          <CalcPanel />
         </div>
       </div>
       {helpInst && <HelpModal instruction={helpInst} onClose={() => setHelpInst(null)} />}
