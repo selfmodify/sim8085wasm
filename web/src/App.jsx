@@ -998,7 +998,7 @@ function BrandMenu({ onShowWelcome }) {
           <div className="bmenu-credits">
             <div>8085 Simulator</div>
             <div>Original: V. Kumar · 1995</div>
-            <div>Web port: 2025</div>
+            <div>Web port: 2026</div>
           </div>
         </div>
       )}
