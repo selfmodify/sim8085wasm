@@ -1662,13 +1662,11 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
           if (m) {
             const nameIdx = m.index + m[0].indexOf(m[2])
             view.dispatch({ selection: { anchor: nameIdx, head: nameIdx + m[2].length }, effects: EditorView.scrollIntoView(nameIdx, { y: 'center' }) })
-            view.focus()
             return
           }
         }
         const line = view.state.doc.line(lineNum)
         view.dispatch({ selection: { anchor: line.from }, effects: EditorView.scrollIntoView(line.from, { y: 'center' }) })
-        view.focus()
       } catch {}
     }
     return () => view.destroy()
