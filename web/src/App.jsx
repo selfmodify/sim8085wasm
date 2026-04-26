@@ -738,7 +738,7 @@ function SevenSeg({ value }) {
     { id:'dot', d:'M14 19 L16 19 L16 21 L14 21 Z', bit:128 },
   ]
   return (
-    <svg width="22" height="32" viewBox="0 0 17 23">
+    <svg width="33" height="48" viewBox="0 0 17 23">
       {segs.map(s => <path key={s.id} d={s.d} fill={value & s.bit ? ON : OFF} />)}
     </svg>
   )
@@ -1467,14 +1467,15 @@ function StackPanel({ regs }) {
 
 // ── LED display ──────────────────────────────────────────────────────────
 function LedDisplay({ leds }) {
-  const LABELS = ['ST₁','ST₀','A₃','A₂','A₁','A₀','D₁','D₀']
+  const LABELS = ['ST1','ST0','A3','A2','A1','A0','D1','D0']
   return (
     <div className="panel led-panel">
       <div className="panel-hd">LED DISPLAY<PanelHelp panel="LED DISPLAY" /></div>
       <div className="led-digits">
         {leds.map((v,i) => (
-          <div key={i} className="led-digit">
+          <div key={i} className={`led-digit${i < 2 ? ' led-digit-st' : ''}`}>
             <SevenSeg value={v} />
+            <div className="led-val">{v.toString(16).toUpperCase().padStart(2,'0')}</div>
             <div className="led-lbl">{LABELS[i]}</div>
           </div>
         ))}

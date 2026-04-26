@@ -671,8 +671,8 @@ body {
 .led-digits {
   display: flex;
   justify-content: center;
-  gap: 4px;
-  padding: 8px;
+  gap: 6px;
+  padding: 10px 8px;
   background: #080a10;
 }
 .led-digit {
@@ -681,10 +681,17 @@ body {
   align-items: center;
   gap: 2px;
 }
-.led-digit svg { filter: drop-shadow(0 0 4px rgba(255, 40, 0, 0.75)) }
+.led-digit svg { filter: drop-shadow(0 0 5px rgba(255, 40, 0, 0.8)) }
+.led-digit-st { opacity: 0.45 }
+.led-val {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--amber);
+  letter-spacing: 0.05em;
+}
 .led-lbl {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 9px;
   color: var(--text3);
   letter-spacing: 0;
 }
