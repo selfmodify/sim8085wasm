@@ -414,7 +414,8 @@ body {
 .reg-bit-val { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--text2) }
 .reg-bit-on .reg-bit-val { color: var(--accent) }
 .reg-name { color: var(--text3); width: 28px; font-size: 12px }
-.reg-hex  { color: var(--accent); font-weight: 600; min-width: 40px }
+.reg-hex  { color: var(--accent); font-weight: 600; min-width: 40px; flex-shrink: 0 }
+.reg-pair-cell .reg-hex { font-size: 12px; min-width: 0 }
 .reg-dec  { color: var(--text3); font-size: 12px; flex: 1; text-align: right }
 .reg-sep  { height: 1px; background: var(--border); margin: 4px 10px }
 
@@ -1041,6 +1042,29 @@ body {
 .mem-toolbar-fill .mem-toolbar-lbl  { color: var(--amber) }
 .mem-toolbar-fill .mem-toolbar-input { border-color: var(--amber); color: var(--amber) }
 .mem-toolbar-fill .mem-btn { border-color: var(--amber); color: var(--amber) }
+
+/* ── CodeMirror search panel ─────────────────────────────────────── */
+.cm-panels { background: var(--bg2) !important; border-color: var(--border) !important }
+.cm-panels-top { border-bottom: 1px solid var(--border) !important }
+.cm-search { padding: 4px 8px !important; display: flex !important; align-items: center !important; flex-wrap: wrap !important; gap: 4px !important; background: var(--bg2) !important }
+.cm-search label { color: var(--text2); font-family: var(--mono); font-size: 11px }
+.cm-search .cm-textfield {
+  background: var(--bg3) !important; border: 1px solid var(--amber) !important;
+  border-radius: 3px !important; color: var(--amber) !important;
+  font-family: var(--mono) !important; font-size: 12px !important;
+  padding: 2px 6px !important; outline: none !important;
+}
+.cm-search .cm-textfield:focus { border-color: var(--amber) !important; box-shadow: 0 0 0 1px rgba(240,168,64,.3) !important }
+.cm-search .cm-button {
+  background: var(--bg3) !important; border: 1px solid var(--border) !important;
+  border-radius: 3px !important; color: var(--text2) !important;
+  font-family: var(--mono) !important; font-size: 11px !important;
+  padding: 2px 8px !important; cursor: pointer !important;
+}
+.cm-search .cm-button:hover { border-color: var(--amber) !important; color: var(--amber) !important; background: rgba(240,168,64,.08) !important }
+.cm-search input[type=checkbox] { accent-color: var(--amber) }
+.cm-searchMatch { background: rgba(240,168,64,.25) !important; border-radius: 2px }
+.cm-searchMatch-selected { background: rgba(240,168,64,.55) !important; outline: 1px solid var(--amber) !important; outline-offset: -1px !important }
 
 /* ── Responsive ───────────────────────────────────────────────────── */
 @media (max-width: 900px) {
