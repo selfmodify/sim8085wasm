@@ -983,6 +983,57 @@ function LedDisplay({ leds }) {
   )
 }
 
+// ── Welcome modal ────────────────────────────────────────────────────────
+const WELCOME_FEATURES = [
+  { icon: '✏️', title: 'Editor',        desc: 'Write 8085 assembly on the left. Hover any instruction for inline help, Ctrl+click for full details.' },
+  { icon: '▶',  title: 'Assemble & Run', desc: 'F5 assembles, F7 steps one instruction, F9 runs/pauses. Use the speed slider to control execution pace.' },
+  { icon: '📋', title: 'Disassembly',   desc: 'The center column shows the assembled code. Click the gutter to set breakpoints; execution pauses there.' },
+  { icon: '🧠', title: 'CPU State',     desc: 'Registers, flags, and register pairs update live. Click a pair to jump memory to its address. Values are editable.' },
+  { icon: '💾', title: 'Memory',        desc: 'Browse and edit all 64 KB of RAM. Use the address bar or ◀▶ buttons to navigate. Drag the top handle to resize.' },
+  { icon: '💡', title: 'LED Display',   desc: 'Load the "LED Scroll" example from the toolbar to see the 7-segment display animate in real time.' },
+  { icon: '🖩', title: 'Calculator',    desc: 'Convert values between binary, octal, decimal, and hex — handy when working with immediate operands.' },
+  { icon: '🤖', title: 'AI Assistant',  desc: 'Enter your Anthropic API key (stored only in your browser) to ask questions about 8085 assembly.' },
+]
+
+function WelcomeModal({ onClose }) {
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div className="help-overlay" onClick={onClose}>
+      <div className="welcome-modal" onClick={e => e.stopPropagation()}>
+        <div className="welcome-hd">
+          <div className="welcome-logo">
+            <div className="brand-chip" style={{fontSize:'18px',width:'44px',height:'44px'}}>8085</div>
+            <div>
+              <div className="welcome-title">8085 Simulator</div>
+              <div className="welcome-sub">Intel 8085 microprocessor simulator — running in your browser</div>
+            </div>
+          </div>
+          <button className="help-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="welcome-grid">
+          {WELCOME_FEATURES.map(f => (
+            <div key={f.title} className="welcome-card">
+              <span className="welcome-icon">{f.icon}</span>
+              <div>
+                <div className="welcome-card-title">{f.title}</div>
+                <div className="welcome-card-desc">{f.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="welcome-footer">
+          <span className="welcome-tip">💡 Load an example from the toolbar to get started quickly.</span>
+          <button className="btn welcome-btn" onClick={onClose}>Got it, let's go →</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Instruction help modal ───────────────────────────────────────────────
 function HelpModal({ instruction, onClose }) {
   const inst = INST_HELP[instruction]
@@ -1076,6 +1127,8 @@ export default function App() {
   const [cursorInst, setCursorInst] = useState(null)
   const [helpInst, setHelpInst]     = useState(null)
   const [errorLine, setErrorLine]   = useState(null)
+  const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem('sim8085_welcomed'))
+  function dismissWelcome() { localStorage.setItem('sim8085_welcomed', '1'); setShowWelcome(false) }
   const [runSpeed, setRunSpeed]     = useState(3)        // index into SPEEDS
   const [regBase, setRegBase]       = useState('hex')    // 'hex'|'dec'|'bin'
   const [histLen, setHistLen]       = useState(0)        // for disabling Step Back button
@@ -1325,6 +1378,7 @@ export default function App() {
           <CalcPanel />
         </div>
       </div>
+      {showWelcome && <WelcomeModal onClose={dismissWelcome} />}
       {helpInst && <HelpModal instruction={helpInst} onClose={() => setHelpInst(null)} />}
     </div>
   )
