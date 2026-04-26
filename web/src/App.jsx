@@ -293,6 +293,7 @@ const PANEL_HELP_TEXT = {
   'TRACE':            'Last 50 instructions executed in order. Each row shows the address, disassembled text, and any registers that changed (green). Cleared on every Build. Step to populate it.',
   'WATCH':            'Monitor registers or memory addresses in real time. Type a name (A, BC, HL…) or a hex address (0200H) and press Enter or +. Values update after each step.',
   'CALCULATOR':       'Convert 16-bit values between binary, octal, decimal, and hex. Type in any field and the others update instantly — handy for working out immediate operands.',
+  'I/O PORTS':        'Shows ports written by OUT instructions (output) and lets you preset values that IN will read (input). Input presets survive a Build; output clears on each Build.',
 }
 
 function PanelHelp({ panel }) {
@@ -1190,6 +1191,62 @@ function WatchPanel({ watches, regs, onAdd, onRemove }) {
   )
 }
 
+// ── I/O port panel ───────────────────────────────────────────────────────
+function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput }) {
+  const [portBuf, setPortBuf] = useState('')
+  const [valBuf,  setValBuf]  = useState('')
+
+  function addPreset() {
+    const port = parseInt(portBuf.replace(/h$/i,''), 16)
+    const val  = parseInt(valBuf.replace(/h$/i,''), 16)
+    if (isNaN(port) || port < 0 || port > 255) return
+    onSetInput(port & 0xFF, isNaN(val) ? 0 : val & 0xFF)
+    setPortBuf(''); setValBuf('')
+  }
+
+  return (
+    <div className="panel ioport-panel">
+      <div className="panel-hd">I/O PORTS<PanelHelp panel="I/O PORTS" /></div>
+
+      <div className="ioport-section-hd">OUTPUT  <span className="ioport-hint">written by OUT</span></div>
+      {outputPorts.length === 0
+        ? <div className="ioport-empty">No OUT executed yet</div>
+        : outputPorts.map(({ port, val }) => (
+          <div key={port} className="ioport-row">
+            <span className="ioport-port">{hex2(port)}H</span>
+            <span className="ioport-arrow">→</span>
+            <span className="ioport-val">{hex2(val)}H</span>
+            <span className="ioport-dec">{val}</span>
+          </div>
+        ))
+      }
+
+      <div className="ioport-section-hd" style={{marginTop:'6px'}}>INPUT  <span className="ioport-hint">returned by IN</span></div>
+      <div className="ioport-add-row">
+        <input className="ioport-input" placeholder="port (hex)" value={portBuf}
+          onChange={e => setPortBuf(e.target.value.toUpperCase())}
+          onKeyDown={e => e.key==='Enter' && addPreset()} maxLength={3} />
+        <input className="ioport-input" placeholder="value" value={valBuf}
+          onChange={e => setValBuf(e.target.value.toUpperCase())}
+          onKeyDown={e => e.key==='Enter' && addPreset()} maxLength={3} />
+        <button className="btn btn-xs" onClick={addPreset}>+</button>
+      </div>
+      {inputPresets.length === 0
+        ? <div className="ioport-empty">No input ports set</div>
+        : inputPresets.map(({ port, val }) => (
+          <div key={port} className="ioport-row">
+            <span className="ioport-port">{hex2(port)}H</span>
+            <span className="ioport-arrow">←</span>
+            <span className="ioport-val">{hex2(val)}H</span>
+            <span className="ioport-dec">{val}</span>
+            <button className="watch-rm" onClick={() => onRemoveInput(port)}>✕</button>
+          </div>
+        ))
+      }
+    </div>
+  )
+}
+
 // ── Brand menu ───────────────────────────────────────────────────────────
 function BrandMenu({ onShowWelcome }) {
   const [open, setOpen] = useState(false)
@@ -1370,6 +1427,8 @@ export default function App() {
   const [trace, setTrace]       = useState([])
   const [changedAddrs, setChangedAddrs] = useState(new Set())
   const [watches, setWatches]   = useState([])
+  const [outputPorts, setOutputPorts] = useState([])      // [{port,val}] written by OUT
+  const [inputPresets, setInputPresets] = useState([])    // [{port,val}] preset for IN
   const [memStart, setMemStart] = useState(0x100)
   const [appState, setAppState] = useState('idle')  // idle | running | halted | error
   const [msg, setMsg]           = useState('Load an example or write code, then click Build.')
@@ -1448,6 +1507,10 @@ export default function App() {
     setLeds(sim.simGetAllLeds())
   }
 
+  function refreshOutputPorts() {
+    setOutputPorts(sim.simGetOutputPorts())
+  }
+
   function doAssemble(code) {
     try {
       stopRun()
@@ -1455,6 +1518,7 @@ export default function App() {
       setHistLen(0)
       setTrace([])
       setChangedAddrs(new Set())
+      setOutputPorts([])
       prevMemRef.current = null
       sim.simInit()
       const res = sim.simAssemble(code)
@@ -1496,6 +1560,7 @@ export default function App() {
     refresh()
     addTraceEntry(prevR)
     updateMemDiff()
+    refreshOutputPorts()
     if (!ok) {
       setAppState(sim.simIsHalted() ? 'halted' : 'error')
       setMsg(sim.simIsHalted() ? '■ Program halted.' : `✗ ${sim.simGetError()}`)
@@ -1523,6 +1588,7 @@ export default function App() {
       setSteps(s => s + n)
       refresh()
       updateMemDiff()
+      refreshOutputPorts()
       if (!sim.simIsRunning()) {
         const r = sim.simGetRegisters()
         const cond = bpsRef.current.get(r.pc)
@@ -1599,6 +1665,19 @@ export default function App() {
     srcRef.current = code
     setSrc(code)
     doAssemble(code)
+  }
+
+  function setInputPort(port, val) {
+    sim.simSetInputPort(port, val)
+    setInputPresets(ps => {
+      const next = ps.filter(p => p.port !== port)
+      return [...next, { port, val }].sort((a,b) => a.port - b.port)
+    })
+  }
+
+  function removeInputPort(port) {
+    sim.simClearInputPort(port)
+    setInputPresets(ps => ps.filter(p => p.port !== port))
   }
 
   const running = appState === 'running'
@@ -1704,6 +1783,8 @@ export default function App() {
           <WatchPanel watches={watches} regs={regs}
             onAdd={w => setWatches(ws => [...ws, w])}
             onRemove={i => setWatches(ws => ws.filter((_,j) => j !== i))} />
+          <IOPortPanel outputPorts={outputPorts} inputPresets={inputPresets}
+            onSetInput={setInputPort} onRemoveInput={removeInputPort} />
           <CalcPanel />
         </div>
       </div>

@@ -590,6 +590,32 @@ body {
 }
 .chat-input:focus { border-color: var(--border2) }
 
+/* ── I/O port panel ──────────────────────────────────────────────── */
+.ioport-panel { padding-bottom: 4px }
+.ioport-section-hd {
+  padding: 3px 10px 1px;
+  font-family: var(--mono); font-size: 9px; font-weight: 700;
+  letter-spacing: 1.5px; color: var(--text3); text-transform: uppercase;
+}
+.ioport-hint { font-weight: 400; letter-spacing: 0; color: var(--text3); opacity: .7 }
+.ioport-empty { color: var(--text3); font-size: 12px; padding: 2px 10px 4px; font-family: var(--mono) }
+.ioport-add-row { display: flex; gap: 6px; padding: 4px 8px }
+.ioport-input {
+  width: 62px; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 3px; color: var(--text); font-family: var(--mono); font-size: 12px;
+  padding: 2px 5px; outline: none;
+}
+.ioport-input:focus { border-color: var(--border2) }
+.ioport-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 2px 10px; font-family: var(--mono); font-size: 12px;
+}
+.ioport-row:hover { background: var(--bg2) }
+.ioport-port  { color: var(--amber); width: 28px; flex-shrink: 0 }
+.ioport-arrow { color: var(--text3); flex-shrink: 0 }
+.ioport-val   { color: var(--accent); width: 28px; flex-shrink: 0 }
+.ioport-dec   { color: var(--text3); flex: 1 }
+
 /* ── Trace panel ─────────────────────────────────────────────────── */
 .trace-panel { padding-bottom: 4px }
 .trace-body { max-height: 180px; overflow-y: auto; font-family: var(--mono); font-size: 12px }

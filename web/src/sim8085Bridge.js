@@ -27,6 +27,9 @@ let status = 0;
 let breakpoints = new Set();
 let leds   = new Array(8).fill(0);
 let lastError = '';
+let ioIn   = new Uint8Array(256);   // values returned by IN instructions
+let ioOut  = new Uint8Array(256);   // values written by OUT instructions
+let ioOutTouched = new Set();       // which output ports have been written
 
 // ── 7-segment encoding ─────────────────────────────────────────────────
 const SEG7 = [63,6,91,79,102,109,125,7,127,111,119,124,57,94,121,113];
@@ -409,8 +412,8 @@ function stepOne() {
 
     // ── EI/DI/RIM/SIM/IN/OUT ─────────────────────────────────────────
     case 0xFB: case 0xF3: case 0x20: case 0x30: break; // stubs
-    case 0xDB: regs.a=0; inc=2; break; // IN
-    case 0xD3: inc=2; break; // OUT
+    case 0xDB: { const port = memR(pc+1); regs.a = ioIn[port]; inc=2; break; } // IN port
+    case 0xD3: { const port = memR(pc+1); ioOut[port] = regs.a; ioOutTouched.add(port); inc=2; break; } // OUT port
 
     default: break; // invalid - skip
   }
@@ -696,7 +699,16 @@ export function simInit() {
   breakpoints = new Set();
   leds.fill(0);
   lastError = '';
+  ioOut.fill(0); ioOutTouched.clear();
+  // ioIn is intentionally NOT reset here — user presets survive a build
 }
+
+export function simSetInputPort(port, val) { ioIn[port & 0xFF] = val & 0xFF; }
+export function simClearInputPort(port)    { ioIn[port & 0xFF] = 0; }
+export function simGetOutputPorts() {
+  return [...ioOutTouched].sort((a,b)=>a-b).map(p => ({ port: p, val: ioOut[p] }))
+}
+export function simGetInputPort(port) { return ioIn[port & 0xFF]; }
 
 export function simReset() {
   regs = { a:0, b:0, c:0, d:0, e:0, h:0, l:0, flags:0, pc:DEFAULT_IP, sp:0 };
