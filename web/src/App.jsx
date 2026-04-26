@@ -1110,7 +1110,7 @@ function TracePanel({ trace, onClear }) {
           : trace.map((e, i) => (
             <div key={i} className="trace-row">
               <span className="trace-addr">{hex4(e.addr)}</span>
-              <span className="trace-text">{e.text.trim()}</span>
+              <span className="trace-text">{e.text.replace(/^[0-9A-Fa-f]{4}\s+(?:[0-9A-Fa-f]{2}\s+)+/, '').trim()}</span>
               {e.changedKeys.length > 0 &&
                 <span className="trace-delta">
                   {e.changedKeys.map(k => {
