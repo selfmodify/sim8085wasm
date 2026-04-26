@@ -1959,15 +1959,20 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
     return out
   }, [viewStart, buildId])
 
+  const hoveredRef = useRef(false)
+  const linesRef   = useRef(lines)
+  useEffect(() => { linesRef.current = lines }, [lines])
+
   useEffect(() => { setViewStart(regs.pc) }, [buildId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!lines.length) return
-    const lo = lines[0].addr
-    const hi = lines[lines.length - 1].addr
+    const ls = linesRef.current
+    if (!ls.length) return
+    const lo = ls[0].addr
+    const hi = ls[ls.length - 1].addr
     if (regs.pc < lo || regs.pc > hi) { setViewStart(regs.pc); return }
     curRowRef.current?.scrollIntoView({ block: 'nearest' })
-  }, [regs.pc, lines])
+  }, [regs.pc]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!ctxMenu) return
@@ -1975,10 +1980,6 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
   }, [ctxMenu])
-
-  const hoveredRef = useRef(false)
-  const linesRef   = useRef(lines)
-  useEffect(() => { linesRef.current = lines }, [lines])
 
   useEffect(() => {
     const handler = (e) => {
