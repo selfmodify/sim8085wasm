@@ -1957,9 +1957,27 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
     return out
   }, [viewStart, buildId])
 
-  const hoveredRef = useRef(false)
-  const linesRef   = useRef(lines)
+  const hoveredRef  = useRef(false)
+  const linesRef    = useRef(lines)
+  const addrIdxRef  = useRef([])  // complete instruction address table, rebuilt on each build
   useEffect(() => { linesRef.current = lines }, [lines])
+
+  // Build a complete address index by scanning all memory from 0 on each build.
+  // Uninitialized RAM is 0x00 (NOP, 1 byte) so alignment from address 0 is always correct.
+  useEffect(() => {
+    const idx = []
+    let addr = 0
+    while (addr <= 0x3FFF) { idx.push(addr); const d = sim.simDisassemble(addr); addr += Math.max(1, d.len) }
+    addrIdxRef.current = idx
+  }, [buildId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Binary search: largest table index whose address value <= addr
+  const findIdx = useCallback((addr) => {
+    const idx = addrIdxRef.current
+    let lo = 0, hi = idx.length - 1
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (idx[mid] <= addr) lo = mid; else hi = mid - 1 }
+    return lo
+  }, [])
 
   useEffect(() => { setViewStart(regs.pc) }, [buildId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1972,9 +1990,8 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
       curRowRef.current?.scrollIntoView({ block: 'nearest' })
     } else if (regs.pc > hi && regs.pc - hi <= 6) {
       // PC just stepped past the bottom — advance one instruction at a time
-      setViewStart(lo => { const d = sim.simDisassemble(lo); return lo + Math.max(1, d.len) })
+      setViewStart(vs => { const i = findIdx(vs); return addrIdxRef.current[Math.min(addrIdxRef.current.length - 1, i + 1)] })
     } else {
-      // Far jump — hard reset to PC
       setViewStart(regs.pc)
     }
   }, [regs.pc]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1986,39 +2003,23 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
     return () => document.removeEventListener('mousedown', close)
   }, [ctxMenu])
 
-  // Scan backwards from `target` to find the nearest instruction boundary at or before it
-  const scanBack = useCallback((target, bytes) => {
-    const start = Math.max(0, target - bytes)
-    let addr = start
-    let prev = start
-    while (addr < target) { prev = addr; const d = sim.simDisassemble(addr); addr += Math.max(1, d.len) }
-    return prev
-  }, [])
-
   useEffect(() => {
     const handler = (e) => {
       if (!hoveredRef.current) return
       const ls = linesRef.current
+      const idx = addrIdxRef.current
+      const step = (vs, delta) => {
+        const i = findIdx(vs)
+        return idx[Math.max(0, Math.min(idx.length - 1, i + delta))]
+      }
       if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setViewStart(vs => { const d = sim.simDisassemble(vs); return Math.min(0x3FFF, vs + Math.max(1, d.len)) })
+        e.preventDefault(); setViewStart(vs => step(vs, 1))
       } else if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setViewStart(vs => scanBack(vs, 16))
+        e.preventDefault(); setViewStart(vs => step(vs, -1))
       } else if (e.key === 'PageDown') {
-        e.preventDefault()
-        setViewStart(vs => {
-          let addr = vs
-          const steps = Math.max(1, Math.floor(ls.length * 0.75))
-          for (let i = 0; i < steps && addr < 0x3FFF; i++) { const d = sim.simDisassemble(addr); addr += Math.max(1, d.len) }
-          return addr
-        })
+        e.preventDefault(); setViewStart(vs => step(vs, Math.max(1, Math.floor(ls.length * 0.75))))
       } else if (e.key === 'PageUp') {
-        e.preventDefault()
-        setViewStart(vs => {
-          const steps = Math.max(1, Math.floor(ls.length * 0.75))
-          return scanBack(vs, steps * 3)
-        })
+        e.preventDefault(); setViewStart(vs => step(vs, -Math.max(1, Math.floor(ls.length * 0.75))))
       } else if (e.key === 'Home') {
         e.preventDefault(); setViewStart(0)
       } else if (e.key === 'End') {
@@ -2027,7 +2028,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [scanBack])
+  }, [])
 
   return (
     <div className="panel disasm-panel">
