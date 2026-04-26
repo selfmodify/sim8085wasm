@@ -1544,7 +1544,7 @@ const PANEL_HELP_TEXT = {
   'SYMBOLS':          'Labels defined in your source code and their resolved addresses after a successful Build. Click a row to jump the memory view to that address.',
 }
 
-function PanelHelp({ panel }) {
+function PanelHelp({ panel, wide }) {
   const [show, setShow] = useState(false)
   const wrapRef = useRef(null)
   const text = PANEL_HELP_TEXT[panel]
@@ -1564,7 +1564,7 @@ function PanelHelp({ panel }) {
   return (
     <div className="panel-help-wrap" ref={wrapRef}>
       <button className="panel-help-btn" onClick={() => setShow(o => !o)} title="Panel help">?</button>
-      {show && <div className="panel-help-popup">{text}</div>}
+      {show && <div className={`panel-help-popup${wide ? ' panel-help-popup-wide' : ''}`}>{text}</div>}
     </div>
   )
 }
@@ -2362,7 +2362,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
         <button className={`mem-btn${showFill ? ' mem-btn-active' : ''}`}
           title="Fill memory range (toggle)"
           onClick={() => { setShowFill(s => !s); setShowSearch(false) }}>⊞</button>
-        <PanelHelp panel="MEMORY" />
+        <PanelHelp panel="MEMORY" wide />
         </div>
       </div>
       {showSearch && (
@@ -3598,14 +3598,15 @@ export default function App() {
         </div>
       </div>
       <div className="statusbar">
+        <span className="statusbar-label">LAST EVENT</span>
         {statusLog.length === 0
-          ? <span className="statusbar-empty">Ready</span>
-          : statusLog.slice().reverse().slice(0, 4).map((e, i) => (
-            <div key={i} className={`statusbar-entry sbar-${e.kind}`}>
+          ? <span className="statusbar-empty">—</span>
+          : (() => { const e = statusLog[statusLog.length - 1]; return (
+            <div className={`statusbar-entry sbar-${e.kind}`}>
               <span className="statusbar-time">{e.t}</span>
               <span className="statusbar-text">{e.text}</span>
             </div>
-          ))
+          )})()
         }
       </div>
       {showWelcome && <WelcomeModal onClose={dismissWelcome} />}
