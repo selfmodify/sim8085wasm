@@ -64,8 +64,44 @@ body {
 .brand-text { display: flex; flex-direction: column; line-height: 1.2 }
 .brand-title { font-weight: 600; font-size: 17px; color: var(--text) }
 .brand-sub { font-size: 12px; color: var(--text3); font-family: var(--mono) }
-.brand-gh { color: var(--accent); text-decoration: none }
-.brand-gh:hover { color: var(--accent2); text-decoration: underline }
+
+/* ── Brand menu ───────────────────────────────────────────────────── */
+.bmenu-wrap { position: relative }
+.bmenu-trigger {
+  border: none; cursor: pointer;
+  transition: opacity .15s;
+}
+.bmenu-trigger:hover { opacity: .85 }
+.bmenu-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: var(--bg1);
+  border: 1px solid var(--border2);
+  border-radius: 7px;
+  min-width: 200px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.6);
+  z-index: 200;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.bmenu-item {
+  background: none; border: none; text-align: left;
+  padding: 9px 14px;
+  font-size: 13px; color: var(--text);
+  cursor: pointer;
+  font-family: var(--sans);
+}
+.bmenu-item:hover { background: var(--bg3); color: var(--accent) }
+.bmenu-sep { height: 1px; background: var(--border); margin: 2px 0 }
+.bmenu-credits {
+  padding: 8px 14px 10px;
+  font-size: 11px;
+  color: var(--text3);
+  font-family: var(--mono);
+  line-height: 1.7;
+}
 
 .toolbar {
   display: flex;

@@ -965,6 +965,47 @@ function LedDisplay({ leds }) {
   )
 }
 
+// ── Brand menu ───────────────────────────────────────────────────────────
+function BrandMenu({ onShowWelcome }) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = e => { if (!wrapRef.current?.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  function item(label, action) {
+    return (
+      <button className="bmenu-item" onClick={() => { action(); setOpen(false) }}>
+        {label}
+      </button>
+    )
+  }
+
+  return (
+    <div className="bmenu-wrap" ref={wrapRef}>
+      <button className="brand-chip bmenu-trigger" onClick={() => setOpen(o => !o)} title="About">
+        8085
+      </button>
+      {open && (
+        <div className="bmenu-dropdown">
+          {item('📖  Welcome guide', onShowWelcome)}
+          {item('⭐  View on GitHub', () => window.open('https://github.com/selfmodify/sim8085wasm', '_blank'))}
+          <div className="bmenu-sep" />
+          <div className="bmenu-credits">
+            <div>8085 Simulator</div>
+            <div>Original: V. Kumar · 1995</div>
+            <div>Web port: 2025</div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Welcome modal ────────────────────────────────────────────────────────
 const WELCOME_FEATURES = [
   { icon: '✏️', title: 'Editor',        desc: 'Write 8085 assembly on the left. Hover any instruction for inline help, Ctrl+click for full details.' },
@@ -1275,10 +1316,10 @@ export default function App() {
       {/* ── Topbar ── */}
       <div className="topbar">
         <div className="brand">
-          <div className="brand-chip">8085</div>
+          <BrandMenu onShowWelcome={() => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) }} />
           <div className="brand-text">
             <span className="brand-title">Simulator</span>
-            <span className="brand-sub">original by V. Kumar · 1995 · ported to web · <a className="brand-gh" href="https://github.com/selfmodify/sim8085wasm" target="_blank" rel="noreferrer">GitHub</a></span>
+            <span className="brand-sub">Intel 8085 · click chip for menu</span>
           </div>
         </div>
 
