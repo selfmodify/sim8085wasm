@@ -1756,6 +1756,51 @@ function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput }) {
   )
 }
 
+// ── Example submenu ──────────────────────────────────────────────────────
+function ExampleMenu({ onLoad }) {
+  const [open, setOpen]         = useState(false)
+  const [activeCat, setActiveCat] = useState(null)
+  const wrapRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = e => { if (!wrapRef.current?.contains(e.target)) { setOpen(false); setActiveCat(null) } }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  return (
+    <div className="exmenu-wrap" ref={wrapRef}>
+      <button className="btn exmenu-trigger" onClick={() => setOpen(o => !o)}>
+        Examples <span className="exmenu-chevron">{open ? '▴' : '▾'}</span>
+      </button>
+      {open && (
+        <div className="exmenu-dropdown">
+          {Object.entries(EXAMPLES).map(([cat, programs]) => (
+            <div key={cat}
+              className={`exmenu-cat${activeCat === cat ? ' exmenu-cat-active' : ''}`}
+              onMouseEnter={() => setActiveCat(cat)}
+            >
+              <span>{cat}</span>
+              <span className="exmenu-arrow">▶</span>
+              {activeCat === cat && (
+                <div className="exmenu-sub">
+                  {Object.keys(programs).map(name => (
+                    <button key={name} className="exmenu-sub-item"
+                      onClick={() => { onLoad(`${cat}::${name}`); setOpen(false); setActiveCat(null) }}>
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Brand menu ───────────────────────────────────────────────────────────
 function BrandMenu({ onShowWelcome, onImport, onExport, onShare, onCalc }) {
   const [open, setOpen] = useState(false)
@@ -2304,16 +2349,7 @@ export default function App() {
         </div>
 
         <div className="toolbar">
-          <select className="ex-select" value="" onChange={e => { if(e.target.value) loadExample(e.target.value) }}>
-            <option value="" disabled>Load example…</option>
-            {Object.entries(EXAMPLES).map(([cat, programs]) => (
-              <optgroup key={cat} label={cat}>
-                {Object.keys(programs).map(name => (
-                  <option key={name} value={`${cat}::${name}`}>{name}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          <ExampleMenu onLoad={loadExample} />
           <input type="file" ref={fileInputRef} style={{display:'none'}} accept=".asm,.85,.s,.txt" onChange={importFile} />
           <button className="btn btn-asm"   onClick={() => doAssemble(srcRef.current)}>⚙ Build  <kbd>F5</kbd></button>
           <button className="btn btn-step"  onClick={doStep}  disabled={running || appState==='error'}>↓ Step  <kbd>F7</kbd></button>
