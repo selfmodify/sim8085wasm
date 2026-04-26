@@ -520,6 +520,9 @@ loop:
 const hex2 = n => (n >>> 0 & 0xFF).toString(16).toUpperCase().padStart(2,'0')
 const hex4 = n => (n >>> 0 & 0xFFFF).toString(16).toUpperCase().padStart(4,'0')
 
+const b64encode = str => btoa(Array.from(new TextEncoder().encode(str), b => String.fromCharCode(b)).join(''))
+const b64decode = b64 => { try { return new TextDecoder().decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0))) } catch { return null } }
+
 const SPEEDS = [
   { label:'Crawl', steps:1    },
   { label:'Slow',  steps:20   },
@@ -687,6 +690,7 @@ const PANEL_HELP_TEXT = {
   'WATCH':            'Monitor registers or memory addresses in real time. Type a name (A, BC, HL…) or a hex address (0200H) and press Enter or +. Values update after each step.',
   'CALCULATOR':       'Convert 16-bit values between binary, octal, decimal, and hex. Type in any field and the others update instantly — handy for working out immediate operands.',
   'I/O PORTS':        'Shows ports written by OUT instructions (output) and lets you preset values that IN will read (input). Input presets survive a Build; output clears on each Build.',
+  'SYMBOLS':          'Labels defined in your source code and their resolved addresses after a successful Build. Click a row to jump the memory view to that address.',
 }
 
 function PanelHelp({ panel }) {
@@ -722,6 +726,25 @@ function getInstWord(state, pos) {
   while (s > 0 && /[A-Za-z]/.test(text[s - 1])) s--
   while (e < text.length && /[A-Za-z]/.test(text[e])) e++
   return s < e ? text.slice(s, e).toUpperCase() : null
+}
+
+// ── Symbol table panel ───────────────────────────────────────────────────
+function SymbolPanel({ symbols, onJump }) {
+  const entries = Object.entries(symbols).sort((a, b) => a[1] - b[1])
+  if (!entries.length) return null
+  return (
+    <div className="panel sym-panel">
+      <div className="panel-hd">SYMBOLS<PanelHelp panel="SYMBOLS" /></div>
+      <div className="sym-list">
+        {entries.map(([name, addr]) => (
+          <div key={name} className="sym-row" onClick={() => onJump(addr & 0xFFF0)} title={`Jump memory to ${hex4(addr)}H`}>
+            <span className="sym-name">{name}</span>
+            <span className="sym-addr">{hex4(addr)}H</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 // ── 7-segment LED digit ──────────────────────────────────────────────────
@@ -1023,8 +1046,9 @@ function FlagPanel({ regs }) {
 }
 
 // ── Disassembly panel ────────────────────────────────────────────────────
-function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine, buildId }) {
+function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine, buildId, onRunTo }) {
   const [viewStart, setViewStart] = useState(() => regs.pc)
+  const [ctxMenu, setCtxMenu] = useState(null)  // {addr, x, y}
 
   const lines = useMemo(() => {
     const out = []
@@ -1037,16 +1061,21 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
     return out
   }, [viewStart, buildId])
 
-  // After a build snap the view to the new entry point
   useEffect(() => { setViewStart(regs.pc) }, [buildId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // While stepping/running: scroll only when PC leaves the visible range
   useEffect(() => {
     if (!lines.length) return
     const lo = lines[0].addr
     const hi = lines[lines.length - 1].addr
     if (regs.pc < lo || regs.pc > hi) setViewStart(regs.pc)
   }, [regs.pc, lines])
+
+  useEffect(() => {
+    if (!ctxMenu) return
+    const close = () => setCtxMenu(null)
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [ctxMenu])
 
   return (
     <div className="panel disasm-panel">
@@ -1061,6 +1090,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
               key={row.addr}
               className={`disasm-row${cur ? ' cur' : ''}${bp ? ' bp' : ''}`}
               onClick={() => onGotoLine?.(row.addr)}
+              onContextMenu={e => { e.preventDefault(); setCtxMenu({ addr: row.addr, x: e.clientX, y: e.clientY }) }}
             >
               <span className="disasm-bp"
                 title={bp ? (cond ? `Condition: ${cond} — right-click to edit` : 'Breakpoint — right-click to add condition') : 'Click to set breakpoint'}
@@ -1076,12 +1106,23 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
           )
         })}
       </div>
+      {ctxMenu && (
+        <div className="ctx-menu" style={{ left: ctxMenu.x, top: ctxMenu.y }}
+          onMouseDown={e => e.stopPropagation()}>
+          <button className="ctx-menu-item" onClick={() => { onRunTo?.(ctxMenu.addr); setCtxMenu(null) }}>
+            ▶ Run to {hex4(ctxMenu.addr)}H
+          </button>
+          <button className="ctx-menu-item" onClick={() => { onToggleBp(ctxMenu.addr); setCtxMenu(null) }}>
+            {breakpoints.has(ctxMenu.addr) ? '○ Remove BP' : '● Set BP'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
 // ── Memory dump panel ────────────────────────────────────────────────────
-function MemPanel({ memStart, onJump, regs, buildId, changedAddrs }) {
+function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion, presetAddrs }) {
   const [mem, setMem] = useState(new Uint8Array(128))
   const [editing, setEditing] = useState(null)
   const [editBuf, setEditBuf] = useState('')
@@ -1205,6 +1246,8 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs }) {
                     const isPC     = addr === regs.pc
                     const isSP     = addr === regs.sp
                     const isCursor = addr === cursor
+                    const isCode   = !isPC && !isSP && programRegion && addr >= programRegion.start && addr < programRegion.end
+                    const isPreset = !isPC && !isSP && !isCode && presetAddrs?.has(addr)
                     if (editing === addr)
                       return (
                         <td key={col} className="mem-cell editing">
@@ -1217,7 +1260,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs }) {
                       )
                     return (
                       <td key={col}
-                        className={`mem-cell${isPC?' mem-pc':''}${isSP?' mem-sp':''}${isCursor?' mem-cursor':''}${val?' mem-nz':''}${changedAddrs?.has(addr)?' mem-diff':''}`}
+                        className={`mem-cell${isPC?' mem-pc':''}${isSP?' mem-sp':''}${isCode?' mem-code':''}${isPreset?' mem-preset':''}${isCursor?' mem-cursor':''}${val?' mem-nz':''}${changedAddrs?.has(addr)?' mem-diff':''}`}
                         title={`${hex4(addr)}: ${hex2(val)}H = ${val}`}
                         onClick={()=>setCursor(addr)}
                         onDoubleClick={()=>{setEditing(addr);setEditBuf(hex2(val))}}
@@ -1233,6 +1276,8 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs }) {
       <div className="mem-legend">
         <span className="legend-pc">■</span> PC &nbsp;
         <span className="legend-sp">■</span> SP &nbsp;
+        <span className="legend-code">■</span> Code &nbsp;
+        <span className="legend-preset">■</span> Data &nbsp;
         <span className="legend-tip">double-click to edit · click + ↑↓ PgUp/Dn to scroll</span>
       </div>
     </div>
@@ -1813,7 +1858,15 @@ function HelpPanel({ instruction }) {
 
 // ── Root app ─────────────────────────────────────────────────────────────
 export default function App() {
-  const [src, setSrc]           = useState(EXAMPLES['I/O']['LED Scroll'])
+  const [src, setSrc]           = useState(() => {
+    try {
+      const hash = location.hash
+      if (hash.startsWith('#code=')) { const d = b64decode(hash.slice(6)); if (d) return d }
+      const saved = localStorage.getItem('sim8085_program')
+      if (saved) return saved
+    } catch {}
+    return EXAMPLES['I/O']['LED Scroll']
+  })
   const [regs, setRegs]         = useState({a:0,b:0,c:0,d:0,e:0,h:0,l:0,flags:0,pc:0x100,sp:0,flagS:0,flagZ:0,flagAC:0,flagP:0,flagCY:0,halted:false,hasError:false})
   const [prevRegs, setPrev]     = useState(null)
   const [leds, setLeds]         = useState(Array(8).fill(0))
@@ -1827,7 +1880,11 @@ export default function App() {
   const [appState, setAppState] = useState('idle')  // idle | running | halted | error
   const [msg, setMsg]           = useState('Load an example or write code, then click Build.')
   const [steps, setSteps]       = useState(0)
+  const [cycles, setCycles]     = useState(0)
   const [buildId, setBuildId]   = useState(0)
+  const [symbols, setSymbols]   = useState({})
+  const [programRegion, setProgramRegion] = useState(null)
+  const [presetAddrs, setPresetAddrs]     = useState(new Set())
   const [cursorInst, setCursorInst] = useState(null)
   const [helpInst, setHelpInst]     = useState(null)
   const [errorLine, setErrorLine]   = useState(null)
@@ -1840,6 +1897,8 @@ export default function App() {
   const editorColRef = useRef(null)
   const rightColRef  = useRef(null)
   const gotoLineRef  = useRef(null)
+  const fileInputRef = useRef(null)
+  const oneShotBpsRef = useRef(new Set())
   const [addrLineMap, setAddrLineMap] = useState(new Map())
   const srcRef      = useRef(src)
   const speedRef    = useRef(3)
@@ -1848,6 +1907,11 @@ export default function App() {
   const prevMemRef  = useRef(null)
 
   useEffect(() => { bpsRef.current = bps }, [bps])
+
+  useEffect(() => {
+    const t = setTimeout(() => { try { localStorage.setItem('sim8085_program', src) } catch {} }, 1000)
+    return () => clearTimeout(t)
+  }, [src])
 
   function onEditorResizeDown(e) {
     e.preventDefault()
@@ -1899,6 +1963,7 @@ export default function App() {
     const r = sim.simGetRegisters()
     setRegs(old => { setPrev(old); return r })
     setLeds(sim.simGetAllLeds())
+    setCycles(sim.simGetCycles())
   }
 
   function refreshOutputPorts() {
@@ -1923,12 +1988,18 @@ export default function App() {
         const m = res.errorMsg?.match(/^Line (\d+)/)
         setErrorLine(m ? parseInt(m[1]) : null)
         setAddrLineMap(new Map())
+        setSymbols({})
+        setProgramRegion(null)
+        setPresetAddrs(new Set())
         setAppState('error')
         setMsg(`✗ ${res.errorMsg}`)
       } else {
         setErrorLine(null)
         setAppState('idle')
         setAddrLineMap(buildAddrLineMap(code))
+        setSymbols(sim.simGetSymbols())
+        setProgramRegion(sim.simGetProgramRegion())
+        setPresetAddrs(sim.simGetPresetAddrs())
         const t = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})
         setMsg(`✓ ${res.bytesEmitted}B at ${hex4(res.entryPoint)}H — ready  ${t}`)
       }
@@ -1990,6 +2061,13 @@ export default function App() {
         if (cond != null && !evalCondition(cond, r)) {
           sim.simStep()
           return
+        }
+        // Clean up one-shot breakpoints
+        if (oneShotBpsRef.current.size > 0) {
+          const next = new Map(bpsRef.current)
+          for (const addr of oneShotBpsRef.current) next.delete(addr)
+          oneShotBpsRef.current.clear()
+          syncBps(next)
         }
         stopRun()
         setAppState(sim.simIsHalted() ? 'halted' : 'error')
@@ -2054,6 +2132,47 @@ export default function App() {
     syncBps(next)
   }
 
+  function exportFile() {
+    const blob = new Blob([srcRef.current], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'program.asm'
+    document.body.appendChild(a); a.click()
+    document.body.removeChild(a); URL.revokeObjectURL(url)
+  }
+
+  function importFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const code = ev.target.result
+      srcRef.current = code; setSrc(code); doAssemble(code)
+      e.target.value = ''
+    }
+    reader.readAsText(file)
+  }
+
+  function shareURL() {
+    const encoded = b64encode(srcRef.current)
+    const base = location.href.split('#')[0]
+    const url = `${base}#code=${encoded}`
+    navigator.clipboard.writeText(url)
+      .then(() => setMsg('✓ URL copied to clipboard!'))
+      .catch(() => window.prompt('Copy this URL:', url))
+  }
+
+  function runToAddr(addr) {
+    if (appState === 'error') return
+    if (!bpsRef.current.has(addr)) {
+      oneShotBpsRef.current.add(addr)
+      const next = new Map(bpsRef.current)
+      next.set(addr, null)
+      syncBps(next)
+    }
+    startRun()
+  }
+
   function loadExample(key) {
     const sep  = key.indexOf('::')
     const code = EXAMPLES[key.slice(0, sep)]?.[key.slice(sep + 2)]
@@ -2101,6 +2220,10 @@ export default function App() {
               </optgroup>
             ))}
           </select>
+          <input type="file" ref={fileInputRef} style={{display:'none'}} accept=".asm,.s,.txt" onChange={importFile} />
+          <button className="btn btn-file" onClick={() => fileInputRef.current.click()} title="Import .asm file">⇡ Import</button>
+          <button className="btn btn-file" onClick={exportFile} title="Save .asm file">⇣ Export</button>
+          <button className="btn btn-share" onClick={shareURL} title="Copy shareable URL">⎘ Share</button>
           <button className="btn btn-asm"   onClick={() => doAssemble(srcRef.current)}>⚙ Build  <kbd>F5</kbd></button>
           <button className="btn btn-step"  onClick={doStep}  disabled={running || appState==='error'}>↓ Step  <kbd>F7</kbd></button>
           <button className="btn btn-back"  onClick={doStepBack} disabled={running || appState==='error' || histLen === 0} title="Undo last step">⟲ Back</button>
@@ -2127,6 +2250,7 @@ export default function App() {
             </span>
           )}
           {steps > 0 && <span className="status-steps">{steps.toLocaleString()} steps</span>}
+          {cycles > 0 && <span className="status-cycles">{cycles.toLocaleString()} T</span>}
         </div>
       </div>
 
@@ -2156,6 +2280,7 @@ export default function App() {
         <div className="col col-center">
           <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} buildId={buildId}
             onSetCondition={openConditionDialog}
+            onRunTo={runToAddr}
             onGotoLine={addr => { const ln = addrLineMap.get(addr); if (ln) gotoLineRef.current?.(ln) }} />
           <ChatPanel regs={regs} src={src} />
           <MemPanel
@@ -2164,6 +2289,8 @@ export default function App() {
             regs={regs}
             buildId={buildId}
             changedAddrs={changedAddrs}
+            programRegion={programRegion}
+            presetAddrs={presetAddrs}
           />
           <div className="jump-row">
             <button className="btn btn-xs" onClick={()=>setMemStart(regs.pc & 0xFFF0)}>→ PC</button>
@@ -2180,6 +2307,7 @@ export default function App() {
             regBase={regBase} onRegBase={setRegBase} onEdit={refresh} />
           <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh} />
           <FlagPanel  regs={regs} />
+          <SymbolPanel symbols={symbols} onJump={setMemStart} />
           <StackPanel regs={regs} />
           <TracePanel trace={trace} onClear={() => setTrace([])} />
           <WatchPanel watches={watches} regs={regs}

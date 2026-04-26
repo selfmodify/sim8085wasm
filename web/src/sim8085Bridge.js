@@ -30,6 +30,36 @@ let lastError = '';
 let ioIn   = new Uint8Array(256);   // values returned by IN instructions
 let ioOut  = new Uint8Array(256);   // values written by OUT instructions
 let ioOutTouched = new Set();       // which output ports have been written
+let lastSymbols     = {}
+let cycles          = 0
+let lastProgStart   = DEFAULT_IP
+let lastProgEnd     = DEFAULT_IP
+let lastPresetAddrs = new Set()
+
+// ── T-state table (approximate; conditionals use "taken" cost) ─────────
+const TSTATES = (() => {
+  const t = new Uint8Array(256).fill(4)
+  for (const op of [0x06,0x0E,0x16,0x1E,0x26,0x2E,0x3E,
+                    0xC6,0xCE,0xD6,0xDE,0xE6,0xEE,0xF6,0xFE]) t[op] = 7
+  t[0x36]=10; t[0x34]=10; t[0x35]=10           // MVI M / INR M / DCR M
+  for (let r=0; r<8; r++) if (r!==6) { t[0x40|(r<<3)|6]=7; t[0x70|r]=7 }
+  for (const op of [0x86,0x8E,0x96,0x9E,0xA6,0xAE,0xB6,0xBE]) t[op]=7
+  for (const op of [0x01,0x11,0x21,0x31]) t[op]=10
+  for (const op of [0x03,0x13,0x23,0x33,0x0B,0x1B,0x2B,0x3B]) t[op]=6
+  for (const op of [0x09,0x19,0x29,0x39]) t[op]=10
+  for (const op of [0x0A,0x1A,0x02,0x12]) t[op]=7
+  t[0x3A]=13; t[0x32]=13; t[0x2A]=16; t[0x22]=16
+  for (const op of [0xC5,0xD5,0xE5,0xF5]) t[op]=12
+  for (const op of [0xC1,0xD1,0xE1,0xF1]) t[op]=10
+  t[0xE3]=16; t[0xF9]=6; t[0xE9]=6
+  for (const op of [0xC3,0xC2,0xCA,0xD2,0xDA,0xE2,0xEA,0xF2,0xFA]) t[op]=10
+  for (const op of [0xCD,0xC4,0xCC,0xD4,0xDC,0xE4,0xEC,0xF4,0xFC]) t[op]=18
+  t[0xC9]=10
+  for (const op of [0xC0,0xC8,0xD0,0xD8,0xE0,0xE8,0xF0,0xF8]) t[op]=12
+  for (let r=0; r<8; r++) t[0xC7|(r<<3)]=12
+  t[0x76]=5; t[0xDB]=10; t[0xD3]=10
+  return t
+})()
 
 // ── 7-segment encoding ─────────────────────────────────────────────────
 const SEG7 = [63,6,91,79,102,109,125,7,127,111,119,124,57,94,121,113];
@@ -115,6 +145,7 @@ function stepOne() {
     push16((pc + 3) & 0xFFFF);
     systemCall();
     regs.pc = pop16();
+    cycles += TSTATES[0xCD]
     return !(status & (HALTED|QUIT|SEVERE_ERROR));
   }
 
@@ -418,6 +449,7 @@ function stepOne() {
     default: break; // invalid - skip
   }
 
+  cycles += TSTATES[op]
   regs.pc = (pc + inc) & 0xFFFF;
   return !(status & (HALTED|QUIT|SEVERE_ERROR));
 }
@@ -438,6 +470,7 @@ function assemble(source) {
   const labels = {};
   const patches = []; // {addr, label, line}
   const errors = [];
+  const presetAddrs = new Set();
 
   // Tokenizer
   function tokenize(line) {
@@ -530,14 +563,14 @@ function assemble(source) {
       const adrTok = next(); expect('comma'); const valTok = next();
       const a = typeof parseNum(adrTok)!=='number' ? parseInt(adrTok.val,16) : parseNum(adrTok);
       const v = parseNum(valTok, lineNo);
-      if (typeof v==='number') ram[a & 0xFFFF] = v & 0xFF;
+      if (typeof v==='number') { ram[a & 0xFFFF] = v & 0xFF; presetAddrs.add(a & 0xFFFF); }
       continue;
     }
     if (mnem==='SETWORD') {
       const adrTok = next(); expect('comma'); const valTok = next();
       const a = typeof parseNum(adrTok)!=='number' ? parseInt(adrTok.val,16) : parseNum(adrTok);
       const v = parseNum(valTok, lineNo);
-      if (typeof v==='number') { ram[a]=v&0xFF; ram[a+1]=(v>>8)&0xFF; }
+      if (typeof v==='number') { ram[a]=v&0xFF; ram[a+1]=(v>>8)&0xFF; presetAddrs.add(a&0xFFFF); presetAddrs.add((a+1)&0xFFFF); }
       continue;
     }
 
@@ -687,6 +720,10 @@ function assemble(source) {
     return { ok: false, errorMsg: errors[0], errors };
   }
 
+  lastSymbols    = {...labels}
+  lastProgStart  = entryIP
+  lastProgEnd    = ptr
+  lastPresetAddrs = presetAddrs
   regs.pc = entryIP;
   return { ok: true, entryPoint: entryIP, bytesEmitted: ptr - entryIP, errors: [] };
 }
@@ -700,6 +737,8 @@ export function simInit() {
   leds.fill(0);
   lastError = '';
   ioOut.fill(0); ioOutTouched.clear();
+  lastSymbols = {}; cycles = 0
+  lastProgStart = DEFAULT_IP; lastProgEnd = DEFAULT_IP; lastPresetAddrs = new Set()
   // ioIn is intentionally NOT reset here — user presets survive a build
 }
 
@@ -766,10 +805,14 @@ export function simClearAllBreakpoints() { breakpoints.clear(); }
 export function simIsBreakpoint(addr)    { return breakpoints.has(addr); }
 export function simGetBreakpoints()      { return [...breakpoints]; }
 
-export function simGetAllLeds() { return [...leds]; }
-export function simIsHalted()   { return !!(status & (HALTED|QUIT)); }
-export function simIsRunning()  { return !(status & (HALTED|QUIT|SEVERE_ERROR)); }
-export function simGetError()   { return lastError; }
+export function simGetAllLeds()       { return [...leds]; }
+export function simIsHalted()         { return !!(status & (HALTED|QUIT)); }
+export function simIsRunning()        { return !(status & (HALTED|QUIT|SEVERE_ERROR)); }
+export function simGetError()         { return lastError; }
+export function simGetSymbols()       { return {...lastSymbols} }
+export function simGetCycles()        { return cycles }
+export function simGetProgramRegion() { return { start: lastProgStart, end: lastProgEnd } }
+export function simGetPresetAddrs()   { return new Set(lastPresetAddrs) }
 
 export function simSetRegisters(r) {
   const c8  = v => Math.max(0, Math.min(255,   v | 0))
