@@ -1938,6 +1938,7 @@ function FlagPanel({ regs }) {
 function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine, buildId, onRunTo, jumpRef, symbols, onJumpMem }) {
   const [viewStart, setViewStart] = useState(() => regs.pc)
   const [ctxMenu, setCtxMenu] = useState(null)  // {addr, x, y}
+  const curRowRef = useRef(null)
 
   useEffect(() => { if (jumpRef) jumpRef.current = setViewStart }, [jumpRef])
 
@@ -1950,7 +1951,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
   const lines = useMemo(() => {
     const out = []
     let addr = viewStart
-    for (let i = 0; i < 20 && addr < 0x4000; i++) {
+    for (let i = 0; i < 100 && addr < 0x4000; i++) {
       const d = sim.simDisassemble(addr)
       out.push({ addr, ...d })
       addr += Math.max(1, d.len)
@@ -1964,7 +1965,8 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
     if (!lines.length) return
     const lo = lines[0].addr
     const hi = lines[lines.length - 1].addr
-    if (regs.pc < lo || regs.pc > hi) setViewStart(regs.pc)
+    if (regs.pc < lo || regs.pc > hi) { setViewStart(regs.pc); return }
+    curRowRef.current?.scrollIntoView({ block: 'nearest' })
   }, [regs.pc, lines])
 
   useEffect(() => {
@@ -1993,6 +1995,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
               </div>
             )}
             <div
+              ref={cur ? curRowRef : null}
               className={`disasm-row${cur ? ' cur' : ''}${bp ? ' bp' : ''}${row.mnem === 'ASSERT' ? ' assert' : ''}`}
               onClick={() => onGotoLine?.(row.addr)}
               onContextMenu={e => { e.preventDefault(); setCtxMenu({ addr: row.addr, x: e.clientX, y: e.clientY }) }}
