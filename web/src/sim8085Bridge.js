@@ -466,7 +466,11 @@ function assemble(source) {
         else if (upper.endsWith('B')) num = parseInt(upper.slice(0,-1),2);
         else if (upper.endsWith('D')) num = parseInt(upper.slice(0,-1),10);
         else num = parseInt(upper,16);
-        tokens.push({type:'num', val: isNaN(num)?0:num, raw:tok});
+        if (!isNaN(num)) {
+          tokens.push({type:'num', val: num, raw:tok});
+        } else {
+          tokens.push({type:'id', val:upper, raw:tok});
+        }
       } else {
         tokens.push({type:'id', val:upper, raw:tok});
       }
