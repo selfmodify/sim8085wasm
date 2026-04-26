@@ -988,8 +988,8 @@ function BrandMenu({ onShowWelcome }) {
   return (
     <div className="bmenu-wrap" ref={wrapRef}>
       <button className="brand-chip bmenu-trigger" onClick={() => setOpen(o => !o)} title="About">
-        8085
-      </button>
+        8085 <span className="brand-chevron">▾</span>
+</button>
       {open && (
         <div className="bmenu-dropdown">
           {item('📖  Welcome guide', onShowWelcome)}
