@@ -919,7 +919,7 @@ export function simDisassemble(addr) {
     }
     return {
       text: `${h(addr,4)}  DD ${h(sub)}         ${mnemText}`,
-      len, addr, mnem: 'ASSERT',
+      len, addr, mnem: 'ASSERT', cycles: 0,
     };
   }
 
@@ -979,6 +979,6 @@ export function simDisassemble(addr) {
   if (len===3) operand = h(b2)+h(b1)+'H';
   return {
     text: `${h(addr,4)}  ${h(op)}${len>1?' '+h(b1):'   '}${len>2?' '+h(b2):'   '}  ${name}${operand}`,
-    len, addr, mnem: name.trim(),
+    len, addr, mnem: name.trim(), cycles: TSTATES[op],
   };
 }

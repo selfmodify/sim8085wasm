@@ -2,6 +2,7 @@
 import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration } from '@codemirror/view'
 import { EditorState, StateEffect, StateField } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { search, searchKeymap } from '@codemirror/search'
 import { oneDark } from '@codemirror/theme-one-dark'
 import * as sim from './sim8085Bridge.js'
 import './App.css'
@@ -1600,14 +1601,17 @@ function SevenSeg({ value }) {
 }
 
 // ── CodeMirror editor ────────────────────────────────────────────────────
-function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, gotoRef }) {
-  const elRef    = useRef(null)
-  const viewRef  = useRef(null)
-  const syncing  = useRef(false)
-  const cursorCb = useRef(onCursorInstruction)
-  const detailCb = useRef(onInstructionDetail)
-  useEffect(() => { cursorCb.current = onCursorInstruction }, [onCursorInstruction])
-  useEffect(() => { detailCb.current = onInstructionDetail }, [onInstructionDetail])
+function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, gotoRef, onRunTo, lineAddrRef }) {
+  const elRef      = useRef(null)
+  const viewRef    = useRef(null)
+  const syncing    = useRef(false)
+  const cursorCb   = useRef(onCursorInstruction)
+  const detailCb   = useRef(onInstructionDetail)
+  const onRunToRef = useRef(onRunTo)
+  const [editorCtx, setEditorCtx] = useState(null)  // {addr, x, y}
+  useEffect(() => { cursorCb.current   = onCursorInstruction }, [onCursorInstruction])
+  useEffect(() => { detailCb.current   = onInstructionDetail }, [onInstructionDetail])
+  useEffect(() => { onRunToRef.current = onRunTo },             [onRunTo])
 
   useEffect(() => {
     if (!viewRef.current) return
@@ -1622,7 +1626,8 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
           history(),
           lineNumbers(),
           highlightActiveLine(),
-          keymap.of([...defaultKeymap, ...historyKeymap]),
+          search({ top: true }),
+          keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
           oneDark,
           errorLineField,
           EditorView.theme({
@@ -1630,6 +1635,9 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
             '.cm-scroller': { overflow:'auto' },
             '.cm-content': { padding:'8px 0', minHeight:'100%' },
             '.cm-error-line': { background: 'rgba(255,60,60,0.18)' },
+            '.cm-search': { background:'#1a1a2e', borderTop:'1px solid #333', padding:'4px 8px', gap:'6px' },
+            '.cm-search input': { background:'#111', border:'1px solid #444', color:'#e0e0e0', borderRadius:'3px', padding:'2px 6px' },
+            '.cm-button': { background:'#2a2a3e', border:'1px solid #555', color:'#ccc', borderRadius:'3px', padding:'2px 8px', cursor:'pointer' },
           }),
           EditorView.updateListener.of(u => {
             if (u.docChanged && !syncing.current) onChange(u.state.doc.toString())
@@ -1646,7 +1654,18 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
               const word = getInstWord(view.state, pos)
               if (word && INST_HELP[word]) { detailCb.current?.(word); return true }
               return false
-            }
+            },
+            contextmenu(e, view) {
+              if (!onRunToRef.current || !lineAddrRef?.current) return false
+              const pos = view.posAtCoords({ x: e.clientX, y: e.clientY })
+              if (pos == null) return false
+              const lineNum = view.state.doc.lineAt(pos).number
+              const addr = lineAddrRef.current.get(lineNum)
+              if (addr === undefined) return false
+              e.preventDefault()
+              setEditorCtx({ addr, x: e.clientX, y: e.clientY })
+              return true
+            },
           }),
         ],
       }),
@@ -1670,7 +1689,7 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
       } catch {}
     }
     return () => view.destroy()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync value from outside (example load) without re-creating the editor
   const lastVal = useRef(value)
@@ -1684,7 +1703,26 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
     syncing.current = false
   }, [value])
 
-  return <div ref={elRef} className="editor-inner" />
+  useEffect(() => {
+    if (!editorCtx) return
+    const close = () => setEditorCtx(null)
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [editorCtx])
+
+  return (
+    <div style={{ position:'relative', height:'100%' }}>
+      <div ref={elRef} className="editor-inner" />
+      {editorCtx && (
+        <div className="ctx-menu" style={{ left: editorCtx.x, top: editorCtx.y }}
+          onMouseDown={e => e.stopPropagation()}>
+          <button className="ctx-menu-item" onClick={() => { onRunToRef.current?.(editorCtx.addr); setEditorCtx(null) }}>
+            ▶ Run to {hex4(editorCtx.addr)}H
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── Register panel ───────────────────────────────────────────────────────
@@ -1700,12 +1738,23 @@ function fmtWord(v, base) {
 }
 const BASE_CYCLE = ['hex', 'dec', 'bin']
 
+function useCopy() {
+  const [copied, setCopied] = useState(null)
+  const copy = useCallback((text) => {
+    navigator.clipboard?.writeText(text).catch(() => {})
+    setCopied(text)
+    setTimeout(() => setCopied(null), 1200)
+  }, [])
+  return [copied, copy]
+}
+
 function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
   const p = prev || {}
 
   function EditableRow({ name, val, prevVal, regKey, is16 }) {
     const [editing, setEditing] = useState(false)
     const [buf, setBuf] = useState('')
+    const [copied, copy] = useCopy()
     const changed = prevVal !== undefined && val !== prevVal
 
     function commit() {
@@ -1728,18 +1777,15 @@ function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }} />
       </div>
     )
+    const displayVal = is16 ? fmtWord(val, regBase) : fmtByte(val, regBase)
     return (
       <div className={`reg-row${is16 ? ' wide clickable' : ' clickable'}${changed ? ' changed' : ''}`}
-           title={is16 ? `Jump memory to ${hex4(val)}H  (click to edit)` : 'Click to edit'}
-           onClick={() => {
-             if (is16) onJump(val & 0xFFF0)
-             setBuf(is16 ? fmtWord(val, regBase) : fmtByte(val, regBase))
-             setEditing(true)
-           }}>
+           title={is16 ? `Jump memory to ${hex4(val)}H  (click to edit, right-click to copy)` : 'Click to edit, right-click to copy'}
+           onClick={() => { if (is16) onJump(val & 0xFFF0); setBuf(displayVal); setEditing(true) }}
+           onContextMenu={e => { e.preventDefault(); copy(displayVal) }}>
         <span className="reg-name">{name}</span>
-        <span className="reg-hex">{is16 ? fmtWord(val, regBase) : fmtByte(val, regBase)}</span>
-        {regBase === 'hex' && !is16 && <span className="reg-dec">{val}</span>}
-        {regBase === 'hex' &&  is16 && <span className="reg-dec">{val}</span>}
+        <span className="reg-hex">{copied !== null ? '✓' : displayVal}</span>
+        {regBase === 'hex' && copied === null && <span className="reg-dec">{val}</span>}
       </div>
     )
   }
@@ -1748,6 +1794,7 @@ function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
   function PairCell({ name, val, prevVal, regKey }) {
     const [editing, setEditing] = useState(false)
     const [buf, setBuf] = useState('')
+    const [copied, copy] = useCopy()
     const changed = prevVal !== undefined && val !== prevVal
 
     function commit() {
@@ -1766,13 +1813,15 @@ function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }} />
       </div>
     )
+    const displayVal = fmtByte(val, regBase)
     return (
       <div className={`reg-pair-cell clickable${changed ? ' changed' : ''}`}
-           title="Click to edit"
-           onClick={() => { setBuf(fmtByte(val, regBase)); setEditing(true) }}>
+           title="Click to edit, right-click to copy"
+           onClick={() => { setBuf(displayVal); setEditing(true) }}
+           onContextMenu={e => { e.preventDefault(); copy(displayVal) }}>
         <span className="reg-name">{name}</span>
-        <span className="reg-hex">{fmtByte(val, regBase)}</span>
-        {regBase === 'hex' && <span className="reg-dec">{val}</span>}
+        <span className="reg-hex">{copied !== null ? '✓' : displayVal}</span>
+        {regBase === 'hex' && copied === null && <span className="reg-dec">{val}</span>}
       </div>
     )
   }
@@ -1935,7 +1984,10 @@ function FlagPanel({ regs }) {
 // ── Disassembly panel ────────────────────────────────────────────────────
 function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine, buildId, onRunTo, jumpRef, symbols, onJumpMem }) {
   const [viewStart, setViewStart] = useState(() => regs.pc)
-  const [ctxMenu, setCtxMenu] = useState(null)  // {addr, x, y}
+  const [ctxMenu, setCtxMenu]     = useState(null)   // {addr, x, y}
+  const [followPC, setFollowPC]   = useState(true)
+  const [addrInput, setAddrInput] = useState('')
+  const [showBpList, setShowBpList] = useState(false)
   const curRowRef = useRef(null)
 
   useEffect(() => { if (jumpRef) jumpRef.current = setViewStart }, [jumpRef])
@@ -1983,6 +2035,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
   useEffect(() => { setViewStart(regs.pc) }, [buildId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    if (!followPC) return
     const ls = linesRef.current
     if (!ls.length) return
     const lo = ls[0].addr
@@ -1990,12 +2043,11 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
     if (regs.pc >= lo && regs.pc <= hi) {
       curRowRef.current?.scrollIntoView({ block: 'nearest' })
     } else if (regs.pc > hi && regs.pc - hi <= 6) {
-      // PC just stepped past the bottom — advance one instruction at a time
       setViewStart(vs => { const i = findIdx(vs); return addrIdxRef.current[Math.min(addrIdxRef.current.length - 1, i + 1)] })
     } else {
       setViewStart(regs.pc)
     }
-  }, [regs.pc]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [regs.pc, followPC]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!ctxMenu) return
@@ -2032,9 +2084,32 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
+  const bpList = useMemo(() => [...breakpoints.keys()].sort((a,b) => a-b), [breakpoints])
+
   return (
     <div className="panel disasm-panel">
-      <div className="panel-hd"><span className="panel-icon">📋</span>DISASSEMBLY<PanelHelp panel="DISASSEMBLY" /></div>
+      <div className="panel-hd">
+        <span className="panel-icon">📋</span>DISASSEMBLY
+        <div className="panel-hd-right">
+          <input className="disasm-addr-input" placeholder="addr" value={addrInput}
+            onChange={e => setAddrInput(e.target.value.toUpperCase())}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                const v = parseInt(addrInput, 16)
+                if (!isNaN(v)) { setViewStart(v & 0x3FFF); setFollowPC(false) }
+                setAddrInput('')
+              }
+              if (e.key === 'Escape') setAddrInput('')
+            }}
+            title="Jump to hex address (Enter)" />
+          <button className={`reg-base-btn${followPC ? ' active' : ''}`}
+            onClick={() => setFollowPC(f => !f)}
+            title={followPC ? 'Following PC — click to unlock' : 'Not following PC — click to lock'}>
+            {followPC ? 'PC↓' : 'PC·'}
+          </button>
+          <PanelHelp panel="DISASSEMBLY" />
+        </div>
+      </div>
       <div className="disasm-list" ref={listRef}
         onMouseEnter={() => { hoveredRef.current = true }}
         onMouseLeave={() => { hoveredRef.current = false }}>
@@ -2067,12 +2142,42 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
               </span>
               <span className="disasm-text">{row.text}</span>
               {cond && bp && <span className="disasm-cond">{cond}</span>}
+              {row.cycles > 0 && <span className="disasm-cycles">{row.cycles}T</span>}
               {cur && <span className="disasm-pc-arrow">◀</span>}
             </div>
             </div>
           )
         })}
       </div>
+
+      {bpList.length > 0 && (
+        <div className="bp-list-wrap">
+          <div className="bp-list-hd" onClick={() => setShowBpList(s => !s)}>
+            <span>● BREAKPOINTS ({bpList.length})</span>
+            <span>{showBpList ? '▴' : '▾'}</span>
+          </div>
+          {showBpList && (
+            <div className="bp-list">
+              {bpList.map(addr => {
+                const cond = breakpoints.get(addr)
+                return (
+                  <div key={addr} className="bp-list-row">
+                    <span className="bp-list-addr"
+                      onClick={() => { setViewStart(addr); setFollowPC(false) }}
+                      title="Click to jump disassembly here">
+                      {hex4(addr)}H
+                    </span>
+                    {cond && <span className="bp-list-cond" title={cond}>{cond}</span>}
+                    <button className="bp-list-del" title="Remove breakpoint"
+                      onClick={() => onToggleBp(addr)}>✕</button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {ctxMenu && (
         <div className="ctx-menu" style={{ left: ctxMenu.x, top: ctxMenu.y }}
           onMouseDown={e => e.stopPropagation()}>
@@ -2096,10 +2201,21 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
   const [rows, setRows] = useState(8)
   const [addrBuf, setAddrBuf] = useState(hex4(memStart))
   const [cursor, setCursor] = useState(memStart)
+  const [showSearch, setShowSearch] = useState(false)
+  const [showFill, setShowFill]     = useState(false)
+  const [searchVal, setSearchVal]   = useState('')
+  const [searchMatches, setSearchMatches] = useState([])
+  const [searchIdx, setSearchIdx]   = useState(0)
+  const [fillFrom, setFillFrom]     = useState('')
+  const [fillTo, setFillTo]         = useState('')
+  const [fillVal, setFillVal]       = useState('')
+  const [searchRan, setSearchRan]   = useState(false)
   const addrFocused = useRef(false)
   const COLS = 16
   const scrollRef = useRef(null)
   const panelRef  = useRef(null)
+
+  const searchMatchSet = useMemo(() => new Set(searchMatches), [searchMatches])
 
   useEffect(() => { if (!addrFocused.current) setAddrBuf(hex4(memStart)) }, [memStart])
 
@@ -2167,6 +2283,38 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
     if (e.key === 'PageDown')   { e.preventDefault(); moveCursor(+pageSize) }
   }
 
+  function runSearch() {
+    const v = parseInt(searchVal, 16)
+    if (isNaN(v)) return
+    const allMem = sim.simGetMemory(0, 0x4000)
+    const matches = []
+    for (let i = 0; i < 0x4000; i++) {
+      if (allMem[i] === (v & 0xFF)) matches.push(i)
+    }
+    setSearchMatches(matches)
+    setSearchIdx(0)
+    setSearchRan(true)
+    if (matches.length > 0) onJump(matches[0] & 0xFFF0)
+  }
+
+  function searchNav(dir) {
+    if (searchMatches.length === 0) return
+    const idx = (searchIdx + dir + searchMatches.length) % searchMatches.length
+    setSearchIdx(idx)
+    onJump(searchMatches[idx] & 0xFFF0)
+  }
+
+  function runFill() {
+    const from = parseInt(fillFrom, 16)
+    const to   = parseInt(fillTo, 16)
+    const val  = parseInt(fillVal, 16)
+    if (isNaN(from) || isNaN(to) || isNaN(val)) return
+    const start = Math.min(from, to) & 0x3FFF
+    const end   = Math.min(Math.max(from, to) & 0x3FFF, 0x3FFF)
+    for (let a = start; a <= end; a++) sim.simWriteByte(a, val & 0xFF)
+    refresh()
+  }
+
   return (
     <div className="panel mem-panel" ref={panelRef} tabIndex={0} onKeyDown={onPanelKey}>
       <div className="mem-resize-handle" onMouseDown={onHandleMouseDown} />
@@ -2192,9 +2340,46 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
           <button className="mem-btn" onClick={() => onJump(Math.min(0x3F00, memStart + COLS*rows))}>▶</button>
           <button className="mem-btn" title="Forward 4 pages" onClick={() => onJump(Math.min(0x3F00, memStart + COLS*rows*4))}>»</button>
         </span>
+        <button className={`mem-btn${showSearch ? ' mem-btn-active' : ''}`}
+          title="Find byte in memory (toggle)"
+          onClick={() => { setShowSearch(s => !s); setShowFill(false) }}>🔍</button>
+        <button className={`mem-btn${showFill ? ' mem-btn-active' : ''}`}
+          title="Fill memory range (toggle)"
+          onClick={() => { setShowFill(s => !s); setShowSearch(false) }}>⊞</button>
         <PanelHelp panel="MEMORY" />
         </div>
       </div>
+      {showSearch && (
+        <div className="mem-toolbar">
+          <span className="mem-toolbar-lbl">FIND</span>
+          <input className="mem-toolbar-input" placeholder="FF" maxLength={2} style={{width:36}}
+            value={searchVal}
+            onChange={e => { setSearchVal(e.target.value.toUpperCase()); setSearchRan(false) }}
+            onKeyDown={e => { if (e.key === 'Enter') runSearch() }}
+          />
+          <button className="mem-btn" onClick={runSearch}>Search</button>
+          {searchMatches.length > 0 && <>
+            <button className="mem-btn" onClick={() => searchNav(-1)}>◀</button>
+            <button className="mem-btn" onClick={() => searchNav(+1)}>▶</button>
+            <span className="mem-toolbar-count">{searchIdx+1}/{searchMatches.length}</span>
+          </>}
+          {searchRan && searchMatches.length === 0 && <span className="mem-toolbar-count">no match</span>}
+        </div>
+      )}
+      {showFill && (
+        <div className="mem-toolbar">
+          <span className="mem-toolbar-lbl">FILL</span>
+          <input className="mem-toolbar-input" placeholder="0000" maxLength={4} style={{width:46}}
+            value={fillFrom} onChange={e => setFillFrom(e.target.value.toUpperCase())} title="Start address" />
+          <span className="mem-toolbar-lbl">–</span>
+          <input className="mem-toolbar-input" placeholder="00FF" maxLength={4} style={{width:46}}
+            value={fillTo} onChange={e => setFillTo(e.target.value.toUpperCase())} title="End address" />
+          <span className="mem-toolbar-lbl">=</span>
+          <input className="mem-toolbar-input" placeholder="00" maxLength={2} style={{width:30}}
+            value={fillVal} onChange={e => setFillVal(e.target.value.toUpperCase())} title="Fill value" />
+          <button className="mem-btn" onClick={runFill}>Fill</button>
+        </div>
+      )}
       <div className="mem-scroll" ref={scrollRef}>
         <table className="mem-tbl">
           <thead>
@@ -2215,8 +2400,10 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
                     const isPC     = addr === regs.pc
                     const isSP     = addr === regs.sp
                     const isCursor = addr === cursor
-                    const isCode   = !isPC && !isSP && programRegion && addr >= programRegion.start && addr < programRegion.end
-                    const isPreset = !isPC && !isSP && !isCode && presetAddrs?.has(addr)
+                    const isCode     = !isPC && !isSP && programRegion && addr >= programRegion.start && addr < programRegion.end
+                    const isPreset   = !isPC && !isSP && !isCode && presetAddrs?.has(addr)
+                    const isMatchCur = searchMatches.length > 0 && addr === searchMatches[searchIdx]
+                    const isMatch    = !isMatchCur && searchMatchSet.has(addr)
                     if (editing === addr)
                       return (
                         <td key={col} className="mem-cell editing">
@@ -2229,7 +2416,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
                       )
                     return (
                       <td key={col}
-                        className={`mem-cell${isPC?' mem-pc':''}${isSP?' mem-sp':''}${isCode?' mem-code':''}${isPreset?' mem-preset':''}${isCursor?' mem-cursor':''}${val?' mem-nz':''}${changedAddrs?.has(addr)?' mem-diff':''}`}
+                        className={`mem-cell${isPC?' mem-pc':''}${isSP?' mem-sp':''}${isCode?' mem-code':''}${isPreset?' mem-preset':''}${isCursor?' mem-cursor':''}${val?' mem-nz':''}${changedAddrs?.has(addr)?' mem-diff':''}${isMatchCur?' mem-match-cur':''}${isMatch?' mem-match':''}`}
                         title={`${hex4(addr)}: ${hex2(val)}H = ${val}`}
                         onClick={()=>setCursor(addr)}
                         onDoubleClick={()=>{setEditing(addr);setEditBuf(hex2(val))}}
@@ -2951,6 +3138,7 @@ export default function App() {
   const editorColRef = useRef(null)
   const rightColRef  = useRef(null)
   const gotoLineRef  = useRef(null)
+  const lineAddrRef  = useRef(new Map())  // lineNumber → address (reverse of addrLineMap)
   const fileInputRef   = useRef(null)
   const oneShotBpsRef  = useRef(new Set())
   const disasmJumpRef  = useRef(null)
@@ -3066,6 +3254,7 @@ export default function App() {
         const m = res.errorMsg?.match(/^Line (\d+)/)
         setErrorLine(m ? parseInt(m[1]) : null)
         setAddrLineMap(new Map())
+        lineAddrRef.current = new Map()
         setSymbols({})
         setProgramRegion(null)
         setPresetAddrs(new Set())
@@ -3074,7 +3263,10 @@ export default function App() {
       } else {
         setErrorLine(null)
         setAppState('idle')
-        setAddrLineMap(buildAddrLineMap(code))
+        const alm = buildAddrLineMap(code)
+        setAddrLineMap(alm)
+        const rev = new Map(); for (const [addr, ln] of alm) rev.set(ln, addr)
+        lineAddrRef.current = rev
         setSymbols(sim.simGetSymbols())
         setProgramRegion(sim.simGetProgramRegion())
         setPresetAddrs(sim.simGetPresetAddrs())
@@ -3336,7 +3528,9 @@ export default function App() {
             <AsmEditor value={src} onChange={v => { srcRef.current = v; setSrc(v) }} gotoRef={gotoLineRef}
               onCursorInstruction={setCursorInst}
               onInstructionDetail={setHelpInst}
-              errorLine={errorLine} />
+              errorLine={errorLine}
+              onRunTo={runToAddr}
+              lineAddrRef={lineAddrRef} />
           </div>
           <HelpPanel instruction={cursorInst} />
           <LedDisplay leds={leds} />
