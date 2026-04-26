@@ -2421,10 +2421,10 @@ export default function App() {
             regBase={regBase} onRegBase={setRegBase} onEdit={refresh} />
           <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh} />
           <FlagPanel  regs={regs} />
-          <StackPanel regs={regs} />
-          <TracePanel trace={trace} onClear={() => setTrace([])} />
           <IOPortPanel outputPorts={outputPorts} inputPresets={inputPresets}
             onSetInput={setInputPort} onRemoveInput={removeInputPort} />
+          <StackPanel regs={regs} />
+          <TracePanel trace={trace} onClear={() => setTrace([])} />
         </div>
       </div>
       {showWelcome && <WelcomeModal onClose={dismissWelcome} />}
