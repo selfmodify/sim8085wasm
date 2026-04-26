@@ -2353,6 +2353,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
         <div className="mem-toolbar">
           <span className="mem-toolbar-lbl">FIND</span>
           <input className="mem-toolbar-input" placeholder="FF" maxLength={2} style={{width:36}}
+            autoFocus
             value={searchVal}
             onChange={e => { setSearchVal(e.target.value.toUpperCase()); setSearchRan(false) }}
             onKeyDown={e => { if (e.key === 'Enter') runSearch() }}
