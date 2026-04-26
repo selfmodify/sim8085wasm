@@ -1958,6 +1958,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
   }, [viewStart, buildId])
 
   const hoveredRef  = useRef(false)
+  const listRef     = useRef(null)
   const linesRef    = useRef(lines)
   const addrIdxRef  = useRef([])  // complete instruction address table, rebuilt on each build
   useEffect(() => { linesRef.current = lines }, [lines])
@@ -2012,14 +2013,15 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
         const i = findIdx(vs)
         return idx[Math.max(0, Math.min(idx.length - 1, i + delta))]
       }
+      const pageRows = listRef.current ? Math.max(1, Math.floor(listRef.current.clientHeight / 20) - 1) : 15
       if (e.key === 'ArrowDown') {
         e.preventDefault(); setViewStart(vs => step(vs, 1))
       } else if (e.key === 'ArrowUp') {
         e.preventDefault(); setViewStart(vs => step(vs, -1))
       } else if (e.key === 'PageDown') {
-        e.preventDefault(); setViewStart(vs => step(vs, Math.max(1, Math.floor(ls.length * 0.75))))
+        e.preventDefault(); setViewStart(vs => step(vs, pageRows))
       } else if (e.key === 'PageUp') {
-        e.preventDefault(); setViewStart(vs => step(vs, -Math.max(1, Math.floor(ls.length * 0.75))))
+        e.preventDefault(); setViewStart(vs => step(vs, -pageRows))
       } else if (e.key === 'Home') {
         e.preventDefault(); setViewStart(0)
       } else if (e.key === 'End') {
@@ -2033,7 +2035,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
   return (
     <div className="panel disasm-panel">
       <div className="panel-hd"><span className="panel-icon">📋</span>DISASSEMBLY<PanelHelp panel="DISASSEMBLY" /></div>
-      <div className="disasm-list"
+      <div className="disasm-list" ref={listRef}
         onMouseEnter={() => { hoveredRef.current = true }}
         onMouseLeave={() => { hoveredRef.current = false }}>
         {lines.map(row => {
