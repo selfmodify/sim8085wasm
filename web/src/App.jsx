@@ -1546,14 +1546,13 @@ function StackPanel({ regs }) {
   function onResizeDown(e) {
     e.preventDefault()
     const startY = e.clientY, startH = panelRef.current.getBoundingClientRect().height
-    const onMove = ev => { panelRef.current.style.height = Math.max(72, startH + (startY - ev.clientY)) + 'px' }
+    const onMove = ev => { panelRef.current.style.height = Math.max(72, startH + (ev.clientY - startY)) + 'px' }
     const onUp   = ()  => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
     document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
 
   return (
     <div className="panel stack-panel" ref={panelRef}>
-      <div className="stack-resize-handle" onMouseDown={onResizeDown} />
       <div className="panel-hd">
         <span className="panel-icon">📚</span>STACK
         <div className="panel-hd-right">
@@ -1573,6 +1572,7 @@ function StackPanel({ regs }) {
           ))
         }
       </div>
+      <div className="stack-resize-handle" onMouseDown={onResizeDown} />
     </div>
   )
 }

@@ -723,10 +723,9 @@ body {
 .stack-panel { padding: 4px 0 0; height: 180px; overflow: hidden; display: flex; flex-direction: column; flex-shrink: 0 }
 .stack-resize-handle {
   height: 5px; cursor: ns-resize; flex-shrink: 0;
-  background: linear-gradient(to bottom, var(--border2) 1px, transparent 1px);
-  margin-bottom: 2px;
+  background: linear-gradient(to top, var(--border2) 1px, transparent 1px);
 }
-.stack-resize-handle:hover { background: linear-gradient(to bottom, var(--accent) 1px, transparent 1px) }
+.stack-resize-handle:hover { background: linear-gradient(to top, var(--accent) 1px, transparent 1px) }
 .stack-body { flex: 1; overflow-y: auto; min-height: 0 }
 .sp-val { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--amber) }
 .stack-empty { color: var(--text3); font-family: var(--mono); font-size: 13px; padding: 6px 10px }
