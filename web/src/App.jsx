@@ -1526,7 +1526,7 @@ function fmtTraceVal(k, v) { return TRACE_REG16.has(k) ? hex4(v) : hex2(v) }
 
 // ── Panel help descriptions ──────────────────────────────────────────────
 const PANEL_HELP_TEXT = {
-  'EDITOR':           'Write 8085 assembly here. ORG sets the assembly address; KICKOFF sets the entry point. Hover any mnemonic for a quick summary; Ctrl+click for full docs.',
+  'EDITOR':           'Write 8085 assembly here. ORG sets the assembly address; KICKOFF sets the entry point. Ctrl+click any mnemonic for full docs.',
   'INSTRUCTION HELP': 'Shows documentation for the instruction under your cursor — flags affected, byte size, cycle count, and an example. Updates as you type.',
   'LED DISPLAY':      'Simulates the Intel SDK-85 7-segment display. Drive with CALL 5: C=02H writes a digit (B=field, HL→data), C=09H/0BH scrolls left inserting D, C=03H blanks fields.',
   'DISASSEMBLY':      'Live disassembly of RAM at the current PC. Click the gutter (·) to toggle a breakpoint (●); right-click a breakpoint to add a condition. Click a row to jump the editor to that source line.',
@@ -2781,7 +2781,7 @@ function BrandMenu({ onShowWelcome, onImport, onExport, onShare, onCalc }) {
 
 // ── Welcome modal ────────────────────────────────────────────────────────
 const WELCOME_FEATURES = [
-  { icon: '✏️', title: 'Editor',        desc: 'Write 8085 assembly on the left. Hover any instruction for inline help, Ctrl+click for full details.' },
+  { icon: '✏️', title: 'Editor',        desc: 'Write 8085 assembly on the left. Ctrl+click any instruction for full details.' },
   { icon: '▶',  title: 'Assemble & Run', desc: 'F5 assembles, F7 steps one instruction, F9 runs/pauses. Use the speed slider to control execution pace.' },
   { icon: '📋', title: 'Disassembly',   desc: 'The center column shows the assembled code. Click the gutter to set breakpoints; execution pauses there.' },
   { icon: '🧠', title: 'CPU State',     desc: 'Registers, flags, and register pairs update live. Click a pair to jump memory to its address. Values are editable.' },
@@ -2901,7 +2901,7 @@ function HelpPanel({ instruction }) {
             <pre className="help-ex">{inst.ex}</pre>
           </div>
         ) : (
-          <div className="help-empty">Hover over an instruction for details</div>
+          <div className="help-empty">Ctrl+click an instruction for details</div>
         )}
       </div>
     </div>
