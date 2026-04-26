@@ -713,21 +713,17 @@ body {
 .stack-val  { color: var(--text2); font-weight: 600 }
 .stack-row.stack-top .stack-val { color: var(--accent) }
 
-/* ── Symbol table ─────────────────────────────────────────────────── */
-.sym-panel { flex-shrink: 0 }
-.sym-list { max-height: 120px; overflow-y: auto }
-.sym-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 2px 10px;
+/* ── Disassembly label line ────────────────────────────────────────── */
+.disasm-label {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 11px;
+  color: var(--amber);
+  padding: 3px 8px 0 26px;
+  opacity: 0.85;
   cursor: pointer;
+  user-select: none;
 }
-.sym-row:hover { background: var(--bg2) }
-.sym-name { color: var(--accent); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.sym-addr { color: var(--amber); flex-shrink: 0; margin-left: 8px }
+.disasm-label:hover { opacity: 1; text-decoration: underline }
 
 /* ── Context menu ─────────────────────────────────────────────────── */
 .ctx-menu {

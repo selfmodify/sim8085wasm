@@ -728,24 +728,6 @@ function getInstWord(state, pos) {
   return s < e ? text.slice(s, e).toUpperCase() : null
 }
 
-// ── Symbol table panel ───────────────────────────────────────────────────
-function SymbolPanel({ symbols, onJump }) {
-  const entries = Object.entries(symbols).sort((a, b) => a[1] - b[1])
-  if (!entries.length) return null
-  return (
-    <div className="panel sym-panel">
-      <div className="panel-hd">SYMBOLS<PanelHelp panel="SYMBOLS" /></div>
-      <div className="sym-list">
-        {entries.map(([name, addr]) => (
-          <div key={name} className="sym-row" onClick={() => onJump(addr & 0xFFF0)} title={`Jump memory to ${hex4(addr)}H`}>
-            <span className="sym-name">{name}</span>
-            <span className="sym-addr">{hex4(addr)}H</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 // ── 7-segment LED digit ──────────────────────────────────────────────────
 function SevenSeg({ value }) {
@@ -1085,11 +1067,17 @@ function FlagPanel({ regs }) {
 }
 
 // ── Disassembly panel ────────────────────────────────────────────────────
-function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine, buildId, onRunTo, jumpRef }) {
+function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine, buildId, onRunTo, jumpRef, symbols, onJumpMem }) {
   const [viewStart, setViewStart] = useState(() => regs.pc)
   const [ctxMenu, setCtxMenu] = useState(null)  // {addr, x, y}
 
   useEffect(() => { if (jumpRef) jumpRef.current = setViewStart }, [jumpRef])
+
+  const addrToLabel = useMemo(() => {
+    const m = new Map()
+    for (const [name, addr] of Object.entries(symbols || {})) m.set(addr, name)
+    return m
+  }, [symbols])
 
   const lines = useMemo(() => {
     const out = []
@@ -1123,12 +1111,20 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
       <div className="panel-hd">DISASSEMBLY<PanelHelp panel="DISASSEMBLY" /></div>
       <div className="disasm-list">
         {lines.map(row => {
-          const cur  = row.addr === regs.pc
-          const bp   = breakpoints.has(row.addr)
-          const cond = breakpoints.get(row.addr) ?? null
+          const cur   = row.addr === regs.pc
+          const bp    = breakpoints.has(row.addr)
+          const cond  = breakpoints.get(row.addr) ?? null
+          const label = addrToLabel.get(row.addr)
           return (
+            <div key={row.addr}>
+            {label && (
+              <div className="disasm-label"
+                onClick={() => onJumpMem?.(row.addr & 0xFFF0)}
+                title={`${label}: at ${hex4(row.addr)}H — click to jump memory view`}>
+                {label}:
+              </div>
+            )}
             <div
-              key={row.addr}
               className={`disasm-row${cur ? ' cur' : ''}${bp ? ' bp' : ''}`}
               onClick={() => onGotoLine?.(row.addr)}
               onContextMenu={e => { e.preventDefault(); setCtxMenu({ addr: row.addr, x: e.clientX, y: e.clientY }) }}
@@ -1143,6 +1139,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
               <span className="disasm-text">{row.text}</span>
               {cond && bp && <span className="disasm-cond">{cond}</span>}
               {cur && <span className="disasm-pc-arrow">◀</span>}
+            </div>
             </div>
           )
         })}
@@ -2345,8 +2342,9 @@ export default function App() {
             onSetCondition={openConditionDialog}
             onRunTo={runToAddr}
             jumpRef={disasmJumpRef}
+            symbols={symbols}
+            onJumpMem={setMemStart}
             onGotoLine={addr => { const ln = addrLineMap.get(addr); if (ln) gotoLineRef.current?.(ln) }} />
-          <SymbolPanel symbols={symbols} onJump={addr => { setMemStart(addr & 0xFFF0); disasmJumpRef.current?.(addr) }} />
           <ChatPanel regs={regs} src={src} />
           <MemPanel
             memStart={memStart}
