@@ -1342,30 +1342,38 @@ const CALC_BASES = [
 ]
 const EMPTY_VALS = { bin: '', oct: '', dec: '', hex: '' }
 
-function CalcPanel() {
+function CalcFloat({ onClose }) {
   const [vals, setVals] = useState(EMPTY_VALS)
+  const [pos,  setPos]  = useState({ x: Math.max(0, window.innerWidth / 2 - 120), y: 100 })
+  const posRef = useRef(pos)
 
   function update(key, raw) {
     const { radix } = CALC_BASES.find(b => b.key === key)
     const input = key === 'hex' ? raw.toUpperCase() : raw
     if (input === '') { setVals(EMPTY_VALS); return }
     const n = parseInt(input, radix)
-    if (isNaN(n) || n < 0 || n > 0xFFFF) {
-      setVals(v => ({ ...v, [key]: input }))
-      return
+    if (isNaN(n) || n < 0 || n > 0xFFFF) { setVals(v => ({ ...v, [key]: input })); return }
+    setVals({ bin: n.toString(2), oct: n.toString(8), dec: String(n), hex: n.toString(16).toUpperCase(), [key]: input })
+  }
+
+  function onDragDown(e) {
+    if (e.target.closest('button')) return
+    e.preventDefault()
+    const ox = e.clientX - posRef.current.x, oy = e.clientY - posRef.current.y
+    function onMove(ev) {
+      const p = { x: ev.clientX - ox, y: Math.max(0, ev.clientY - oy) }
+      posRef.current = p; setPos(p)
     }
-    setVals({
-      bin: n.toString(2),
-      oct: n.toString(8),
-      dec: String(n),
-      hex: n.toString(16).toUpperCase(),
-      [key]: input,
-    })
+    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
 
   return (
-    <div className="panel calc-panel">
-      <div className="panel-hd"><span className="panel-icon">🖩</span>CALCULATOR<PanelHelp panel="CALCULATOR" /></div>
+    <div className="calc-float" style={{ left: pos.x, top: pos.y }}>
+      <div className="calc-float-hd" onMouseDown={onDragDown}>
+        <span><span className="panel-icon">🖩</span>CALCULATOR</span>
+        <button className="calc-float-close" onClick={onClose} title="Close">✕</button>
+      </div>
       <div className="calc-body">
         {CALC_BASES.map(({ key, label, maxLen, placeholder }) => (
           <div key={key} className="calc-row">
@@ -1759,7 +1767,7 @@ function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onImport, onExport, onShare }) {
+function BrandMenu({ onShowWelcome, onImport, onExport, onShare, onCalc }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
 
@@ -1789,6 +1797,7 @@ function BrandMenu({ onShowWelcome, onImport, onExport, onShare }) {
           {item('⇣  Export .asm', onExport)}
           {item('⎘  Copy share link', onShare)}
           <div className="bmenu-sep" />
+          {item('🖩  Calculator', onCalc)}
           {item('📖  Welcome guide', onShowWelcome)}
           {item('⭐  View on GitHub', () => window.open('https://github.com/selfmodify/sim8085wasm', '_blank'))}
           <div className="bmenu-sep" />
@@ -1965,6 +1974,7 @@ export default function App() {
   const [helpInst, setHelpInst]     = useState(null)
   const [errorLine, setErrorLine]   = useState(null)
   const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem('sim8085_welcomed'))
+  const [showCalc,    setShowCalc]    = useState(false)
   function dismissWelcome() { localStorage.setItem('sim8085_welcomed', '1'); setShowWelcome(false) }
   const [runSpeed, setRunSpeed]     = useState(3)        // index into SPEEDS
   const [regBase, setRegBase]       = useState('hex')    // 'hex'|'dec'|'bin'
@@ -2299,7 +2309,8 @@ export default function App() {
             onShowWelcome={() => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) }}
             onImport={() => fileInputRef.current.click()}
             onExport={exportFile}
-            onShare={shareURL} />
+            onShare={shareURL}
+            onCalc={() => setShowCalc(c => !c)} />
           <div className="brand-text">
             <span className="brand-title">Simulator</span>
             <span className="brand-sub">Intel 8085 · click chip for menu</span>
@@ -2418,11 +2429,11 @@ export default function App() {
           <TracePanel trace={trace} onClear={() => setTrace([])} />
           <IOPortPanel outputPorts={outputPorts} inputPresets={inputPresets}
             onSetInput={setInputPort} onRemoveInput={removeInputPort} />
-          <CalcPanel />
         </div>
       </div>
       {showWelcome && <WelcomeModal onClose={dismissWelcome} />}
       {helpInst && <HelpModal instruction={helpInst} onClose={() => setHelpInst(null)} />}
+      {showCalc && <CalcFloat onClose={() => setShowCalc(false)} />}
     </div>
   )
 }
