@@ -1788,9 +1788,9 @@ function BrandMenu({ onShowWelcome, onImport, onExport, onShare, onCalc }) {
 
   return (
     <div className="bmenu-wrap" ref={wrapRef}>
-      <button className="brand-chip bmenu-trigger" onClick={() => setOpen(o => !o)} title="About">
-        8085 <span className="brand-chevron">▾</span>
-</button>
+      <button className="brand-chip bmenu-trigger" onClick={() => setOpen(o => !o)} title="Menu">
+        8085 <span className="brand-chevron">☰</span>
+      </button>
       {open && (
         <div className="bmenu-dropdown">
           {item('⇡  Import .asm / .85', onImport)}
@@ -2311,10 +2311,6 @@ export default function App() {
             onExport={exportFile}
             onShare={shareURL}
             onCalc={() => setShowCalc(c => !c)} />
-          <div className="brand-text">
-            <span className="brand-title">Simulator</span>
-            <span className="brand-sub">Intel 8085 · click chip for menu</span>
-          </div>
         </div>
 
         <div className="toolbar">
