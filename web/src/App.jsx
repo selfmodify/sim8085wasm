@@ -408,7 +408,12 @@ function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
     return (
       <div className={`reg-row${is16 ? ' wide clickable' : ' clickable'}${changed ? ' changed' : ''}`}
            title={is16 ? `Jump memory to ${hex4(val)}H  (click to edit)` : 'Click to edit'}
-           onClick={() => { if (is16) onJump(val & 0xFFF0); setBuf(is16 ? fmtWord(val, regBase) : fmtByte(val, regBase)); setEditing(true) }}>
+           onClick={() => {
+             if (regKey === 'pc' && !window.confirm('Changing PC moves the instruction pointer — the next step will execute from the new address. Continue?')) return
+             if (is16) onJump(val & 0xFFF0)
+             setBuf(is16 ? fmtWord(val, regBase) : fmtByte(val, regBase))
+             setEditing(true)
+           }}>
         <span className="reg-name">{name}</span>
         <span className="reg-hex">{is16 ? fmtWord(val, regBase) : fmtByte(val, regBase)}</span>
         {regBase === 'hex' && !is16 && <span className="reg-dec">{val}</span>}
@@ -451,26 +456,83 @@ function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
 }
 
 // ── Register pairs panel ─────────────────────────────────────────────────
-function PairPanel({ regs, prev, onJump }) {
+const PAIR_DEFS = [
+  { name: 'BC', hi: 'b', lo: 'c' },
+  { name: 'DE', hi: 'd', lo: 'e' },
+  { name: 'HL', hi: 'h', lo: 'l' },
+]
+
+function PairPanel({ regs, prev, onJump, onEdit }) {
+  const [editing, setEditing] = useState(null)  // { key, field: 'addr'|'content' }
+  const [buf, setBuf] = useState('')
   const p = prev || {}
-  const pairs = useMemo(() => [
-    { name: 'BC', val: (regs.b<<8)|regs.c, prevVal: p.b !== undefined ? (p.b<<8)|p.c : undefined },
-    { name: 'DE', val: (regs.d<<8)|regs.e, prevVal: p.d !== undefined ? (p.d<<8)|p.e : undefined },
-    { name: 'HL', val: (regs.h<<8)|regs.l, prevVal: p.h !== undefined ? (p.h<<8)|p.l : undefined },
-  ].map(pair => ({ ...pair, mem: sim.simGetMemory(pair.val, 1)[0] ?? 0 })),
-    [regs.b, regs.c, regs.d, regs.e, regs.h, regs.l]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function startEdit(key, field, initial) {
+    setEditing({ key, field })
+    setBuf(initial)
+  }
+
+  function commitEdit() {
+    if (!editing) return
+    const { key, field } = editing
+    const def = PAIR_DEFS.find(d => d.name === key)
+    if (!def) { setEditing(null); return }
+    const addr = (regs[def.hi] << 8) | regs[def.lo]
+    const n = parseInt(buf, 16)
+    if (!isNaN(n)) {
+      if (field === 'addr') {
+        sim.simSetRegisters({ [def.hi]: (n >> 8) & 0xFF, [def.lo]: n & 0xFF })
+      } else {
+        sim.simWriteByte(addr, n & 0xFF)
+      }
+      onEdit()
+    }
+    setEditing(null)
+  }
+
   return (
     <div className="panel reg-panel">
-      <div className="panel-hd">REGISTER PAIRS</div>
-      {pairs.map(({ name, val, prevVal, mem }) => (
-        <div key={name} className={`reg-row wide clickable${prevVal !== undefined && val !== prevVal ? ' changed' : ''}`}
-             onClick={() => onJump(val & 0xFFF0)}
-             title={`Jump memory to ${hex4(val)}H  •  [${hex4(val)}H] = ${hex2(mem)}H (${mem})`}>
-          <span className="reg-name">{name}</span>
-          <span className="reg-hex">{hex4(val)}</span>
-          <span className="reg-deref">[{hex2(mem)}]</span>
-        </div>
-      ))}
+      <div className="panel-hd">REG PAIRS</div>
+      <div className="pair-col-hdr">
+        <span />
+        <span>ADDR</span>
+        <span>CONTENT</span>
+      </div>
+      {PAIR_DEFS.map(({ name, hi, lo }) => {
+        const val     = (regs[hi] << 8) | regs[lo]
+        const prevVal = p[hi] !== undefined ? (p[hi] << 8) | p[lo] : undefined
+        const mem     = sim.simGetMemory(val, 1)[0] ?? 0
+        const changed = prevVal !== undefined && val !== prevVal
+        const editAddr    = editing?.key === name && editing?.field === 'addr'
+        const editContent = editing?.key === name && editing?.field === 'content'
+        return (
+          <div key={name} className={`pair-row${changed ? ' changed' : ''}`}>
+            <span className="reg-name">{name}</span>
+            {editAddr
+              ? <input autoFocus className="reg-edit-input pair-edit-input" value={buf}
+                  onChange={e => setBuf(e.target.value.toUpperCase())}
+                  onBlur={commitEdit}
+                  onKeyDown={e => { if (e.key==='Enter') commitEdit(); if (e.key==='Escape') setEditing(null) }} />
+              : <span className="pair-addr"
+                  onClick={() => { onJump(val & 0xFFF0); startEdit(name, 'addr', hex4(val)) }}
+                  title={`${hex4(val)}H — click to edit pair address, jump memory`}>
+                  {hex4(val)}
+                </span>
+            }
+            {editContent
+              ? <input autoFocus className="reg-edit-input pair-edit-input" value={buf}
+                  onChange={e => setBuf(e.target.value.toUpperCase())}
+                  onBlur={commitEdit}
+                  onKeyDown={e => { if (e.key==='Enter') commitEdit(); if (e.key==='Escape') setEditing(null) }} />
+              : <span className="pair-content"
+                  onClick={() => startEdit(name, 'content', hex2(mem))}
+                  title={`mem[${hex4(val)}H] = ${hex2(mem)}H — click to edit`}>
+                  {hex2(mem)}
+                </span>
+            }
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -1071,7 +1133,7 @@ export default function App() {
         <div className="col col-right">
           <RegPanel   regs={regs} prev={prevRegs} onJump={setMemStart}
             regBase={regBase} onRegBase={setRegBase} onEdit={refresh} />
-          <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} />
+          <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh} />
           <FlagPanel  regs={regs} />
           <StackPanel regs={regs} />
         </div>
