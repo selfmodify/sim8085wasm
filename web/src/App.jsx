@@ -6,121 +6,514 @@ import { oneDark } from '@codemirror/theme-one-dark'
 import * as sim from './sim8085Bridge.js'
 import './App.css'
 
-// ── Example programs ────────────────────────────────────────────────────
+// ── Example programs (grouped by category) ──────────────────────────────
 const EXAMPLES = {
-  'Counter': `; Simple A register counter
-    org 100
-    kickoff 100
-    mvi a,0
-    mvi b,0
+
+  'Basic': {
+    'Counter': `; Increment A and B registers in a tight loop.
+; Watch the Registers panel update live.
+    org 100H
+    kickoff 100H
+    mvi a, 00H
+    mvi b, 00H
 loop:
     inr a
     inr b
     jnz loop
     hlt`,
+  },
 
-  'Bubble Sort': `; Bubble sort — sorts 10 values
-    setbyte 251,34
-    setbyte 252,30
-    setbyte 253,26
-    setbyte 254,23
-    setbyte 255,20
-    setbyte 256,17
-    setbyte 257,14
-    setbyte 258,10
-    setbyte 259,7
-    setbyte 25a,3
+  'Arithmetic': {
+    'Add': `; 8-bit addition: mem[200H] + mem[201H] → mem[202H]
+; If the sum overflows 8 bits, CY flag is set.
+    org 100H
+    kickoff 100H
+    setbyte 200H, 3CH   ; 60
+    setbyte 201H, 2AH   ; 42  (sum = 102 = 66H)
+    lda 200H
+    mov b, a
+    lda 201H
+    add b               ; A = sum,  CY set on overflow
+    sta 202H
+    mvi a, 00H
+    adc a               ; A = carry (0 or 1)
+    sta 203H
+    hlt`,
 
-    org 100
-    kickoff 100
-    mvi  b,9
-loop2: lxi  h,251
-    mov  c,b
-loop1: mov  a,m
+    'Subtract': `; 8-bit subtraction: mem[200H] - mem[201H] → mem[202H]
+; CY=1 after SUB means borrow (result negative).
+    org 100H
+    kickoff 100H
+    setbyte 200H, 5AH   ; 90  (minuend)
+    setbyte 201H, 1EH   ; 30  (subtrahend)  result = 60 = 3CH
+    lda 201H
+    mov b, a            ; B = subtrahend
+    lda 200H
+    sub b               ; A = minuend - subtrahend
+    sta 202H
+    hlt`,
+
+    'Multiply': `; 8-bit multiply via repeated addition (result is 16-bit)
+; mem[200H] x mem[201H] → mem[202H](lo), mem[203H](hi)
+    org 100H
+    kickoff 100H
+    setbyte 200H, 0CH   ; multiplicand = 12
+    setbyte 201H, 0AH   ; multiplier   = 10  (product = 120 = 78H)
+    lda 200H
+    mov b, a            ; B = multiplicand
+    lda 201H
+    mov c, a            ; C = multiplier (loop count)
+    lxi h, 0000H        ; HL = running product
+    mov a, c
+    ora a
+    jz done             ; multiplier = 0 → result = 0
+mul:
+    mov a, l
+    add b
+    mov l, a
+    mov a, h
+    aci 00H             ; propagate carry into high byte
+    mov h, a
+    dcr c
+    jnz mul
+done:
+    shld 202H           ; store 16-bit result (lo at 202H, hi at 203H)
+    hlt`,
+
+    'Divide': `; 8-bit divide: mem[200H] / mem[201H]
+; Quotient → mem[202H],  Remainder → mem[203H]
+    org 100H
+    kickoff 100H
+    setbyte 200H, 64H   ; dividend  = 100
+    setbyte 201H, 07H   ; divisor   =   7  (quotient=14, remainder=2)
+    lda 201H
+    mov c, a            ; C = divisor
+    lda 200H
+    mov b, a            ; B = working dividend
+    mvi d, 00H          ; D = quotient
+div:
+    mov a, b
+    sub c               ; A = B - divisor
+    jc  done            ; borrow → B < divisor → done
+    mov b, a            ; B = new remainder
+    inr d               ; quotient++
+    jmp div
+done:
+    mov a, d
+    sta 202H            ; quotient
+    mov a, b
+    sta 203H            ; remainder
+    hlt`,
+
+    '16-bit Add': `; Add two 16-bit values using DAD (HL = HL + DE).
+; Operand 1 at 200H-201H (lo-hi), operand 2 at 202H-203H.
+; 16-bit result stored at 204H-205H.  CY = carry out.
+    org 100H
+    kickoff 100H
+    setword 200H, 12A4H ; first  operand = 12A4H (4772)
+    setword 202H, 0E73H ; second operand = 0E73H (3699)
+    lhld 200H           ; HL = first operand
+    xchg                ; DE = first operand
+    lhld 202H           ; HL = second operand
+    dad d               ; HL = HL + DE  (result = 2117H = 8471)
+    shld 204H           ; store result
+    hlt`,
+
+    'BCD Add': `; BCD (packed) addition using DAA.
+; Two BCD digits in A and B are added and adjusted.
+; Result in A is a valid two-digit BCD number.
+    org 100H
+    kickoff 100H
+    mvi a, 47H          ; BCD 47 (= decimal 47)
+    mvi b, 35H          ; BCD 35 (= decimal 35)
+    add b               ; binary sum = 7CH (wrong for BCD)
+    daa                 ; adjust → A = 82H (BCD 82 = decimal 82)
+    sta 200H
+    hlt`,
+  },
+
+  'Logic': {
+    'AND / OR / XOR': `; Demonstrate bitwise AND, OR, and XOR.
+; Operands: F0H (11110000) and AAH (10101010)
+; AND → A0H   OR → FAH   XOR → 5AH
+    org 100H
+    kickoff 100H
+    setbyte 200H, 0F0H
+    setbyte 201H, 0AAH
+    lda 200H
+    mov b, a
+    lda 201H
+    ana b               ; AND: F0 & AA = A0H
+    sta 202H
+    lda 200H
+    mov b, a
+    lda 201H
+    ora b               ; OR:  F0 | AA = FAH
+    sta 203H
+    lda 200H
+    mov b, a
+    lda 201H
+    xra b               ; XOR: F0 ^ AA = 5AH
+    sta 204H
+    hlt`,
+
+    'Bit Test': `; Test whether bit 3 of mem[200H] is set.
+; Result at 201H: 01H = bit set,  00H = bit clear.
+    org 100H
+    kickoff 100H
+    setbyte 200H, 2CH   ; 0010 1100 — bit 3 is 1
+    lda 200H
+    ani 08H             ; mask bit 3  (08H = 0000 1000)
+    jz  clear
+    mvi a, 01H          ; bit was set
+    sta 201H
+    hlt
+clear:
+    mvi a, 00H          ; bit was clear
+    sta 201H
+    hlt`,
+
+    'Complement & Rotate': `; Show CMA (bitwise NOT) and RLC/RRC rotations.
+    org 100H
+    kickoff 100H
+    mvi a, 0F0H         ; A = 1111 0000
+    cma                 ; A = ~A = 0000 1111 = 0FH
+    sta 200H
+    mvi a, 01H          ; A = 0000 0001
+    rlc                 ; A = 0000 0010  CY=0
+    rlc                 ; A = 0000 0100
+    rlc                 ; A = 0000 1000
+    rlc                 ; A = 0001 0000 = 10H
+    sta 201H
+    mvi a, 80H          ; A = 1000 0000
+    rrc                 ; A = 0100 0000  CY=0
+    rrc                 ; A = 0010 0000
+    rrc                 ; A = 0001 0000 = 10H
+    sta 202H
+    hlt`,
+  },
+
+  'Memory': {
+    'Block Move': `; Copy 8 bytes from source (200H) to destination (300H).
+    org 100H
+    kickoff 100H
+    setbyte 200H, 11H
+    setbyte 201H, 22H
+    setbyte 202H, 33H
+    setbyte 203H, 44H
+    setbyte 204H, 55H
+    setbyte 205H, 66H
+    setbyte 206H, 77H
+    setbyte 207H, 88H
+    lxi h, 200H         ; HL = source
+    lxi d, 300H         ; DE = destination
+    mvi c, 08H          ; C  = byte count
+copy:
+    mov a, m            ; A = mem[HL]
+    stax d              ; mem[DE] = A
+    inx h
+    inx d
+    dcr c
+    jnz copy
+    hlt`,
+
+    'Memory Fill': `; Fill 16 bytes starting at 200H with the value AAH.
+    org 100H
+    kickoff 100H
+    lxi h, 200H         ; start address
+    mvi b, 10H          ; count = 16
+    mvi a, 0AAH         ; fill value
+fill:
+    mov m, a
+    inx h
+    dcr b
+    jnz fill
+    hlt`,
+
+    'Find Maximum': `; Find the largest byte in an 8-element array at 200H.
+; Result stored at 210H.
+    org 100H
+    kickoff 100H
+    setbyte 200H, 34H
+    setbyte 201H, 78H
+    setbyte 202H, 12H
+    setbyte 203H, 9AH
+    setbyte 204H, 56H
+    setbyte 205H, 0BH
+    setbyte 206H, 0EFH
+    setbyte 207H, 23H
+    lxi h, 200H
+    mvi b, 08H          ; element count
+    mvi a, 00H          ; current max
+scan:
+    cmp m               ; A vs mem[HL]
+    jnc skip            ; if A >= mem[HL], keep A
+    mov a, m            ; new maximum found
+skip:
+    inx h
+    dcr b
+    jnz scan
+    sta 210H            ; store result (EFH = 239)
+    hlt`,
+
+    'Find Minimum': `; Find the smallest byte in an 8-element array at 200H.
+; Result stored at 210H.
+    org 100H
+    kickoff 100H
+    setbyte 200H, 34H
+    setbyte 201H, 78H
+    setbyte 202H, 12H
+    setbyte 203H, 9AH
+    setbyte 204H, 56H
+    setbyte 205H, 0BH
+    setbyte 206H, 0EFH
+    setbyte 207H, 23H
+    lxi h, 200H
+    mvi b, 08H
+    mov a, m            ; seed with first element
+    inx h
+    dcr b
+scan:
+    cmp m               ; A vs mem[HL]
+    jc  skip            ; if A < mem[HL], A is still smaller
+    mov a, m            ; new minimum found
+skip:
+    inx h
+    dcr b
+    jnz scan
+    sta 210H            ; store result (0BH = 11)
+    hlt`,
+  },
+
+  'Sorting': {
+    'Bubble Sort': `; Bubble sort — sorts 10 values at 251H..25AH into ascending order.
+    setbyte 251H, 34H
+    setbyte 252H, 30H
+    setbyte 253H, 26H
+    setbyte 254H, 23H
+    setbyte 255H, 20H
+    setbyte 256H, 17H
+    setbyte 257H, 14H
+    setbyte 258H, 10H
+    setbyte 259H, 07H
+    setbyte 25AH, 03H
+
+    org 100H
+    kickoff 100H
+    mvi  b, 09H
+outer:
+    lxi  h, 251H
+    mov  c, b
+inner:
+    mov  a, m
     inx  h
     cmp  m
     jc   next
-    mov  d,m
-    mov  m,a
+    mov  d, m           ; swap mem[HL-1] and mem[HL]
+    mov  m, a
     dcx  h
-    mov  m,d
+    mov  m, d
     inx  h
-next: dcr  c
-    jnz  loop1
+next:
+    dcr  c
+    jnz  inner
     dcr  b
-    jnz  loop2
+    jnz  outer
     hlt`,
 
-  'Fibonacci': `; Fibonacci sequence stored from 200H
-    org 100
-    kickoff 100
-    lxi h,200
-    mvi a,0
-    mov m,a
-    inx h
-    mvi a,1
-    mov m,a
-    inx h
-    mvi b,0eH
-fib:
-    dcx h
-    mov a,m
-    inx h
-    add m
-    inx h
-    mov m,a
-    dcr b
-    jnz fib
-    hlt`,
+    'Selection Sort': `; Selection sort — finds the minimum and places it at the front.
+; Sorts 8 bytes at 200H..207H into ascending order.
+    setbyte 200H, 45H
+    setbyte 201H, 12H
+    setbyte 202H, 78H
+    setbyte 203H, 03H
+    setbyte 204H, 9AH
+    setbyte 205H, 56H
+    setbyte 206H, 23H
+    setbyte 207H, 67H
 
-  'LED Scroll': `; Scroll the LED display (watch the LED panel!)
-    org 100
-    kickoff 100
-    setbyte 511,0
-    setbyte 512,1
-    setbyte 513,2
-    setbyte 514,3
-    setbyte 515,4
-    setbyte 516,5
-    setbyte 517,6
-    setbyte 518,7
-    lxi sp,200
-again:
-    lxi h,511
-    mvi b,8
-loop:
-    mvi  c,0bH
-    mov d,m
-    call 5
-    mvi a,9
+    org 100H
+    kickoff 100H
+    mvi  e, 08H         ; total elements
+    lxi  h, 200H        ; outer pointer (i)
+outer:
+    dcr  e
+    jz   done
+    mov  d, e           ; inner count
+    push h              ; save i
+    mov  b, h           ; min pointer = i (hi)
+    mov  c, l           ; min pointer = i (lo)
+    mov  a, m           ; current min value
+    inx  h
+inner:
+    cmp  m
+    jc   no_swap
+    mov  a, m           ; new min value
+    mov  b, h
+    mov  c, l           ; save address of new min
+no_swap:
+    inx  h
+    dcr  d
+    jnz  inner
+    ; swap mem[i] and mem[min_addr]
+    pop  h              ; HL = i
     push h
-    lxi h,55H
-    call 5
-    pop h
-    inx h
-    dcr b
-    jnz loop
-    jmp again
+    mov  d, a           ; D = min value
+    mov  a, m           ; A = mem[i]
+    push b
+    pop  h              ; HL = min address
+    mov  m, a           ; mem[min] = old mem[i]
+    pop  h              ; HL = i again
+    mov  m, d           ; mem[i] = min value
+    inx  h
+    jmp  outer
+done:
+    hlt`,
+  },
+
+  'Algorithms': {
+    'Fibonacci': `; Fibonacci sequence — stores 16 values starting at 200H.
+; F(0)=0, F(1)=1, F(2)=1, F(3)=2 … F(15)=EFH (wraps at 256)
+    org 100H
+    kickoff 100H
+    lxi  h, 200H
+    mvi  a, 00H
+    mov  m, a           ; F(0) = 0
+    inx  h
+    mvi  a, 01H
+    mov  m, a           ; F(1) = 1
+    inx  h
+    mvi  b, 0EH         ; compute 14 more terms
+fib:
+    dcx  h
+    mov  a, m           ; A = F(n-1)
+    inx  h
+    add  m              ; A = F(n-1) + F(n) = F(n+1)
+    inx  h
+    mov  m, a
+    dcr  b
+    jnz  fib
     hlt`,
 
-  'Checksum': `; Compute XOR checksum of memory block
-    org 100
-    kickoff 100
-    setbyte 200,0aH
-    setbyte 201,1bH
-    setbyte 202,2cH
-    setbyte 203,3dH
-    setbyte 204,4eH
-    lxi h,200
-    mvi b,5
-    mvi a,0
+    'Factorial': `; Compute N! using repeated multiplication (repeated addition).
+; N stored at 200H.  Result at 201H.  Valid for N <= 5 (5! = 120).
+    org 100H
+    kickoff 100H
+    setbyte 200H, 05H   ; N = 5  →  5! = 120 = 78H
+    lda 200H
+    mov b, a            ; B = current factor (counts down N..1)
+    mvi a, 01H          ; A = running result = 1
+loop:
+    mov c, a            ; C = current result
+    mov d, b            ; D = factor (multiply count)
+    mvi a, 00H
+mul:
+    add c               ; A += C  (repeated D times = C * B)
+    dcr d
+    jnz mul
+    dcr b               ; next factor
+    jnz loop
+    sta 201H            ; store result
+    hlt`,
+
+    'GCD': `; Greatest common divisor — Euclid's subtraction algorithm.
+; GCD(mem[200H], mem[201H]) stored at 202H.
+    org 100H
+    kickoff 100H
+    setbyte 200H, 30H   ; 48
+    setbyte 201H, 14H   ; 20   GCD = 4
+    lda 200H
+    mov b, a            ; B = first value
+    lda 201H
+    mov c, a            ; C = second value
+gcd:
+    mov a, b
+    cmp c
+    jz  done            ; B == C → answer found
+    jc  b_lt            ; B < C  → subtract other way
+    sub c
+    mov b, a            ; B = B - C
+    jmp gcd
+b_lt:
+    mov a, c
+    sub b
+    mov c, a            ; C = C - B
+    jmp gcd
+done:
+    mov a, b
+    sta 202H
+    hlt`,
+
+    'Checksum': `; XOR checksum of a 5-byte block at 200H.  Result at 300H.
+    org 100H
+    kickoff 100H
+    setbyte 200H, 0AH
+    setbyte 201H, 1BH
+    setbyte 202H, 2CH
+    setbyte 203H, 3DH
+    setbyte 204H, 4EH
+    lxi h, 200H
+    mvi b, 05H
+    mvi a, 00H
 xloop:
-    xra m
+    xra m               ; A ^= mem[HL]
     inx h
     dcr b
     jnz xloop
-    sta 300
+    sta 300H            ; checksum = 0AH^1BH^2CH^3DH^4EH = 10H
     hlt`,
+  },
+
+  'I/O': {
+    'Port Echo': `; Read a byte from input port 01H, write it to output port 02H.
+; Before running: set port 01H value in the I/O Ports panel.
+    org 100H
+    kickoff 100H
+    in   01H            ; A = value preset on input port 01H
+    out  02H            ; write A to output port 02H (visible in panel)
+    hlt`,
+
+    'Port Counter': `; Count from 0..FFH, sending each value to output port 01H.
+; Watch port 01H increment in the I/O Ports panel.
+    org 100H
+    kickoff 100H
+    mvi a, 00H
+loop:
+    out  01H            ; send counter value to port 01H
+    inr  a
+    jnz  loop           ; stop when A wraps to 0
+    hlt`,
+
+    'LED Scroll': `; Scroll digits across the LED display using Intel SDK system calls.
+    org 100H
+    kickoff 100H
+    setbyte 511H, 00H
+    setbyte 512H, 01H
+    setbyte 513H, 02H
+    setbyte 514H, 03H
+    setbyte 515H, 04H
+    setbyte 516H, 05H
+    setbyte 517H, 06H
+    setbyte 518H, 07H
+    lxi sp, 200H
+again:
+    lxi h, 511H
+    mvi b, 08H
+loop:
+    mvi  c, 0BH
+    mov  d, m
+    call 5              ; scroll LED left, insert D
+    mvi  a, 09H
+    push h
+    lxi  h, 55H
+    call 5              ; delay
+    pop  h
+    inx  h
+    dcr  b
+    jnz  loop
+    jmp  again
+    hlt`,
+  },
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -1419,7 +1812,7 @@ function HelpPanel({ instruction }) {
 
 // ── Root app ─────────────────────────────────────────────────────────────
 export default function App() {
-  const [src, setSrc]           = useState(EXAMPLES['LED Scroll'])
+  const [src, setSrc]           = useState(EXAMPLES['I/O']['LED Scroll'])
   const [regs, setRegs]         = useState({a:0,b:0,c:0,d:0,e:0,h:0,l:0,flags:0,pc:0x100,sp:0,flagS:0,flagZ:0,flagAC:0,flagP:0,flagCY:0,halted:false,hasError:false})
   const [prevRegs, setPrev]     = useState(null)
   const [leds, setLeds]         = useState(Array(8).fill(0))
@@ -1660,8 +2053,10 @@ export default function App() {
     syncBps(next)
   }
 
-  function loadExample(name) {
-    const code = EXAMPLES[name]
+  function loadExample(key) {
+    const sep  = key.indexOf('::')
+    const code = EXAMPLES[key.slice(0, sep)]?.[key.slice(sep + 2)]
+    if (!code) return
     srcRef.current = code
     setSrc(code)
     doAssemble(code)
@@ -1695,9 +2090,15 @@ export default function App() {
         </div>
 
         <div className="toolbar">
-          <select className="ex-select" defaultValue="" onChange={e => { if(e.target.value) loadExample(e.target.value) }}>
+          <select className="ex-select" value="" onChange={e => { if(e.target.value) loadExample(e.target.value) }}>
             <option value="" disabled>Load example…</option>
-            {Object.keys(EXAMPLES).map(k => <option key={k} value={k}>{k}</option>)}
+            {Object.entries(EXAMPLES).map(([cat, programs]) => (
+              <optgroup key={cat} label={cat}>
+                {Object.keys(programs).map(name => (
+                  <option key={name} value={`${cat}::${name}`}>{name}</option>
+                ))}
+              </optgroup>
+            ))}
           </select>
           <button className="btn btn-asm"   onClick={() => doAssemble(srcRef.current)}>⚙ Build  <kbd>F5</kbd></button>
           <button className="btn btn-step"  onClick={doStep}  disabled={running || appState==='error'}>↓ Step  <kbd>F7</kbd></button>
