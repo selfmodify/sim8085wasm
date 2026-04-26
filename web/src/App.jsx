@@ -1527,14 +1527,14 @@ function fmtTraceVal(k, v) { return TRACE_REG16.has(k) ? hex4(v) : hex2(v) }
 
 // ── Panel help descriptions ──────────────────────────────────────────────
 const PANEL_HELP_TEXT = {
-  'EDITOR':           'Write 8085 assembly here. ORG sets the assembly address; KICKOFF sets the entry point. Ctrl+click any mnemonic for full docs.',
+  'EDITOR':           'Write 8085 assembly here. ORG sets the load address; KICKOFF sets the entry point. Ctrl+click a mnemonic for full docs. Ctrl+F opens find/replace. Right-click an assembled line to run execution up to that address.',
   'INSTRUCTION HELP': 'Shows documentation for the instruction under your cursor — flags affected, byte size, cycle count, and an example. Updates as you type.',
   'LED DISPLAY':      'Simulates the Intel SDK-85 7-segment display. Drive with CALL 5: C=02H writes a digit (B=field, HL→data), C=09H/0BH scrolls left inserting D, C=03H blanks fields.',
-  'DISASSEMBLY':      'Live disassembly of RAM at the current PC. Click the gutter (·) to toggle a breakpoint (●); right-click a breakpoint to add a condition. Click a row to jump the editor to that source line.',
+  'DISASSEMBLY':      'Live disassembly of RAM. Type a hex address in the header and press Enter to jump there. PC↓ locks the view to follow the program counter; PC· unlocks it for free scrolling. Each row shows the T-state cycle count. Click · in the gutter to set a breakpoint (●); right-click a breakpoint to add a condition. The breakpoint list below lets you jump to or remove any breakpoint. Click a row to jump the editor to that source line.',
   'AI ASSISTANT':     'Ask questions about your 8085 code. The current register state and source are included automatically. Requires your own Anthropic API key (stored in this browser only).',
-  'MEMORY':           'Hex dump of all 64 KB RAM. PC cell is green, SP cell is amber. Double-click a cell to edit. Arrow keys navigate; PgUp/Dn scroll. Drag the top handle to resize the panel.',
-  'REGISTERS':        'Live 8085 register values. Click any value to edit it. The base toggle (HEX/DEC/BIN) cycles the display format. Registers that changed since the last step are highlighted green.',
-  'REGISTER PAIRS':   'BC, DE, and HL shown as combined 16-bit addresses, plus the byte stored at each address. Click an address to jump the memory view there; click the value to edit the pair.',
+  'MEMORY':           'Hex dump of RAM. PC cell is green, SP cell is amber. Double-click a cell to edit. Arrow keys + PgUp/Dn navigate. Drag the top handle to resize.\n\n🔍 Search — enter a hex byte and press Search; matching cells highlight amber. Use ◀ ▶ to step through all hits.\n\n⊞ Fill — enter a start address, end address, and a fill value, then press Fill to write that byte across the whole range.',
+  'REGISTERS':        'Live 8085 register values. Click any value to edit it. Right-click to copy the value to the clipboard. The base toggle (HEX/DEC/BIN) cycles the display format. Registers that changed since the last step are highlighted green.',
+  'REGISTER PAIRS':   'BC, DE, and HL shown as combined 16-bit addresses, plus the byte stored at each address. Click an address to jump the memory view there; click the value to edit the pair. Right-click either cell to copy its value.',
   'FLAGS':            'Current state of the five 8085 status flags: Sign (S), Zero (Z), Auxiliary Carry (AC), Parity (P), Carry (CY). Updated automatically after every arithmetic and logic instruction.',
   'STACK':            'Memory at and above SP interpreted as a stack of 16-bit values. The top entry is highlighted green. PUSH decrements SP by 2; POP increments it.',
   'TRACE':            'Last 50 instructions executed in order. Each row shows the address, disassembled text, and any registers that changed (green). Cleared on every Build. Step to populate it.',
