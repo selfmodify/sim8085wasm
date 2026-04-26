@@ -938,7 +938,7 @@ function ChatPanel() {
 function StackPanel({ regs }) {
   const entries = useMemo(() => {
     const out = []
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 64; i++) {
       const a = (regs.sp + i*2) & 0xFFFF
       if (a >= 0x4000) break
       out.push({ addr: a, val: sim.simReadByte(a) | (sim.simReadByte(a+1)<<8) })
@@ -949,16 +949,18 @@ function StackPanel({ regs }) {
   return (
     <div className="panel stack-panel">
       <div className="panel-hd">STACK  <code className="sp-val">SP={hex4(regs.sp)}</code></div>
-      {entries.length === 0
-        ? <div className="stack-empty">empty</div>
-        : entries.map((e,i) => (
-          <div key={e.addr} className={`stack-row${i===0?' stack-top':''}`}>
-            <span className="stack-addr">{hex4(e.addr)}</span>
-            <span className="stack-sep">→</span>
-            <span className="stack-val">{hex4(e.val)}</span>
-          </div>
-        ))
-      }
+      <div className="stack-body">
+        {entries.length === 0
+          ? <div className="stack-empty">empty</div>
+          : entries.map((e,i) => (
+            <div key={e.addr} className={`stack-row${i===0?' stack-top':''}`}>
+              <span className="stack-addr">{hex4(e.addr)}</span>
+              <span className="stack-sep">→</span>
+              <span className="stack-val">{hex4(e.val)}</span>
+            </div>
+          ))
+        }
+      </div>
     </div>
   )
 }
@@ -1079,6 +1081,7 @@ export default function App() {
   const [histLen, setHistLen]       = useState(0)        // for disabling Step Back button
   const timerRef    = useRef(null)
   const editorColRef = useRef(null)
+  const rightColRef  = useRef(null)
   const srcRef      = useRef(src)
   const speedRef    = useRef(3)
   const historyRef  = useRef([])                         // undo snapshots, max 10
@@ -1089,6 +1092,21 @@ export default function App() {
     const startW = editorColRef.current.getBoundingClientRect().width
     function onMove(ev) {
       editorColRef.current.style.flexBasis = Math.max(180, Math.min(640, startW + (ev.clientX - startX))) + 'px'
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
+  function onRightResizeDown(e) {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = rightColRef.current.getBoundingClientRect().width
+    function onMove(ev) {
+      rightColRef.current.style.flexBasis = Math.max(160, Math.min(600, startW - (ev.clientX - startX))) + 'px'
     }
     function onUp() {
       document.removeEventListener('mousemove', onMove)
@@ -1294,9 +1312,10 @@ export default function App() {
             <button className="btn btn-xs" onClick={()=>setMemStart(0x200)}>→ 200H</button>
           </div>
         </div>
+        <div className="col-resize-handle" onMouseDown={onRightResizeDown} />
 
         {/* Registers column */}
-        <div className="col col-right">
+        <div className="col col-right" ref={rightColRef}>
           <RegPanel   regs={regs} prev={prevRegs} onJump={setMemStart}
             regBase={regBase} onRegBase={setRegBase} onEdit={refresh} />
           <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh} />
