@@ -370,6 +370,32 @@ body {
 .reg-dec  { color: var(--text3); font-size: 12px; flex: 1; text-align: right }
 .reg-sep  { height: 1px; background: var(--border); margin: 4px 10px }
 
+/* Paired register row (B/C, D/E, H/L) */
+.reg-pair-row {
+  display: flex;
+  border-left: 2px solid transparent;
+}
+.reg-pair-cell {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 8px 2px 10px;
+  font-family: var(--mono);
+  font-size: 14px;
+  flex: 1;
+  border-left: 2px solid transparent;
+  transition: background .1s;
+  min-width: 0;
+}
+.reg-pair-cell.clickable { cursor: pointer }
+.reg-pair-cell.clickable:hover { background: var(--bg3) }
+.reg-pair-cell.changed {
+  border-left-color: var(--accent);
+  background: rgba(74,240,160,.06);
+}
+.reg-pair-input { width: 60px }
+.reg-pair-cell + .reg-pair-cell { border-left: 1px solid var(--border) }
+
 /* ── Flags ────────────────────────────────────────────────────────── */
 .flag-panel { padding: 8px }
 .flags-row  { display: flex; gap: 4px }

@@ -903,6 +903,39 @@ function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
     )
   }
 
+  // Paired cell: two 8-bit registers side-by-side
+  function PairCell({ name, val, prevVal, regKey }) {
+    const [editing, setEditing] = useState(false)
+    const [buf, setBuf] = useState('')
+    const changed = prevVal !== undefined && val !== prevVal
+
+    function commit() {
+      const radix = regBase === 'bin' ? 2 : regBase === 'dec' ? 10 : 16
+      const n = parseInt(buf, radix)
+      if (!isNaN(n)) { sim.simSetRegisters({ [regKey]: n }); onEdit() }
+      setEditing(false)
+    }
+
+    if (editing) return (
+      <div className={`reg-pair-cell${changed ? ' changed' : ''}`}>
+        <span className="reg-name">{name}</span>
+        <input autoFocus className="reg-edit-input reg-pair-input"
+          value={buf} onChange={e => setBuf(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }} />
+      </div>
+    )
+    return (
+      <div className={`reg-pair-cell clickable${changed ? ' changed' : ''}`}
+           title="Click to edit"
+           onClick={() => { setBuf(fmtByte(val, regBase)); setEditing(true) }}>
+        <span className="reg-name">{name}</span>
+        <span className="reg-hex">{fmtByte(val, regBase)}</span>
+        {regBase === 'hex' && <span className="reg-dec">{val}</span>}
+      </div>
+    )
+  }
+
   const nextBase = BASE_CYCLE[(BASE_CYCLE.indexOf(regBase) + 1) % 3]
 
   return (
@@ -926,12 +959,18 @@ function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
           </div>
         ))}
       </div>
-      <EditableRow name="B" val={regs.b} prevVal={p.b} regKey="b" />
-      <EditableRow name="C" val={regs.c} prevVal={p.c} regKey="c" />
-      <EditableRow name="D" val={regs.d} prevVal={p.d} regKey="d" />
-      <EditableRow name="E" val={regs.e} prevVal={p.e} regKey="e" />
-      <EditableRow name="H" val={regs.h} prevVal={p.h} regKey="h" />
-      <EditableRow name="L" val={regs.l} prevVal={p.l} regKey="l" />
+      <div className="reg-pair-row">
+        <PairCell name="B" val={regs.b} prevVal={p.b} regKey="b" />
+        <PairCell name="C" val={regs.c} prevVal={p.c} regKey="c" />
+      </div>
+      <div className="reg-pair-row">
+        <PairCell name="D" val={regs.d} prevVal={p.d} regKey="d" />
+        <PairCell name="E" val={regs.e} prevVal={p.e} regKey="e" />
+      </div>
+      <div className="reg-pair-row">
+        <PairCell name="H" val={regs.h} prevVal={p.h} regKey="h" />
+        <PairCell name="L" val={regs.l} prevVal={p.l} regKey="l" />
+      </div>
       <div className="reg-sep" />
       <EditableRow name="PC" val={regs.pc} prevVal={p.pc} regKey="pc" is16 />
       <EditableRow name="SP" val={regs.sp} prevVal={p.sp} regKey="sp" is16 />
@@ -1046,9 +1085,11 @@ function FlagPanel({ regs }) {
 }
 
 // ── Disassembly panel ────────────────────────────────────────────────────
-function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine, buildId, onRunTo }) {
+function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine, buildId, onRunTo, jumpRef }) {
   const [viewStart, setViewStart] = useState(() => regs.pc)
   const [ctxMenu, setCtxMenu] = useState(null)  // {addr, x, y}
+
+  useEffect(() => { if (jumpRef) jumpRef.current = setViewStart }, [jumpRef])
 
   const lines = useMemo(() => {
     const out = []
@@ -1918,8 +1959,9 @@ export default function App() {
   const editorColRef = useRef(null)
   const rightColRef  = useRef(null)
   const gotoLineRef  = useRef(null)
-  const fileInputRef = useRef(null)
-  const oneShotBpsRef = useRef(new Set())
+  const fileInputRef   = useRef(null)
+  const oneShotBpsRef  = useRef(new Set())
+  const disasmJumpRef  = useRef(null)
   const [addrLineMap, setAddrLineMap] = useState(new Map())
   const srcRef      = useRef(src)
   const speedRef    = useRef(3)
@@ -2302,7 +2344,9 @@ export default function App() {
           <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} buildId={buildId}
             onSetCondition={openConditionDialog}
             onRunTo={runToAddr}
+            jumpRef={disasmJumpRef}
             onGotoLine={addr => { const ln = addrLineMap.get(addr); if (ln) gotoLineRef.current?.(ln) }} />
+          <SymbolPanel symbols={symbols} onJump={addr => { setMemStart(addr & 0xFFF0); disasmJumpRef.current?.(addr) }} />
           <ChatPanel regs={regs} src={src} />
           <MemPanel
             memStart={memStart}
@@ -2319,6 +2363,9 @@ export default function App() {
             <button className="btn btn-xs" onClick={()=>setMemStart(0x100)}>→ 100H</button>
             <button className="btn btn-xs" onClick={()=>setMemStart(0x200)}>→ 200H</button>
           </div>
+          <WatchPanel watches={watches} regs={regs}
+            onAdd={w => setWatches(ws => [...ws, w])}
+            onRemove={i => setWatches(ws => ws.filter((_,j) => j !== i))} />
         </div>
         <div className="col-resize-handle" onMouseDown={onRightResizeDown} />
 
@@ -2328,12 +2375,8 @@ export default function App() {
             regBase={regBase} onRegBase={setRegBase} onEdit={refresh} />
           <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh} />
           <FlagPanel  regs={regs} />
-          <SymbolPanel symbols={symbols} onJump={setMemStart} />
           <StackPanel regs={regs} />
           <TracePanel trace={trace} onClear={() => setTrace([])} />
-          <WatchPanel watches={watches} regs={regs}
-            onAdd={w => setWatches(ws => [...ws, w])}
-            onRemove={i => setWatches(ws => ws.filter((_,j) => j !== i))} />
           <IOPortPanel outputPorts={outputPorts} inputPresets={inputPresets}
             onSetInput={setInputPort} onRemoveInput={removeInputPort} />
           <CalcPanel />
