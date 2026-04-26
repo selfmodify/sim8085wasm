@@ -243,6 +243,8 @@ body {
   text-transform: uppercase;
 }
 
+.panel-icon { letter-spacing: 0; margin-right: 5px; font-size: 13px; text-transform: none }
+
 /* ── Panel header right-side group + help button ─────────────────── */
 .panel-hd-right { display: flex; align-items: center; gap: 4px }
 .panel-help-wrap { position: relative; flex-shrink: 0 }

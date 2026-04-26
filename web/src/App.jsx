@@ -934,7 +934,7 @@ function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
   return (
     <div className="panel reg-panel">
       <div className="panel-hd">
-        REGISTERS
+        <span className="panel-icon">🧠</span>REGISTERS
         <div className="panel-hd-right">
           <button className="reg-base-btn" onClick={() => onRegBase(nextBase)}
             title="Toggle display: hex / dec / bin">{regBase.toUpperCase()}</button>
@@ -1008,7 +1008,7 @@ function PairPanel({ regs, prev, onJump, onEdit }) {
 
   return (
     <div className="panel reg-panel">
-      <div className="panel-hd">REGISTER PAIRS<PanelHelp panel="REGISTER PAIRS" /></div>
+      <div className="panel-hd"><span className="panel-icon">🔗</span>REGISTER PAIRS<PanelHelp panel="REGISTER PAIRS" /></div>
       <div className="pair-col-hdr">
         <span />
         <span>ADDR</span>
@@ -1064,7 +1064,7 @@ function FlagPanel({ regs }) {
   ]
   return (
     <div className="panel flag-panel">
-      <div className="panel-hd">FLAGS<PanelHelp panel="FLAGS" /></div>
+      <div className="panel-hd"><span className="panel-icon">🚩</span>FLAGS<PanelHelp panel="FLAGS" /></div>
       <div className="flags-row">
         {FLAGS.map(f => (
           <div key={f.key} className={`flag${regs[f.key] ? ' flag-on' : ''}`} title={f.title}>
@@ -1119,7 +1119,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
 
   return (
     <div className="panel disasm-panel">
-      <div className="panel-hd">DISASSEMBLY<PanelHelp panel="DISASSEMBLY" /></div>
+      <div className="panel-hd"><span className="panel-icon">📋</span>DISASSEMBLY<PanelHelp panel="DISASSEMBLY" /></div>
       <div className="disasm-list">
         {lines.map(row => {
           const cur   = row.addr === regs.pc
@@ -1253,7 +1253,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
     <div className="panel mem-panel" ref={panelRef} tabIndex={0} onKeyDown={onPanelKey}>
       <div className="mem-resize-handle" onMouseDown={onHandleMouseDown} />
       <div className="panel-hd">
-        MEMORY
+        <span className="panel-icon">💾</span>MEMORY
         <div className="panel-hd-right">
         <span className="mem-ctrl">
           <button className="mem-btn" onClick={() => onJump(Math.max(0, memStart - COLS*rows))}>◀</button>
@@ -1365,7 +1365,7 @@ function CalcPanel() {
 
   return (
     <div className="panel calc-panel">
-      <div className="panel-hd">CALCULATOR<PanelHelp panel="CALCULATOR" /></div>
+      <div className="panel-hd"><span className="panel-icon">🖩</span>CALCULATOR<PanelHelp panel="CALCULATOR" /></div>
       <div className="calc-body">
         {CALC_BASES.map(({ key, label, maxLen, placeholder }) => (
           <div key={key} className="calc-row">
@@ -1478,7 +1478,7 @@ function ChatPanel({ regs, src }) {
     <div className="panel chat-panel" ref={panelRef}>
       <div className="chat-resize-handle" onMouseDown={onResizeDown} />
       <div className="panel-hd">
-        AI ASSISTANT
+        <span className="panel-icon">🤖</span>AI ASSISTANT
         <div className="panel-hd-right">
           <button className="reg-base-btn" onClick={() => setSetupOpen(o => !o)} title="API key settings">⚙</button>
           <PanelHelp panel="AI ASSISTANT" />
@@ -1547,7 +1547,7 @@ function StackPanel({ regs }) {
     <div className="panel stack-panel" ref={panelRef}>
       <div className="stack-resize-handle" onMouseDown={onResizeDown} />
       <div className="panel-hd">
-        STACK
+        <span className="panel-icon">📚</span>STACK
         <div className="panel-hd-right">
           <code className="sp-val">SP={hex4(regs.sp)}</code>
           <PanelHelp panel="STACK" />
@@ -1574,7 +1574,7 @@ function LedDisplay({ leds }) {
   const LABELS = ['ST1','ST0','A3','A2','A1','A0','D1','D0']
   return (
     <div className="panel led-panel">
-      <div className="panel-hd">LED DISPLAY<PanelHelp panel="LED DISPLAY" /></div>
+      <div className="panel-hd"><span className="panel-icon">💡</span>LED DISPLAY<PanelHelp panel="LED DISPLAY" /></div>
       <div className="led-digits">
         {leds.map((v,i) => (
           <div key={i} className={`led-digit${i < 2 ? ' led-digit-st' : ''}`}>
@@ -1608,7 +1608,7 @@ function TracePanel({ trace, onClear }) {
     <div className="panel trace-panel" ref={panelRef}>
       <div className="trace-resize-handle" onMouseDown={onResizeDown} />
       <div className="panel-hd">
-        TRACE
+        <span className="panel-icon">📜</span>TRACE
         <div className="panel-hd-right">
           <button className="reg-base-btn" onClick={onClear} title="Clear trace">✕</button>
           <PanelHelp panel="TRACE" />
@@ -1674,7 +1674,7 @@ function WatchPanel({ watches, regs, onAdd, onRemove }) {
 
   return (
     <div className="panel watch-panel">
-      <div className="panel-hd">WATCH<PanelHelp panel="WATCH" /></div>
+      <div className="panel-hd"><span className="panel-icon">👁</span>WATCH<PanelHelp panel="WATCH" /></div>
       <div className="watch-add-row">
         <input className="watch-input" value={input} placeholder="A  BC  0200H…"
           onChange={e => setInput(e.target.value)}
@@ -1717,7 +1717,7 @@ function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput }) {
 
   return (
     <div className="panel ioport-panel">
-      <div className="panel-hd">I/O PORTS<PanelHelp panel="I/O PORTS" /></div>
+      <div className="panel-hd"><span className="panel-icon">🔌</span>I/O PORTS<PanelHelp panel="I/O PORTS" /></div>
 
       <div className="ioport-section-hd">OUTPUT  <span className="ioport-hint">written by OUT</span></div>
       {outputPorts.length === 0
@@ -1908,7 +1908,7 @@ function HelpPanel({ instruction }) {
   return (
     <div className="panel help-panel" ref={panelRef}>
       <div className="help-resize-handle" onMouseDown={onResizeDown} />
-      <div className="panel-hd">INSTRUCTION HELP<PanelHelp panel="INSTRUCTION HELP" /></div>
+      <div className="panel-hd"><span className="panel-icon">📖</span>INSTRUCTION HELP<PanelHelp panel="INSTRUCTION HELP" /></div>
       <div className="help-scroll">
         {inst ? (
           <div className="help-inline-body">
@@ -2354,7 +2354,7 @@ export default function App() {
         <div className="col col-editor" ref={editorColRef}>
           <div className="panel editor-panel">
             <div className="panel-hd">
-            EDITOR
+            <span className="panel-icon">✏️</span>EDITOR
             <div className="panel-hd-right">
               <span className="editor-hint">; semicolons for comments</span>
               <PanelHelp panel="EDITOR" />
