@@ -2756,7 +2756,7 @@ function BrandMenu({ onShowWelcome, onImport, onExport, onShare, onCalc }) {
   return (
     <div className="bmenu-wrap" ref={wrapRef}>
       <button className="brand-chip bmenu-trigger" onClick={() => setOpen(o => !o)} title="Menu">
-        8085 <span className="brand-chevron">☰</span>
+        <span className="brand-chevron">☰</span> 8085
       </button>
       {open && (
         <div className="bmenu-dropdown">
