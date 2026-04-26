@@ -266,6 +266,18 @@ function buildAddrLineMap(code) {
   return map
 }
 
+function evalCondition(expr, r) {
+  try {
+    const BC = (r.b<<8)|r.c, DE = (r.d<<8)|r.e, HL = (r.h<<8)|r.l
+    // eslint-disable-next-line no-new-func
+    return !!new Function('A','B','C','D','E','H','L','PC','SP','BC','DE','HL','FLAGS',
+      `return !!(${expr})`)(r.a,r.b,r.c,r.d,r.e,r.h,r.l,r.pc,r.sp,BC,DE,HL,r.flags)
+  } catch { return true }
+}
+
+const TRACE_REG16 = new Set(['pc','sp'])
+function fmtTraceVal(k, v) { return TRACE_REG16.has(k) ? hex4(v) : hex2(v) }
+
 function getInstWord(state, pos) {
   const line = state.doc.lineAt(pos)
   const text = line.text
@@ -572,7 +584,7 @@ function FlagPanel({ regs }) {
 }
 
 // ── Disassembly panel ────────────────────────────────────────────────────
-function DisasmPanel({ regs, breakpoints, onToggleBp, onGotoLine, buildId }) {
+function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine, buildId }) {
   const [viewStart, setViewStart] = useState(() => regs.pc)
 
   const lines = useMemo(() => {
@@ -602,20 +614,24 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onGotoLine, buildId }) {
       <div className="panel-hd">DISASSEMBLY</div>
       <div className="disasm-list">
         {lines.map(row => {
-          const cur = row.addr === regs.pc
-          const bp  = breakpoints.has(row.addr)
+          const cur  = row.addr === regs.pc
+          const bp   = breakpoints.has(row.addr)
+          const cond = breakpoints.get(row.addr) ?? null
           return (
             <div
               key={row.addr}
               className={`disasm-row${cur ? ' cur' : ''}${bp ? ' bp' : ''}`}
               onClick={() => onGotoLine?.(row.addr)}
-              title="Click to go to source line"
             >
-              <span className="disasm-bp" title="Click to toggle breakpoint"
-                onClick={e => { e.stopPropagation(); onToggleBp(row.addr) }}>
-                {bp ? '●' : '·'}
+              <span className="disasm-bp"
+                title={bp ? (cond ? `Condition: ${cond} — right-click to edit` : 'Breakpoint — right-click to add condition') : 'Click to set breakpoint'}
+                onClick={e => { e.stopPropagation(); onToggleBp(row.addr) }}
+                onContextMenu={e => { e.preventDefault(); e.stopPropagation(); bp && onSetCondition?.(row.addr) }}
+              >
+                {bp ? (cond ? '◆' : '●') : '·'}
               </span>
               <span className="disasm-text">{row.text}</span>
+              {cond && bp && <span className="disasm-cond">{cond}</span>}
               {cur && <span className="disasm-pc-arrow">◀</span>}
             </div>
           )
@@ -626,7 +642,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onGotoLine, buildId }) {
 }
 
 // ── Memory dump panel ────────────────────────────────────────────────────
-function MemPanel({ memStart, onJump, regs, buildId }) {
+function MemPanel({ memStart, onJump, regs, buildId, changedAddrs }) {
   const [mem, setMem] = useState(new Uint8Array(128))
   const [editing, setEditing] = useState(null)
   const [editBuf, setEditBuf] = useState('')
@@ -759,7 +775,7 @@ function MemPanel({ memStart, onJump, regs, buildId }) {
                       )
                     return (
                       <td key={col}
-                        className={`mem-cell${isPC?' mem-pc':''}${isSP?' mem-sp':''}${isCursor?' mem-cursor':''}${val?' mem-nz':''}`}
+                        className={`mem-cell${isPC?' mem-pc':''}${isSP?' mem-sp':''}${isCursor?' mem-cursor':''}${val?' mem-nz':''}${changedAddrs?.has(addr)?' mem-diff':''}`}
                         title={`${hex4(addr)}: ${hex2(val)}H = ${val}`}
                         onClick={()=>setCursor(addr)}
                         onDoubleClick={()=>{setEditing(addr);setEditBuf(hex2(val))}}
@@ -1016,6 +1032,99 @@ function LedDisplay({ leds }) {
   )
 }
 
+// ── Execution trace panel ────────────────────────────────────────────────
+function TracePanel({ trace, onClear }) {
+  const bodyRef = useRef(null)
+  useEffect(() => {
+    if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight
+  }, [trace])
+  return (
+    <div className="panel trace-panel">
+      <div className="panel-hd">
+        TRACE
+        <button className="reg-base-btn" onClick={onClear} title="Clear trace">✕</button>
+      </div>
+      <div className="trace-body" ref={bodyRef}>
+        {trace.length === 0
+          ? <div className="trace-empty">Step or run to record execution</div>
+          : trace.map((e, i) => (
+            <div key={i} className="trace-row">
+              <span className="trace-addr">{hex4(e.addr)}</span>
+              <span className="trace-text">{e.text}</span>
+              {e.changedKeys.length > 0 &&
+                <span className="trace-delta">
+                  {e.changedKeys.map(k => `${k.toUpperCase()}=${fmtTraceVal(k, e.regs[k])}`).join(' ')}
+                </span>
+              }
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  )
+}
+
+// ── Watch panel ──────────────────────────────────────────────────────────
+function WatchPanel({ watches, regs, onAdd, onRemove }) {
+  const [input, setInput] = useState('')
+  const PAIR_KEYS = { bc: ['b','c'], de: ['d','e'], hl: ['h','l'] }
+  const REG_NAMES = new Set(['a','b','c','d','e','h','l','pc','sp','flags','bc','de','hl'])
+
+  function getValue(w) {
+    if (w.type === 'reg') {
+      const p = PAIR_KEYS[w.key]
+      if (p) return (regs[p[0]] << 8) | regs[p[1]]
+      return regs[w.key] ?? 0
+    }
+    return sim.simReadByte(w.addr)
+  }
+
+  function is16(w) {
+    return w.type === 'mem' || ['pc','sp','bc','de','hl'].includes(w.key)
+  }
+
+  function addWatch() {
+    const s = input.trim().toLowerCase()
+    if (!s) return
+    if (REG_NAMES.has(s)) {
+      if (!watches.find(w => w.type === 'reg' && w.key === s))
+        onAdd({ type: 'reg', key: s })
+    } else {
+      const addr = parseInt(s.replace(/h$/,''), 16)
+      if (!isNaN(addr))
+        onAdd({ type: 'mem', addr: addr & 0xFFFF })
+    }
+    setInput('')
+  }
+
+  return (
+    <div className="panel watch-panel">
+      <div className="panel-hd">WATCH</div>
+      <div className="watch-add-row">
+        <input className="watch-input" value={input} placeholder="A  BC  0200H…"
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && addWatch()} />
+        <button className="btn btn-xs" onClick={addWatch}>+</button>
+      </div>
+      {watches.length === 0
+        ? <div className="watch-empty">Type a register or address above</div>
+        : watches.map((w, i) => {
+            const v = getValue(w)
+            const label = w.type === 'reg' ? w.key.toUpperCase() : hex4(w.addr) + 'H'
+            return (
+              <div key={i} className="watch-row">
+                <span className="watch-label">{label}</span>
+                <span className="watch-val">{is16(w) ? hex4(v) : hex2(v)}</span>
+                <span className="watch-dec">{v}</span>
+                <button className="watch-rm" onClick={() => onRemove(i)}>✕</button>
+              </div>
+            )
+          })
+      }
+    </div>
+  )
+}
+
 // ── Brand menu ───────────────────────────────────────────────────────────
 function BrandMenu({ onShowWelcome }) {
   const [open, setOpen] = useState(false)
@@ -1192,7 +1301,10 @@ export default function App() {
   const [regs, setRegs]         = useState({a:0,b:0,c:0,d:0,e:0,h:0,l:0,flags:0,pc:0x100,sp:0,flagS:0,flagZ:0,flagAC:0,flagP:0,flagCY:0,halted:false,hasError:false})
   const [prevRegs, setPrev]     = useState(null)
   const [leds, setLeds]         = useState(Array(8).fill(0))
-  const [bps, setBps]           = useState(new Set())
+  const [bps, setBps]           = useState(new Map())   // Map<addr, string|null>
+  const [trace, setTrace]       = useState([])
+  const [changedAddrs, setChangedAddrs] = useState(new Set())
+  const [watches, setWatches]   = useState([])
   const [memStart, setMemStart] = useState(0x100)
   const [appState, setAppState] = useState('idle')  // idle | running | halted | error
   const [msg, setMsg]           = useState('Load an example or write code, then click Build.')
@@ -1213,7 +1325,11 @@ export default function App() {
   const [addrLineMap, setAddrLineMap] = useState(new Map())
   const srcRef      = useRef(src)
   const speedRef    = useRef(3)
-  const historyRef  = useRef([])                         // undo snapshots, max 10
+  const historyRef  = useRef([])
+  const bpsRef      = useRef(new Map())
+  const prevMemRef  = useRef(null)
+
+  useEffect(() => { bpsRef.current = bps }, [bps])
 
   function onEditorResizeDown(e) {
     e.preventDefault()
@@ -1272,6 +1388,9 @@ export default function App() {
       stopRun()
       historyRef.current = []
       setHistLen(0)
+      setTrace([])
+      setChangedAddrs(new Set())
+      prevMemRef.current = null
       sim.simInit()
       const res = sim.simAssemble(code)
       setBuildId(id => id + 1)
@@ -1305,9 +1424,12 @@ export default function App() {
   function doStep() {
     stopRun()
     pushHistory()
+    const prevR = sim.simGetRegisters()
     const ok = sim.simStep()
     setSteps(s => s+1)
     refresh()
+    addTraceEntry(prevR)
+    updateMemDiff()
     if (!ok) {
       setAppState(sim.simIsHalted() ? 'halted' : 'error')
       setMsg(sim.simIsHalted() ? '■ Program halted.' : `✗ ${sim.simGetError()}`)
@@ -1334,7 +1456,15 @@ export default function App() {
       const n = sim.simRun(SPEEDS[speedRef.current].steps)
       setSteps(s => s + n)
       refresh()
+      updateMemDiff()
       if (!sim.simIsRunning()) {
+        const r = sim.simGetRegisters()
+        const cond = bpsRef.current.get(r.pc)
+        // Conditional BP whose condition is not met — skip and continue
+        if (cond != null && !evalCondition(cond, r)) {
+          sim.simStep()
+          return
+        }
         stopRun()
         setAppState(sim.simIsHalted() ? 'halted' : 'error')
         setMsg(sim.simIsHalted() ? '■ Program halted.' : `✗ ${sim.simGetError()}`)
@@ -1351,9 +1481,50 @@ export default function App() {
 
   function handleReset() { doAssemble(srcRef.current) }
 
+  function addTraceEntry(prevR) {
+    const r = sim.simGetRegisters()
+    const d = sim.simDisassemble(prevR.pc)
+    const changed = Object.keys(prevR).filter(k => typeof prevR[k]==='number' && r[k] !== prevR[k])
+    setTrace(t => {
+      const entry = { addr: prevR.pc, text: d.text, regs: r, changedKeys: changed }
+      return t.length >= 50 ? [...t.slice(1), entry] : [...t, entry]
+    })
+  }
+
+  function updateMemDiff() {
+    const curr = sim.simGetFullMemory()
+    if (!prevMemRef.current) { prevMemRef.current = curr; return }
+    const changed = new Set()
+    for (let i = 0; i < curr.length; i++)
+      if (curr[i] !== prevMemRef.current[i]) changed.add(i)
+    prevMemRef.current = curr
+    setChangedAddrs(changed)
+  }
+
+  function syncBps(nextMap) {
+    sim.simClearAllBreakpoints()
+    for (const addr of nextMap.keys()) sim.simSetBreakpoint(addr)
+    setBps(nextMap)
+    bpsRef.current = nextMap
+  }
+
   function toggleBp(addr) {
-    sim.simSetBreakpoint(addr)
-    setBps(new Set(sim.simGetBreakpoints()))
+    const next = new Map(bps)
+    next.has(addr) ? next.delete(addr) : next.set(addr, null)
+    syncBps(next)
+  }
+
+  function openConditionDialog(addr) {
+    if (!bps.has(addr)) return
+    const cur = bps.get(addr) || ''
+    const expr = window.prompt(
+      `Condition at ${hex4(addr)}H — use A B C D E H L PC SP BC DE HL FLAGS\n(e.g.  A==0   B>10   HL>=0x200)\nLeave empty for unconditional:`,
+      cur
+    )
+    if (expr === null) return
+    const next = new Map(bps)
+    next.set(addr, expr.trim() || null)
+    syncBps(next)
   }
 
   function loadExample(name) {
@@ -1429,6 +1600,7 @@ export default function App() {
         {/* Code + Memory column */}
         <div className="col col-center">
           <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} buildId={buildId}
+            onSetCondition={openConditionDialog}
             onGotoLine={addr => { const ln = addrLineMap.get(addr); if (ln) gotoLineRef.current?.(ln) }} />
           <ChatPanel regs={regs} src={src} />
           <MemPanel
@@ -1436,6 +1608,7 @@ export default function App() {
             onJump={setMemStart}
             regs={regs}
             buildId={buildId}
+            changedAddrs={changedAddrs}
           />
           <div className="jump-row">
             <button className="btn btn-xs" onClick={()=>setMemStart(regs.pc & 0xFFF0)}>→ PC</button>
@@ -1453,6 +1626,10 @@ export default function App() {
           <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh} />
           <FlagPanel  regs={regs} />
           <StackPanel regs={regs} />
+          <TracePanel trace={trace} onClear={() => setTrace([])} />
+          <WatchPanel watches={watches} regs={regs}
+            onAdd={w => setWatches(ws => [...ws, w])}
+            onRemove={i => setWatches(ws => ws.filter((_,j) => j !== i))} />
           <CalcPanel />
         </div>
       </div>
