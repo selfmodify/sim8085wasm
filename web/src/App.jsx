@@ -392,7 +392,11 @@ function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
     function commit() {
       const radix = regBase === 'bin' ? 2 : regBase === 'dec' ? 10 : 16
       const n = parseInt(buf, radix)
-      if (!isNaN(n)) { sim.simSetRegisters({ [regKey]: n }); onEdit() }
+      if (!isNaN(n)) {
+        if (regKey === 'pc' && !window.confirm(`Move instruction pointer to ${hex4(n)}H?\nThe next step will execute from that address.`)) { setEditing(false); return }
+        sim.simSetRegisters({ [regKey]: n })
+        onEdit()
+      }
       setEditing(false)
     }
 
@@ -409,7 +413,6 @@ function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
       <div className={`reg-row${is16 ? ' wide clickable' : ' clickable'}${changed ? ' changed' : ''}`}
            title={is16 ? `Jump memory to ${hex4(val)}H  (click to edit)` : 'Click to edit'}
            onClick={() => {
-             if (regKey === 'pc' && !window.confirm('Changing PC moves the instruction pointer — the next step will execute from the new address. Continue?')) return
              if (is16) onJump(val & 0xFFF0)
              setBuf(is16 ? fmtWord(val, regBase) : fmtByte(val, regBase))
              setEditing(true)
@@ -492,7 +495,7 @@ function PairPanel({ regs, prev, onJump, onEdit }) {
 
   return (
     <div className="panel reg-panel">
-      <div className="panel-hd">REG PAIRS</div>
+      <div className="panel-hd">REGISTER PAIRS</div>
       <div className="pair-col-hdr">
         <span />
         <span>ADDR</span>
@@ -617,7 +620,7 @@ function MemPanel({ memStart, onJump, regs, buildId }) {
   const [mem, setMem] = useState(new Uint8Array(128))
   const [editing, setEditing] = useState(null)
   const [editBuf, setEditBuf] = useState('')
-  const [rows, setRows] = useState(8)
+  const [rows, setRows] = useState(12)
   const [addrBuf, setAddrBuf] = useState(hex4(memStart))
   const [cursor, setCursor] = useState(memStart)
   const addrFocused = useRef(false)
@@ -768,6 +771,54 @@ function MemPanel({ memStart, onJump, regs, buildId }) {
   )
 }
 
+// ── Calculator panel ─────────────────────────────────────────────────────
+const CALC_BASES = [
+  { key: 'bin', label: 'BIN', radix:  2, maxLen: 16, placeholder: '1111111111111111' },
+  { key: 'oct', label: 'OCT', radix:  8, maxLen:  6, placeholder: '177777' },
+  { key: 'dec', label: 'DEC', radix: 10, maxLen:  5, placeholder: '65535' },
+  { key: 'hex', label: 'HEX', radix: 16, maxLen:  4, placeholder: 'FFFF' },
+]
+const EMPTY_VALS = { bin: '', oct: '', dec: '', hex: '' }
+
+function CalcPanel() {
+  const [vals, setVals] = useState(EMPTY_VALS)
+
+  function update(key, raw) {
+    const { radix } = CALC_BASES.find(b => b.key === key)
+    const input = key === 'hex' ? raw.toUpperCase() : raw
+    if (input === '') { setVals(EMPTY_VALS); return }
+    const n = parseInt(input, radix)
+    if (isNaN(n) || n < 0 || n > 0xFFFF) {
+      setVals(v => ({ ...v, [key]: input }))
+      return
+    }
+    setVals({
+      bin: n.toString(2),
+      oct: n.toString(8),
+      dec: String(n),
+      hex: n.toString(16).toUpperCase(),
+      [key]: input,
+    })
+  }
+
+  return (
+    <div className="panel calc-panel">
+      <div className="panel-hd">CALCULATOR</div>
+      <div className="calc-body">
+        {CALC_BASES.map(({ key, label, maxLen, placeholder }) => (
+          <div key={key} className="calc-row">
+            <span className="calc-lbl">{label}</span>
+            <input className="calc-input" value={vals[key]} maxLength={maxLen}
+              placeholder={placeholder} spellCheck={false}
+              onChange={e => update(key, e.target.value)}
+              onFocus={e => e.target.select()} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Stack panel ──────────────────────────────────────────────────────────
 function StackPanel({ regs }) {
   const entries = useMemo(() => {
@@ -895,7 +946,7 @@ function HelpPanel({ instruction }) {
 
 // ── Root app ─────────────────────────────────────────────────────────────
 export default function App() {
-  const [src, setSrc]           = useState(EXAMPLES['Counter'])
+  const [src, setSrc]           = useState(EXAMPLES['LED Scroll'])
   const [regs, setRegs]         = useState({a:0,b:0,c:0,d:0,e:0,h:0,l:0,flags:0,pc:0x100,sp:0,flagS:0,flagZ:0,flagAC:0,flagP:0,flagCY:0,halted:false,hasError:false})
   const [prevRegs, setPrev]     = useState(null)
   const [leds, setLeds]         = useState(Array(8).fill(0))
@@ -1135,6 +1186,7 @@ export default function App() {
             regBase={regBase} onRegBase={setRegBase} onEdit={refresh} />
           <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh} />
           <FlagPanel  regs={regs} />
+          <CalcPanel />
           <StackPanel regs={regs} />
         </div>
       </div>
