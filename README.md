@@ -3,7 +3,7 @@
 A complete Intel 8085 simulator ported from the original DOS application
 by V. Kumar (1995) to a modern web platform.
 
-**[Live Demo →](https://yourusername.github.io/sim8085/)**
+**[Live Demo →](https://selfmodify.github.io/sim8085wasm/)**
 
 ---
 
