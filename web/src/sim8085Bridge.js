@@ -895,6 +895,34 @@ export function simRestoreSnapshot(snap) {
 export function simDisassemble(addr) {
   if (addr >= MAIN_MEMORY) return { text: '???', len: 1 };
   const op = ram[addr];
+
+  // ASSERT (0xDD — simulator-only instruction, variable length)
+  if (op === 0xDD) {
+    const sub = ram[addr+1] ?? 0;
+    const REG8_N = ['B','C','D','E','H','L','M','A'];
+    const FLAG_N = ['CY','Z','S','P','AC'];
+    const PAIR_N = ['BC','DE','HL','SP','PC'];
+    let mnemText = 'ASSERT ???', len = 2;
+    if (sub <= 0x07) {
+      const val = ram[addr+2] ?? 0;
+      mnemText = `ASSERT ${REG8_N[sub]}, ${h(val)}H`; len = 3;
+    } else if (sub >= 0x10 && sub <= 0x14) {
+      const val = ram[addr+2] ?? 0;
+      mnemText = `ASSERT ${FLAG_N[sub-0x10]}, ${val & 1}`; len = 3;
+    } else if (sub >= 0x20 && sub <= 0x24) {
+      const val = (ram[addr+2]??0) | ((ram[addr+3]??0) << 8);
+      mnemText = `ASSERT ${PAIR_N[sub-0x20]}, ${h(val,4)}H`; len = 4;
+    } else if (sub === 0x30) {
+      const a16 = (ram[addr+2]??0) | ((ram[addr+3]??0) << 8);
+      const val  = ram[addr+4] ?? 0;
+      mnemText = `ASSERT MEM, ${h(a16,4)}H, ${h(val)}H`; len = 5;
+    }
+    return {
+      text: `${h(addr,4)}  DD ${h(sub)}         ${mnemText}`,
+      len, addr, mnem: 'ASSERT',
+    };
+  }
+
   const LENS = [
     1,3,1,1,1,1,2,1,1,1,1,1,1,1,2,1,1,3,1,1,1,1,2,1,1,1,1,1,1,1,2,1,
     1,3,3,1,1,1,2,1,1,1,3,1,1,1,2,1,1,3,3,1,1,1,2,1,1,1,3,1,1,1,2,1,
