@@ -73,7 +73,7 @@ body {
   display: flex; align-items: center; gap: 4px;
 }
 .bmenu-trigger:hover { opacity: .85 }
-.bmenu-trigger .brand-chevron { font-size: 10px; opacity: .7; margin-top: 1px }
+.bmenu-trigger .brand-chevron { font-size: 13px; opacity: .7; margin-top: 1px }
 .bmenu-dropdown {
   position: absolute;
   top: calc(100% + 6px);
