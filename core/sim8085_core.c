@@ -2,7 +2,7 @@
  * sim8085_core.c
  * -----------------------------------------------------------------------
  * Portable C implementation of the 8085 simulator core.
- * Compiled from the original DOS source by V. Kumar (1997).
+ * Compiled from the original DOS source by V. Kumar (1995).
  *
  * This file contains:
  *   1. Global state

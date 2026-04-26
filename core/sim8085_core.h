@@ -8,7 +8,7 @@
  * Replaces the original DOS-specific include.h / defines.h / typedef.h.
  * No platform dependencies - compiles with GCC, Clang, MSVC, Emscripten.
  *
- * Derived from the original sim8085 by V. Kumar (1997).
+ * Derived from the original sim8085 by V. Kumar (1995).
  * -----------------------------------------------------------------------
  */
 

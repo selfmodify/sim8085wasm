@@ -1243,7 +1243,7 @@ export default function App() {
           <div className="brand-chip">8085</div>
           <div className="brand-text">
             <span className="brand-title">Simulator</span>
-            <span className="brand-sub">original by V. Kumar · 1997 · ported to web</span>
+            <span className="brand-sub">original by V. Kumar · 1995 · ported to web · <a className="brand-gh" href="https://github.com/selfmodify/sim8085wasm" target="_blank" rel="noreferrer">GitHub</a></span>
           </div>
         </div>
 

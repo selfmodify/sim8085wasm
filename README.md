@@ -1,7 +1,7 @@
 # sim8085 — 8085 Microprocessor Simulator
 
 A complete Intel 8085 simulator ported from the original DOS application
-by V. Kumar (1997) to a modern web platform.
+by V. Kumar (1995) to a modern web platform.
 
 **[Live Demo →](https://yourusername.github.io/sim8085/)**
 
@@ -187,7 +187,7 @@ them requires changing only the import in `App.jsx`.
 
 ## Original Project
 
-Based on **sim8085** by V. Kumar, originally distributed via Simtel.Net (1997).
+Based on **sim8085** by V. Kumar, originally distributed via Simtel.Net (1995).
 The original was a 16-bit DOS application using Borland C++ with direct video
 RAM writes, BIOS interrupts, and CP437 box-drawing characters.
 
