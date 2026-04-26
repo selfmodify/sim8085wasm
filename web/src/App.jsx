@@ -1598,22 +1598,13 @@ function LedDisplay({ leds }) {
 
 // ── Execution trace panel ────────────────────────────────────────────────
 function TracePanel({ trace, onClear }) {
-  const panelRef = useRef(null)
-  const bodyRef  = useRef(null)
+  const bodyRef = useRef(null)
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight
   }, [trace])
 
-  function onResizeDown(e) {
-    e.preventDefault()
-    const startY = e.clientY, startH = panelRef.current.getBoundingClientRect().height
-    const onMove = ev => { panelRef.current.style.height = Math.max(72, startH + (ev.clientY - startY)) + 'px' }
-    const onUp   = ()  => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
-    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
-  }
-
   return (
-    <div className="panel trace-panel" ref={panelRef}>
+    <div className="panel trace-panel">
       <div className="panel-hd">
         <span className="panel-icon">📜</span>TRACE
         <div className="panel-hd-right">
@@ -1642,7 +1633,6 @@ function TracePanel({ trace, onClear }) {
           ))
         }
       </div>
-      <div className="trace-resize-handle" onMouseDown={onResizeDown} />
     </div>
   )
 }
