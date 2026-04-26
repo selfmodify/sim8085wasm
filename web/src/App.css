@@ -573,11 +573,6 @@ body {
 
 /* ── Instruction tooltip (CodeMirror hover) ───────────────────────── */
 .cm-tooltip { border: 1px solid var(--border2) !important; border-radius: 5px !important; background: var(--bg2) !important; box-shadow: 0 4px 16px rgba(0,0,0,.5) !important }
-.asm-tooltip { padding: 7px 11px; font-family: var(--mono) }
-.asm-tt-name  { color: var(--accent); font-size: 15px; font-weight: 700; margin-bottom: 2px }
-.asm-tt-brief { color: var(--text); font-size: 13px; margin-bottom: 4px }
-.asm-tt-meta  { color: var(--text3); font-size: 12px; margin-bottom: 2px }
-.asm-tt-tip   { color: var(--text3); font-size: 11px; opacity: .7 }
 
 /* ── Status bar instruction hint ─────────────────────────────────── */
 .status-inst { display: flex; align-items: center; gap: 6px; color: var(--text3); font-size: 12px; max-width: 360px; overflow: hidden }

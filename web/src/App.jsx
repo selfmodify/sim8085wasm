@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { EditorView, keymap, lineNumbers, highlightActiveLine, hoverTooltip, Decoration } from '@codemirror/view'
+import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration } from '@codemirror/view'
 import { EditorState, StateEffect, StateField } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -315,24 +315,6 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
             if (u.selectionSet || u.docChanged) {
               const word = getInstWord(u.state, u.state.selection.main.head)
               cursorCb.current?.(word && INST_HELP[word] ? word : null)
-            }
-          }),
-          hoverTooltip((view, pos) => {
-            const word = getInstWord(view.state, pos)
-            if (!word || !INST_HELP[word]) return null
-            const inst = INST_HELP[word]
-            return {
-              pos, above: true,
-              create() {
-                const dom = document.createElement('div')
-                dom.className = 'asm-tooltip'
-                dom.innerHTML =
-                  `<div class="asm-tt-name">${word}</div>` +
-                  `<div class="asm-tt-brief">${inst.brief}</div>` +
-                  `<div class="asm-tt-meta">Flags: ${inst.flags} &nbsp;·&nbsp; ${inst.bytes}B &nbsp;·&nbsp; ${inst.cycles} cycles</div>` +
-                  `<div class="asm-tt-tip">Ctrl+click for full details</div>`
-                return { dom }
-              }
             }
           }),
           EditorView.domEventHandlers({
