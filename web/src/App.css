@@ -414,7 +414,7 @@ body {
 .reg-bit-val { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--text2) }
 .reg-bit-on .reg-bit-val { color: var(--accent) }
 .reg-name { color: var(--text3); width: 28px; font-size: 12px }
-.reg-hex  { color: var(--accent); font-weight: 600; width: 40px }
+.reg-hex  { color: var(--accent); font-weight: 600; min-width: 40px }
 .reg-dec  { color: var(--text3); font-size: 12px; flex: 1; text-align: right }
 .reg-sep  { height: 1px; background: var(--border); margin: 4px 10px }
 
@@ -1032,6 +1032,15 @@ body {
 .mem-toolbar-count { color: var(--text3); font-family: var(--mono); font-size: 11px; flex-shrink: 0 }
 .mem-cell.mem-match { background: rgba(240,168,64,.15) }
 .mem-cell.mem-match-cur { background: rgba(240,168,64,.45); color: var(--amber); font-weight: 700; outline: 1px solid var(--amber); outline-offset: -1px }
+.mem-cell.mem-fill-prev { background: rgba(240,168,64,.12); outline: 1px solid rgba(240,168,64,.35); outline-offset: -1px }
+
+/* Toolbar theming when active */
+.mem-toolbar-search .mem-toolbar-lbl  { color: var(--accent) }
+.mem-toolbar-search .mem-toolbar-input { border-color: var(--accent2); color: var(--accent) }
+.mem-toolbar-search .mem-btn { border-color: var(--accent2); color: var(--accent) }
+.mem-toolbar-fill .mem-toolbar-lbl  { color: var(--amber) }
+.mem-toolbar-fill .mem-toolbar-input { border-color: var(--amber); color: var(--amber) }
+.mem-toolbar-fill .mem-btn { border-color: var(--amber); color: var(--amber) }
 
 /* ── Responsive ───────────────────────────────────────────────────── */
 @media (max-width: 900px) {

@@ -1982,7 +1982,7 @@ function FlagPanel({ regs }) {
 }
 
 // ── Disassembly panel ────────────────────────────────────────────────────
-function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine, buildId, onRunTo, jumpRef, symbols, onJumpMem }) {
+function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondition, onGotoLine, buildId, onRunTo, jumpRef, symbols, onJumpMem }) {
   const [viewStart, setViewStart] = useState(() => regs.pc)
   const [ctxMenu, setCtxMenu]     = useState(null)   // {addr, x, y}
   const [followPC, setFollowPC]   = useState(true)
@@ -2154,7 +2154,12 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
         <div className="bp-list-wrap">
           <div className="bp-list-hd" onClick={() => setShowBpList(s => !s)}>
             <span>● BREAKPOINTS ({bpList.length})</span>
-            <span>{showBpList ? '▴' : '▾'}</span>
+            <span style={{display:'flex', alignItems:'center', gap:6}}>
+              <button className="bp-list-del" title="Clear all breakpoints"
+                onClick={e => { e.stopPropagation(); onClearAllBps() }}
+                style={{fontSize:10, padding:'1px 6px'}}>✕ All</button>
+              {showBpList ? '▴' : '▾'}
+            </span>
           </div>
           {showBpList && (
             <div className="bp-list">
@@ -2215,7 +2220,17 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
   const scrollRef = useRef(null)
   const panelRef  = useRef(null)
 
-  const searchMatchSet = useMemo(() => new Set(searchMatches), [searchMatches])
+  const searchMatchSet  = useMemo(() => new Set(searchMatches), [searchMatches])
+  const fillPreviewSet  = useMemo(() => {
+    if (!showFill) return new Set()
+    const from = parseInt(fillFrom, 16), to = parseInt(fillTo, 16)
+    if (isNaN(from) || isNaN(to)) return new Set()
+    const start = Math.min(from, to) & 0x3FFF
+    const end   = Math.min(Math.max(from, to) & 0x3FFF, 0x3FFF)
+    const s = new Set()
+    for (let a = start; a <= end; a++) s.add(a)
+    return s
+  }, [showFill, fillFrom, fillTo])
 
   useEffect(() => { if (!addrFocused.current) setAddrBuf(hex4(memStart)) }, [memStart])
 
@@ -2351,7 +2366,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
         </div>
       </div>
       {showSearch && (
-        <div className="mem-toolbar">
+        <div className="mem-toolbar mem-toolbar-search">
           <span className="mem-toolbar-lbl">FIND</span>
           <input className="mem-toolbar-input" placeholder="FF" maxLength={2} style={{width:36}}
             autoFocus
@@ -2369,7 +2384,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
         </div>
       )}
       {showFill && (
-        <div className="mem-toolbar">
+        <div className="mem-toolbar mem-toolbar-fill">
           <span className="mem-toolbar-lbl">FILL</span>
           <input className="mem-toolbar-input" placeholder="0000" maxLength={4} style={{width:46}}
             autoFocus
@@ -2377,10 +2392,10 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
           <span className="mem-toolbar-lbl">–</span>
           <input className="mem-toolbar-input" placeholder="00FF" maxLength={4} style={{width:46}}
             value={fillTo} onChange={e => setFillTo(e.target.value.toUpperCase())} title="End address" />
-          <span className="mem-toolbar-lbl">=</span>
+          <span className="mem-toolbar-lbl">with value</span>
           <input className="mem-toolbar-input" placeholder="00" maxLength={2} style={{width:30}}
             value={fillVal} onChange={e => setFillVal(e.target.value.toUpperCase())} title="Fill value" />
-          <button className="mem-btn" onClick={runFill}>Fill</button>
+          <button className="mem-btn" onClick={runFill}>Fill range</button>
         </div>
       )}
       <div className="mem-scroll" ref={scrollRef}>
@@ -2407,6 +2422,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
                     const isPreset   = !isPC && !isSP && !isCode && presetAddrs?.has(addr)
                     const isMatchCur = searchMatches.length > 0 && addr === searchMatches[searchIdx]
                     const isMatch    = !isMatchCur && searchMatchSet.has(addr)
+                    const isFillPrev = !isPC && !isSP && !isMatchCur && !isMatch && fillPreviewSet.has(addr)
                     if (editing === addr)
                       return (
                         <td key={col} className="mem-cell editing">
@@ -2419,7 +2435,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
                       )
                     return (
                       <td key={col}
-                        className={`mem-cell${isPC?' mem-pc':''}${isSP?' mem-sp':''}${isCode?' mem-code':''}${isPreset?' mem-preset':''}${isCursor?' mem-cursor':''}${val?' mem-nz':''}${changedAddrs?.has(addr)?' mem-diff':''}${isMatchCur?' mem-match-cur':''}${isMatch?' mem-match':''}`}
+                        className={`mem-cell${isPC?' mem-pc':''}${isSP?' mem-sp':''}${isCode?' mem-code':''}${isPreset?' mem-preset':''}${isCursor?' mem-cursor':''}${val?' mem-nz':''}${changedAddrs?.has(addr)?' mem-diff':''}${isMatchCur?' mem-match-cur':''}${isMatch?' mem-match':''}${isFillPrev?' mem-fill-prev':''}`}
                         title={`${hex4(addr)}: ${hex2(val)}H = ${val}`}
                         onClick={()=>setCursor(addr)}
                         onDoubleClick={()=>{setEditing(addr);setEditBuf(hex2(val))}}
@@ -3391,6 +3407,7 @@ export default function App() {
     next.has(addr) ? next.delete(addr) : next.set(addr, null)
     syncBps(next)
   }
+  function clearAllBps() { syncBps(new Map()) }
 
   function openConditionDialog(addr) {
     if (!bps.has(addr)) return
@@ -3530,7 +3547,7 @@ export default function App() {
 
         {/* Code + Memory column */}
         <div className="col col-center">
-          <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} buildId={buildId}
+          <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} onClearAllBps={clearAllBps} buildId={buildId}
             onSetCondition={openConditionDialog}
             onRunTo={runToAddr}
             jumpRef={disasmJumpRef}
