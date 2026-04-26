@@ -278,6 +278,48 @@ function evalCondition(expr, r) {
 const TRACE_REG16 = new Set(['pc','sp'])
 function fmtTraceVal(k, v) { return TRACE_REG16.has(k) ? hex4(v) : hex2(v) }
 
+// ── Panel help descriptions ──────────────────────────────────────────────
+const PANEL_HELP_TEXT = {
+  'EDITOR':           'Write 8085 assembly here. ORG sets the assembly address; KICKOFF sets the entry point. Hover any mnemonic for a quick summary; Ctrl+click for full docs.',
+  'INSTRUCTION HELP': 'Shows documentation for the instruction under your cursor — flags affected, byte size, cycle count, and an example. Updates as you type.',
+  'LED DISPLAY':      'Simulates the Intel SDK-85 7-segment display. Drive with CALL 5: C=02H writes a digit (B=field, HL→data), C=09H/0BH scrolls left inserting D, C=03H blanks fields.',
+  'DISASSEMBLY':      'Live disassembly of RAM at the current PC. Click the gutter (·) to toggle a breakpoint (●); right-click a breakpoint to add a condition. Click a row to jump the editor to that source line.',
+  'AI ASSISTANT':     'Ask questions about your 8085 code. The current register state and source are included automatically. Requires your own Anthropic API key (stored in this browser only).',
+  'MEMORY':           'Hex dump of all 64 KB RAM. PC cell is green, SP cell is amber. Double-click a cell to edit. Arrow keys navigate; PgUp/Dn scroll. Drag the top handle to resize the panel.',
+  'REGISTERS':        'Live 8085 register values. Click any value to edit it. The base toggle (HEX/DEC/BIN) cycles the display format. Registers that changed since the last step are highlighted green.',
+  'REGISTER PAIRS':   'BC, DE, and HL shown as combined 16-bit addresses, plus the byte stored at each address. Click an address to jump the memory view there; click the value to edit the pair.',
+  'FLAGS':            'Current state of the five 8085 status flags: Sign (S), Zero (Z), Auxiliary Carry (AC), Parity (P), Carry (CY). Updated automatically after every arithmetic and logic instruction.',
+  'STACK':            'Memory at and above SP interpreted as a stack of 16-bit values. The top entry is highlighted green. PUSH decrements SP by 2; POP increments it.',
+  'TRACE':            'Last 50 instructions executed in order. Each row shows the address, disassembled text, and any registers that changed (green). Cleared on every Build. Step to populate it.',
+  'WATCH':            'Monitor registers or memory addresses in real time. Type a name (A, BC, HL…) or a hex address (0200H) and press Enter or +. Values update after each step.',
+  'CALCULATOR':       'Convert 16-bit values between binary, octal, decimal, and hex. Type in any field and the others update instantly — handy for working out immediate operands.',
+}
+
+function PanelHelp({ panel }) {
+  const [show, setShow] = useState(false)
+  const wrapRef = useRef(null)
+  const text = PANEL_HELP_TEXT[panel]
+  useEffect(() => {
+    if (!show) return
+    const h = e => { if (!wrapRef.current?.contains(e.target)) setShow(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [show])
+  useEffect(() => {
+    if (!show) return
+    const h = e => { if (e.key === 'Escape') setShow(false) }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [show])
+  if (!text) return null
+  return (
+    <div className="panel-help-wrap" ref={wrapRef}>
+      <button className="panel-help-btn" onClick={() => setShow(o => !o)} title="Panel help">?</button>
+      {show && <div className="panel-help-popup">{text}</div>}
+    </div>
+  )
+}
+
 function getInstWord(state, pos) {
   const line = state.doc.lineAt(pos)
   const text = line.text
@@ -450,8 +492,11 @@ function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
     <div className="panel reg-panel">
       <div className="panel-hd">
         REGISTERS
-        <button className="reg-base-btn" onClick={() => onRegBase(nextBase)}
-          title="Toggle display: hex / dec / bin">{regBase.toUpperCase()}</button>
+        <div className="panel-hd-right">
+          <button className="reg-base-btn" onClick={() => onRegBase(nextBase)}
+            title="Toggle display: hex / dec / bin">{regBase.toUpperCase()}</button>
+          <PanelHelp panel="REGISTERS" />
+        </div>
       </div>
       <EditableRow name="A" val={regs.a} prevVal={p.a} regKey="a" />
       <div className="reg-bits">
@@ -514,7 +559,7 @@ function PairPanel({ regs, prev, onJump, onEdit }) {
 
   return (
     <div className="panel reg-panel">
-      <div className="panel-hd">REGISTER PAIRS</div>
+      <div className="panel-hd">REGISTER PAIRS<PanelHelp panel="REGISTER PAIRS" /></div>
       <div className="pair-col-hdr">
         <span />
         <span>ADDR</span>
@@ -570,7 +615,7 @@ function FlagPanel({ regs }) {
   ]
   return (
     <div className="panel flag-panel">
-      <div className="panel-hd">FLAGS</div>
+      <div className="panel-hd">FLAGS<PanelHelp panel="FLAGS" /></div>
       <div className="flags-row">
         {FLAGS.map(f => (
           <div key={f.key} className={`flag${regs[f.key] ? ' flag-on' : ''}`} title={f.title}>
@@ -611,7 +656,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
 
   return (
     <div className="panel disasm-panel">
-      <div className="panel-hd">DISASSEMBLY</div>
+      <div className="panel-hd">DISASSEMBLY<PanelHelp panel="DISASSEMBLY" /></div>
       <div className="disasm-list">
         {lines.map(row => {
           const cur  = row.addr === regs.pc
@@ -725,6 +770,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs }) {
       <div className="mem-resize-handle" onMouseDown={onHandleMouseDown} />
       <div className="panel-hd">
         MEMORY
+        <div className="panel-hd-right">
         <span className="mem-ctrl">
           <button className="mem-btn" onClick={() => onJump(Math.max(0, memStart - COLS*rows))}>◀</button>
           <input
@@ -742,6 +788,8 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs }) {
           />
           <button className="mem-btn" onClick={() => onJump(Math.min(0x3F00, memStart + COLS*rows))}>▶</button>
         </span>
+        <PanelHelp panel="MEMORY" />
+        </div>
       </div>
       <div className="mem-scroll" ref={scrollRef}>
         <table className="mem-tbl">
@@ -829,7 +877,7 @@ function CalcPanel() {
 
   return (
     <div className="panel calc-panel">
-      <div className="panel-hd">CALCULATOR</div>
+      <div className="panel-hd">CALCULATOR<PanelHelp panel="CALCULATOR" /></div>
       <div className="calc-body">
         {CALC_BASES.map(({ key, label, maxLen, placeholder }) => (
           <div key={key} className="calc-row">
@@ -943,7 +991,10 @@ function ChatPanel({ regs, src }) {
       <div className="chat-resize-handle" onMouseDown={onResizeDown} />
       <div className="panel-hd">
         AI ASSISTANT
-        <button className="reg-base-btn" onClick={() => setSetupOpen(o => !o)} title="API key settings">⚙</button>
+        <div className="panel-hd-right">
+          <button className="reg-base-btn" onClick={() => setSetupOpen(o => !o)} title="API key settings">⚙</button>
+          <PanelHelp panel="AI ASSISTANT" />
+        </div>
       </div>
 
       {setupOpen && (
@@ -997,7 +1048,13 @@ function StackPanel({ regs }) {
 
   return (
     <div className="panel stack-panel">
-      <div className="panel-hd">STACK  <code className="sp-val">SP={hex4(regs.sp)}</code></div>
+      <div className="panel-hd">
+        STACK
+        <div className="panel-hd-right">
+          <code className="sp-val">SP={hex4(regs.sp)}</code>
+          <PanelHelp panel="STACK" />
+        </div>
+      </div>
       <div className="stack-body">
         {entries.length === 0
           ? <div className="stack-empty">empty</div>
@@ -1019,7 +1076,7 @@ function LedDisplay({ leds }) {
   const LABELS = ['ST₁','ST₀','A₃','A₂','A₁','A₀','D₁','D₀']
   return (
     <div className="panel led-panel">
-      <div className="panel-hd">LED DISPLAY</div>
+      <div className="panel-hd">LED DISPLAY<PanelHelp panel="LED DISPLAY" /></div>
       <div className="led-digits">
         {leds.map((v,i) => (
           <div key={i} className="led-digit">
@@ -1042,7 +1099,10 @@ function TracePanel({ trace, onClear }) {
     <div className="panel trace-panel">
       <div className="panel-hd">
         TRACE
-        <button className="reg-base-btn" onClick={onClear} title="Clear trace">✕</button>
+        <div className="panel-hd-right">
+          <button className="reg-base-btn" onClick={onClear} title="Clear trace">✕</button>
+          <PanelHelp panel="TRACE" />
+        </div>
       </div>
       <div className="trace-body" ref={bodyRef}>
         {trace.length === 0
@@ -1099,7 +1159,7 @@ function WatchPanel({ watches, regs, onAdd, onRemove }) {
 
   return (
     <div className="panel watch-panel">
-      <div className="panel-hd">WATCH</div>
+      <div className="panel-hd">WATCH<PanelHelp panel="WATCH" /></div>
       <div className="watch-add-row">
         <input className="watch-input" value={input} placeholder="A  BC  0200H…"
           onChange={e => setInput(e.target.value)}
@@ -1271,7 +1331,7 @@ function HelpPanel({ instruction }) {
   return (
     <div className="panel help-panel" ref={panelRef}>
       <div className="help-resize-handle" onMouseDown={onResizeDown} />
-      <div className="panel-hd">INSTRUCTION HELP</div>
+      <div className="panel-hd">INSTRUCTION HELP<PanelHelp panel="INSTRUCTION HELP" /></div>
       <div className="help-scroll">
         {inst ? (
           <div className="help-inline-body">
@@ -1586,7 +1646,13 @@ export default function App() {
         {/* Editor column */}
         <div className="col col-editor" ref={editorColRef}>
           <div className="panel editor-panel">
-            <div className="panel-hd">EDITOR  <span className="editor-hint">; semicolons for comments</span></div>
+            <div className="panel-hd">
+            EDITOR
+            <div className="panel-hd-right">
+              <span className="editor-hint">; semicolons for comments</span>
+              <PanelHelp panel="EDITOR" />
+            </div>
+          </div>
             <AsmEditor value={src} onChange={v => { srcRef.current = v; setSrc(v) }} gotoRef={gotoLineRef}
               onCursorInstruction={setCursorInst}
               onInstructionDetail={setHelpInst}

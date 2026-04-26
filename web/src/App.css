@@ -207,7 +207,7 @@ body {
 
 .col-editor { flex: 0 0 340px; min-width: 180px }
 .col-center { flex: 1 0 280px; overflow-y: auto }
-.col-right  { flex: 0 0 200px; min-width: 160px; overflow-y: auto }
+.col-right  { flex: 0 0 300px; min-width: 200px; overflow-y: auto }
 
 .col-resize-handle {
   flex: 0 0 4px;
@@ -240,6 +240,26 @@ body {
   color: var(--text2);
   flex-shrink: 0;
   text-transform: uppercase;
+}
+
+/* ── Panel header right-side group + help button ─────────────────── */
+.panel-hd-right { display: flex; align-items: center; gap: 4px }
+.panel-help-wrap { position: relative; flex-shrink: 0 }
+.panel-help-btn {
+  background: none; border: 1px solid var(--border); border-radius: 3px;
+  color: var(--text3); font-family: var(--mono); font-size: 10px;
+  font-weight: 400; letter-spacing: 0; text-transform: none;
+  padding: 1px 5px; cursor: pointer; line-height: 1.4;
+}
+.panel-help-btn:hover { border-color: var(--border2); color: var(--accent) }
+.panel-help-popup {
+  position: absolute; right: 0; top: calc(100% + 5px);
+  width: 240px; background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 9px 11px;
+  font-family: var(--sans); font-size: 11px; font-weight: 400;
+  color: var(--text2); line-height: 1.55; z-index: 300;
+  box-shadow: 0 4px 20px rgba(0,0,0,.6);
+  white-space: normal; text-transform: none; letter-spacing: 0;
 }
 
 /* ── Editor ───────────────────────────────────────────────────────── */
@@ -740,5 +760,5 @@ body {
 /* ── Responsive ───────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .col-editor { flex-basis: 280px }
-  .col-right  { flex-basis: 180px }
+  .col-right  { flex-basis: 240px }
 }
