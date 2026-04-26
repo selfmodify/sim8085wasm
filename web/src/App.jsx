@@ -1475,6 +1475,7 @@ function ChatPanel({ regs, src }) {
 
 // ── Stack panel ──────────────────────────────────────────────────────────
 function StackPanel({ regs }) {
+  const panelRef = useRef(null)
   const entries = useMemo(() => {
     const out = []
     for (let i = 0; i < 64; i++) {
@@ -1485,8 +1486,17 @@ function StackPanel({ regs }) {
     return out
   }, [regs.sp])
 
+  function onResizeDown(e) {
+    e.preventDefault()
+    const startY = e.clientY, startH = panelRef.current.getBoundingClientRect().height
+    const onMove = ev => { panelRef.current.style.height = Math.max(72, startH + (startY - ev.clientY)) + 'px' }
+    const onUp   = ()  => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
+  }
+
   return (
-    <div className="panel stack-panel">
+    <div className="panel stack-panel" ref={panelRef}>
+      <div className="stack-resize-handle" onMouseDown={onResizeDown} />
       <div className="panel-hd">
         STACK
         <div className="panel-hd-right">
@@ -1531,12 +1541,23 @@ function LedDisplay({ leds }) {
 
 // ── Execution trace panel ────────────────────────────────────────────────
 function TracePanel({ trace, onClear }) {
-  const bodyRef = useRef(null)
+  const panelRef = useRef(null)
+  const bodyRef  = useRef(null)
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight
   }, [trace])
+
+  function onResizeDown(e) {
+    e.preventDefault()
+    const startY = e.clientY, startH = panelRef.current.getBoundingClientRect().height
+    const onMove = ev => { panelRef.current.style.height = Math.max(72, startH + (startY - ev.clientY)) + 'px' }
+    const onUp   = ()  => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
+  }
+
   return (
-    <div className="panel trace-panel">
+    <div className="panel trace-panel" ref={panelRef}>
+      <div className="trace-resize-handle" onMouseDown={onResizeDown} />
       <div className="panel-hd">
         TRACE
         <div className="panel-hd-right">
