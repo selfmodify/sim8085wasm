@@ -2340,6 +2340,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
           <button className="mem-btn" onClick={() => onJump(Math.min(0x3F00, memStart + COLS*rows))}>▶</button>
           <button className="mem-btn" title="Forward 4 pages" onClick={() => onJump(Math.min(0x3F00, memStart + COLS*rows*4))}>»</button>
         </span>
+        <span style={{width:8, flexShrink:0}} />
         <button className={`mem-btn${showSearch ? ' mem-btn-active' : ''}`}
           title="Find byte in memory (toggle)"
           onClick={() => { setShowSearch(s => !s); setShowFill(false) }}>🔍</button>
@@ -2371,6 +2372,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
         <div className="mem-toolbar">
           <span className="mem-toolbar-lbl">FILL</span>
           <input className="mem-toolbar-input" placeholder="0000" maxLength={4} style={{width:46}}
+            autoFocus
             value={fillFrom} onChange={e => setFillFrom(e.target.value.toUpperCase())} title="Start address" />
           <span className="mem-toolbar-lbl">–</span>
           <input className="mem-toolbar-input" placeholder="00FF" maxLength={4} style={{width:46}}
@@ -3500,18 +3502,6 @@ export default function App() {
           <button className="btn btn-reset" onClick={handleReset}>↺ Reset  <kbd>F6</kbd></button>
         </div>
 
-        <div className={`status status-${appState}`}>
-          <span className="status-msg">{msg}</span>
-          {cursorInst && INST_HELP[cursorInst] && (
-            <span className="status-inst">
-              <span className="status-inst-name">{cursorInst}</span>
-              <span className="status-inst-brief">{INST_HELP[cursorInst].brief}</span>
-              <kbd className="status-inst-tip">Ctrl+click</kbd>
-            </span>
-          )}
-          {steps > 0 && <span className="status-steps">{steps.toLocaleString()} steps</span>}
-          {cycles > 0 && <span className="status-cycles">{cycles.toLocaleString()} T</span>}
-        </div>
       </div>
 
       {/* ── Workspace ── */}
