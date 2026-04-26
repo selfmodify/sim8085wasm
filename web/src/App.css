@@ -676,10 +676,9 @@ body {
 .trace-panel { padding-bottom: 4px; height: 200px; overflow: hidden; display: flex; flex-direction: column; flex-shrink: 0 }
 .trace-resize-handle {
   height: 5px; cursor: ns-resize; flex-shrink: 0;
-  background: linear-gradient(to bottom, var(--border2) 1px, transparent 1px);
-  margin-bottom: 2px;
+  background: linear-gradient(to top, var(--border2) 1px, transparent 1px);
 }
-.trace-resize-handle:hover { background: linear-gradient(to bottom, var(--accent) 1px, transparent 1px) }
+.trace-resize-handle:hover { background: linear-gradient(to top, var(--accent) 1px, transparent 1px) }
 .trace-body { flex: 1; overflow-y: auto; font-family: var(--mono); font-size: 12px; min-height: 0 }
 .trace-empty { color: var(--text3); font-size: 12px; padding: 6px 10px }
 .trace-row { display: flex; gap: 6px; align-items: baseline; padding: 1px 10px }

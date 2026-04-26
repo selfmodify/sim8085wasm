@@ -1607,14 +1607,13 @@ function TracePanel({ trace, onClear }) {
   function onResizeDown(e) {
     e.preventDefault()
     const startY = e.clientY, startH = panelRef.current.getBoundingClientRect().height
-    const onMove = ev => { panelRef.current.style.height = Math.max(72, startH + (startY - ev.clientY)) + 'px' }
+    const onMove = ev => { panelRef.current.style.height = Math.max(72, startH + (ev.clientY - startY)) + 'px' }
     const onUp   = ()  => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
     document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
 
   return (
     <div className="panel trace-panel" ref={panelRef}>
-      <div className="trace-resize-handle" onMouseDown={onResizeDown} />
       <div className="panel-hd">
         <span className="panel-icon">📜</span>TRACE
         <div className="panel-hd-right">
@@ -1706,6 +1705,7 @@ function WatchPanel({ watches, regs, onAdd, onRemove }) {
             })
         }
       </div>
+      <div className="trace-resize-handle" onMouseDown={onResizeDown} />
     </div>
   )
 }
