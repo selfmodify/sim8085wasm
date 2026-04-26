@@ -819,6 +819,121 @@ function CalcPanel() {
   )
 }
 
+// ── AI chat panel ────────────────────────────────────────────────────────
+const CHAT_SYSTEM = `You are an expert assistant embedded in an Intel 8085 microprocessor simulator. Help users with 8085 assembly language programming, instruction behaviour, register and flag effects, debugging, memory addressing, and general computer architecture. When showing code use 8085 assembly syntax. Be concise and practical.`
+
+function ChatPanel() {
+  const [apiKey,      setApiKey]      = useState(() => localStorage.getItem('ant_key') || '')
+  const [keyDraft,    setKeyDraft]    = useState('')
+  const [setupOpen,   setSetupOpen]   = useState(!localStorage.getItem('ant_key'))
+  const [messages,    setMessages]    = useState([])
+  const [input,       setInput]       = useState('')
+  const [loading,     setLoading]     = useState(false)
+  const scrollRef  = useRef(null)
+  const inputRef   = useRef(null)
+  const panelRef   = useRef(null)
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }, [messages, loading])
+
+  function saveKey() {
+    const k = keyDraft.trim()
+    if (!k) return
+    localStorage.setItem('ant_key', k)
+    setApiKey(k); setSetupOpen(false); setKeyDraft('')
+  }
+
+  function clearKey() {
+    localStorage.removeItem('ant_key')
+    setApiKey(''); setSetupOpen(true); setMessages([])
+  }
+
+  async function send() {
+    const text = input.trim()
+    if (!text || loading || !apiKey) return
+    const next = [...messages, { role: 'user', content: text }]
+    setMessages(next); setInput(''); setLoading(true)
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1024,
+          system: CHAT_SYSTEM,
+          messages: next.map(m => ({ role: m.role, content: m.content })),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`)
+      setMessages(m => [...m, { role: 'assistant', content: data.content?.[0]?.text || '' }])
+    } catch (err) {
+      setMessages(m => [...m, { role: 'error', content: `Error: ${err.message}` }])
+    } finally {
+      setLoading(false)
+      inputRef.current?.focus()
+    }
+  }
+
+  function onResizeDown(e) {
+    e.preventDefault()
+    const startY = e.clientY, startH = panelRef.current.getBoundingClientRect().height
+    const onMove = ev => { panelRef.current.style.height = Math.max(80, startH + (startY - ev.clientY)) + 'px' }
+    const onUp   = ()  => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
+  }
+
+  return (
+    <div className="panel chat-panel" ref={panelRef}>
+      <div className="chat-resize-handle" onMouseDown={onResizeDown} />
+      <div className="panel-hd">
+        AI ASSISTANT
+        <button className="reg-base-btn" onClick={() => setSetupOpen(o => !o)} title="API key settings">⚙</button>
+      </div>
+
+      {setupOpen && (
+        <div className="chat-key-setup">
+          <p className="chat-key-hint">Your Anthropic API key — stored only in this browser, never sent to any server other than Anthropic.</p>
+          <div className="chat-key-row">
+            <input className="chat-key-input" type="password" placeholder="sk-ant-…"
+              value={keyDraft} onChange={e => setKeyDraft(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && saveKey()} />
+            <button className="btn btn-xs" onClick={saveKey}>Save</button>
+          </div>
+          {apiKey && <button className="btn btn-xs" onClick={clearKey}>Clear key</button>}
+          <a className="chat-key-link" href="https://console.anthropic.com" target="_blank" rel="noreferrer">Get a key at console.anthropic.com →</a>
+        </div>
+      )}
+
+      <div className="chat-messages" ref={scrollRef}>
+        {messages.length === 0 && !setupOpen &&
+          <div className="chat-empty">Ask anything about 8085 assembly…</div>}
+        {messages.map((m, i) => (
+          <div key={i} className={`chat-msg chat-msg-${m.role}`}>
+            <div className="chat-bubble">{m.content}</div>
+          </div>
+        ))}
+        {loading && <div className="chat-msg chat-msg-assistant"><div className="chat-bubble chat-loading">…</div></div>}
+      </div>
+
+      {!setupOpen && (
+        <div className="chat-input-row">
+          <input ref={inputRef} className="chat-input" placeholder="Ask about 8085…"
+            value={input} onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} />
+          <button className="btn btn-xs" onClick={send} disabled={loading || !input.trim()}>Send</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Stack panel ──────────────────────────────────────────────────────────
 function StackPanel({ regs }) {
   const entries = useMemo(() => {
@@ -1188,6 +1303,7 @@ export default function App() {
           <FlagPanel  regs={regs} />
           <StackPanel regs={regs} />
           <CalcPanel />
+          <ChatPanel />
         </div>
       </div>
       {helpInst && <HelpModal instruction={helpInst} onClose={() => setHelpInst(null)} />}
