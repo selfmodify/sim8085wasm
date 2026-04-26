@@ -978,7 +978,7 @@ const PAIR_DEFS = [
   { name: 'HL', hi: 'h', lo: 'l' },
 ]
 
-function PairPanel({ regs, prev, onJump, onEdit }) {
+function PairPanel({ regs, prev, onJump, onEdit, regBase, onRegBase }) {
   const [editing, setEditing] = useState(null)  // { key, field: 'addr'|'content' }
   const [buf, setBuf] = useState('')
   const p = prev || {}
@@ -1008,7 +1008,14 @@ function PairPanel({ regs, prev, onJump, onEdit }) {
 
   return (
     <div className="panel reg-panel">
-      <div className="panel-hd"><span className="panel-icon">🔗</span>REGISTER PAIRS<PanelHelp panel="REGISTER PAIRS" /></div>
+      <div className="panel-hd">
+        <span className="panel-icon">🔗</span>REGISTER PAIRS
+        <div className="panel-hd-right">
+          <button className="reg-base-btn" onClick={() => onRegBase(BASE_CYCLE[(BASE_CYCLE.indexOf(regBase)+1)%3])}
+            title="Toggle display: hex / dec / bin">{(regBase||'hex').toUpperCase()}</button>
+          <PanelHelp panel="REGISTER PAIRS" />
+        </div>
+      </div>
       <div className="pair-col-hdr">
         <span />
         <span>ADDR</span>
@@ -1032,7 +1039,7 @@ function PairPanel({ regs, prev, onJump, onEdit }) {
               : <span className="pair-addr"
                   onClick={() => { onJump(val & 0xFFF0); startEdit(name, 'addr', hex4(val)) }}
                   title={`${hex4(val)}H — click to edit pair address, jump memory`}>
-                  {hex4(val)}
+                  {fmtWord(val, regBase)}
                 </span>
             }
             {editContent
@@ -1043,7 +1050,7 @@ function PairPanel({ regs, prev, onJump, onEdit }) {
               : <span className="pair-content"
                   onClick={() => startEdit(name, 'content', hex2(mem))}
                   title={`mem[${hex4(val)}H] = ${hex2(mem)}H — click to edit`}>
-                  {hex2(mem)}
+                  {fmtByte(mem, regBase)}
                 </span>
             }
           </div>
@@ -1256,6 +1263,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
         <span className="panel-icon">💾</span>MEMORY
         <div className="panel-hd-right">
         <span className="mem-ctrl">
+          <button className="mem-btn" title="Back 4 pages" onClick={() => onJump(Math.max(0, memStart - COLS*rows*4))}>«</button>
           <button className="mem-btn" onClick={() => onJump(Math.max(0, memStart - COLS*rows))}>◀</button>
           <input
             className="mem-cur-addr"
@@ -1271,6 +1279,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
             }}
           />
           <button className="mem-btn" onClick={() => onJump(Math.min(0x3F00, memStart + COLS*rows))}>▶</button>
+          <button className="mem-btn" title="Forward 4 pages" onClick={() => onJump(Math.min(0x3F00, memStart + COLS*rows*4))}>»</button>
         </span>
         <PanelHelp panel="MEMORY" />
         </div>
@@ -1531,7 +1540,7 @@ function ChatPanel({ regs, src }) {
 }
 
 // ── Stack panel ──────────────────────────────────────────────────────────
-function StackPanel({ regs }) {
+function StackPanel({ regs, regBase, onRegBase }) {
   const panelRef = useRef(null)
   const entries = useMemo(() => {
     const out = []
@@ -1557,6 +1566,8 @@ function StackPanel({ regs }) {
         <span className="panel-icon">📚</span>STACK
         <div className="panel-hd-right">
           <code className="sp-val">SP={hex4(regs.sp)}</code>
+          <button className="reg-base-btn" onClick={() => onRegBase(BASE_CYCLE[(BASE_CYCLE.indexOf(regBase)+1)%3])}
+            title="Toggle display: hex / dec / bin">{(regBase||'hex').toUpperCase()}</button>
           <PanelHelp panel="STACK" />
         </div>
       </div>
@@ -1567,7 +1578,7 @@ function StackPanel({ regs }) {
             <div key={e.addr} className={`stack-row${i===0?' stack-top':''}`}>
               <span className="stack-addr">{hex4(e.addr)}</span>
               <span className="stack-sep">→</span>
-              <span className="stack-val">{hex4(e.val)}</span>
+              <span className="stack-val">{fmtWord(e.val, regBase)}</span>
             </div>
           ))
         }
@@ -1638,7 +1649,7 @@ function TracePanel({ trace, onClear }) {
 }
 
 // ── Watch panel ──────────────────────────────────────────────────────────
-function WatchPanel({ watches, regs, onAdd, onRemove }) {
+function WatchPanel({ watches, regs, onAdd, onRemove, regBase, onRegBase }) {
   const [input, setInput] = useState('')
   const PAIR_KEYS = { bc: ['b','c'], de: ['d','e'], hl: ['h','l'] }
   const REG_NAMES = new Set(['a','b','c','d','e','h','l','pc','sp','flags','bc','de','hl'])
@@ -1672,7 +1683,14 @@ function WatchPanel({ watches, regs, onAdd, onRemove }) {
 
   return (
     <div className="panel watch-panel">
-      <div className="panel-hd"><span className="panel-icon">👁</span>WATCH<PanelHelp panel="WATCH" /></div>
+      <div className="panel-hd">
+        <span className="panel-icon">👁</span>WATCH
+        <div className="panel-hd-right">
+          <button className="reg-base-btn" onClick={() => onRegBase(BASE_CYCLE[(BASE_CYCLE.indexOf(regBase)+1)%3])}
+            title="Toggle display: hex / dec / bin">{(regBase||'hex').toUpperCase()}</button>
+          <PanelHelp panel="WATCH" />
+        </div>
+      </div>
       <div className="watch-add-row">
         <input className="watch-input" value={input} placeholder="A  BC  0200H…"
           onChange={e => setInput(e.target.value)}
@@ -1688,8 +1706,8 @@ function WatchPanel({ watches, regs, onAdd, onRemove }) {
               return (
                 <div key={i} className="watch-row">
                   <span className="watch-label">{label}</span>
-                  <span className="watch-val">{is16(w) ? hex4(v) : hex2(v)}</span>
-                  <span className="watch-dec">{v}</span>
+                  <span className="watch-val">{is16(w) ? fmtWord(v, regBase) : fmtByte(v, regBase)}</span>
+                  {(regBase||'hex') === 'hex' && <span className="watch-dec">{v}</span>}
                   <button className="watch-rm" onClick={() => onRemove(i)}>✕</button>
                 </div>
               )
@@ -2013,6 +2031,7 @@ export default function App() {
   function dismissWelcome() { localStorage.setItem('sim8085_welcomed', '1'); setShowWelcome(false) }
   const [runSpeed, setRunSpeed]     = useState(3)        // index into SPEEDS
   const [regBase, setRegBase]       = useState('hex')    // 'hex'|'dec'|'bin'
+  const [statusLog, setStatusLog]   = useState([])
   const [histLen, setHistLen]       = useState(0)        // for disabling Step Back button
   const timerRef    = useRef(null)
   const editorColRef = useRef(null)
@@ -2096,6 +2115,13 @@ export default function App() {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [])
+
+  useEffect(() => {
+    if (msg === 'Load an example or write code, then click Build.') return
+    const t = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})
+    const kind = msg.startsWith('✗') ? 'error' : msg.startsWith('✓') ? 'success' : msg.startsWith('■') ? 'halted' : 'info'
+    setStatusLog(log => [...log.slice(-19), { text: msg, kind, t }])
+  }, [msg])
 
   function refresh() {
     const r = sim.simGetRegisters()
@@ -2429,7 +2455,8 @@ export default function App() {
             <div className="mem-watch-watch">
               <WatchPanel watches={watches} regs={regs}
                 onAdd={w => setWatches(ws => [...ws, w])}
-                onRemove={i => setWatches(ws => ws.filter((_,j) => j !== i))} />
+                onRemove={i => setWatches(ws => ws.filter((_,j) => j !== i))}
+                regBase={regBase} onRegBase={setRegBase} />
             </div>
           </div>
           <div className="jump-row">
@@ -2445,13 +2472,25 @@ export default function App() {
         <div className="col col-right" ref={rightColRef}>
           <RegPanel   regs={regs} prev={prevRegs} onJump={setMemStart}
             regBase={regBase} onRegBase={setRegBase} onEdit={refresh} />
-          <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh} />
+          <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh}
+            regBase={regBase} onRegBase={setRegBase} />
           <FlagPanel  regs={regs} />
           <IOPortPanel outputPorts={outputPorts} inputPresets={inputPresets}
             onSetInput={setInputPort} onRemoveInput={removeInputPort} />
-          <StackPanel regs={regs} />
+          <StackPanel regs={regs} regBase={regBase} onRegBase={setRegBase} />
           <TracePanel trace={trace} onClear={() => setTrace([])} />
         </div>
+      </div>
+      <div className="statusbar">
+        {statusLog.length === 0
+          ? <span className="statusbar-empty">Ready</span>
+          : statusLog.slice().reverse().slice(0, 4).map((e, i) => (
+            <div key={i} className={`statusbar-entry sbar-${e.kind}`}>
+              <span className="statusbar-time">{e.t}</span>
+              <span className="statusbar-text">{e.text}</span>
+            </div>
+          ))
+        }
       </div>
       {showWelcome && <WelcomeModal onClose={dismissWelcome} />}
       {helpInst && <HelpModal instruction={helpInst} onClose={() => setHelpInst(null)} />}
