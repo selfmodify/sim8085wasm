@@ -1759,7 +1759,7 @@ function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome }) {
+function BrandMenu({ onShowWelcome, onImport, onExport, onShare }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
 
@@ -1785,6 +1785,10 @@ function BrandMenu({ onShowWelcome }) {
 </button>
       {open && (
         <div className="bmenu-dropdown">
+          {item('⇡  Import .asm / .85', onImport)}
+          {item('⇣  Export .asm', onExport)}
+          {item('⎘  Copy share link', onShare)}
+          <div className="bmenu-sep" />
           {item('📖  Welcome guide', onShowWelcome)}
           {item('⭐  View on GitHub', () => window.open('https://github.com/selfmodify/sim8085wasm', '_blank'))}
           <div className="bmenu-sep" />
@@ -2291,7 +2295,11 @@ export default function App() {
       {/* ── Topbar ── */}
       <div className="topbar">
         <div className="brand">
-          <BrandMenu onShowWelcome={() => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) }} />
+          <BrandMenu
+            onShowWelcome={() => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) }}
+            onImport={() => fileInputRef.current.click()}
+            onExport={exportFile}
+            onShare={shareURL} />
           <div className="brand-text">
             <span className="brand-title">Simulator</span>
             <span className="brand-sub">Intel 8085 · click chip for menu</span>
@@ -2310,9 +2318,6 @@ export default function App() {
             ))}
           </select>
           <input type="file" ref={fileInputRef} style={{display:'none'}} accept=".asm,.85,.s,.txt" onChange={importFile} />
-          <button className="btn btn-file" onClick={() => fileInputRef.current.click()} title="Import .asm file">⇡ Import</button>
-          <button className="btn btn-file" onClick={exportFile} title="Save .asm file">⇣ Export</button>
-          <button className="btn btn-share" onClick={shareURL} title="Copy shareable URL">⎘ Share</button>
           <button className="btn btn-asm"   onClick={() => doAssemble(srcRef.current)}>⚙ Build  <kbd>F5</kbd></button>
           <button className="btn btn-step"  onClick={doStep}  disabled={running || appState==='error'}>↓ Step  <kbd>F7</kbd></button>
           <button className="btn btn-back"  onClick={doStepBack} disabled={running || appState==='error' || histLen === 0} title="Undo last step">⟲ Back</button>

@@ -159,10 +159,6 @@ body {
 .btn-stop:hover { background: #2a1010 }
 .btn-reset  { color: var(--amber) }
 .btn-back   { color: var(--text2) }
-.btn-file   { color: var(--text3); font-size: 12px }
-.btn-file:hover { color: var(--text2) }
-.btn-share  { color: var(--text3); font-size: 12px }
-.btn-share:hover { color: var(--accent) }
 
 /* Speed slider */
 .speed-label { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 12px; color: var(--text3); white-space: nowrap }
