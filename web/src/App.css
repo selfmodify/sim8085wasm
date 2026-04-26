@@ -488,7 +488,7 @@ body {
 .calc-input::placeholder { color: var(--text3); opacity: .5 }
 
 /* ── AI chat ──────────────────────────────────────────────────────── */
-.chat-panel { height: 300px; display: flex; flex-direction: column }
+.chat-panel { height: 240px; display: flex; flex-direction: column }
 .chat-resize-handle {
   height: 5px; flex-shrink: 0; cursor: ns-resize;
   background: transparent; border-top: 2px solid var(--border); transition: border-color .15s;

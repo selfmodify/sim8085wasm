@@ -620,7 +620,7 @@ function MemPanel({ memStart, onJump, regs, buildId }) {
   const [mem, setMem] = useState(new Uint8Array(128))
   const [editing, setEditing] = useState(null)
   const [editBuf, setEditBuf] = useState('')
-  const [rows, setRows] = useState(12)
+  const [rows, setRows] = useState(8)
   const [addrBuf, setAddrBuf] = useState(hex4(memStart))
   const [cursor, setCursor] = useState(memStart)
   const addrFocused = useRef(false)
@@ -1299,6 +1299,7 @@ export default function App() {
         {/* Code + Memory column */}
         <div className="col col-center">
           <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} buildId={buildId} />
+          <ChatPanel />
           <MemPanel
             memStart={memStart}
             onJump={setMemStart}
@@ -1322,7 +1323,6 @@ export default function App() {
           <FlagPanel  regs={regs} />
           <StackPanel regs={regs} />
           <CalcPanel />
-          <ChatPanel />
         </div>
       </div>
       {helpInst && <HelpModal instruction={helpInst} onClose={() => setHelpInst(null)} />}
