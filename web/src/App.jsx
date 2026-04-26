@@ -1642,6 +1642,7 @@ function TracePanel({ trace, onClear }) {
           ))
         }
       </div>
+      <div className="trace-resize-handle" onMouseDown={onResizeDown} />
     </div>
   )
 }
@@ -1705,7 +1706,6 @@ function WatchPanel({ watches, regs, onAdd, onRemove }) {
             })
         }
       </div>
-      <div className="trace-resize-handle" onMouseDown={onResizeDown} />
     </div>
   )
 }
