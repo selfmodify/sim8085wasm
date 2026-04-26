@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration } from '@codemirror/view'
 import { EditorState, StateEffect, StateField } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
@@ -1976,10 +1976,35 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
     return () => document.removeEventListener('mousedown', close)
   }, [ctxMenu])
 
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setViewStart(vs => { const d = sim.simDisassemble(vs); return Math.min(0x3FFF, vs + Math.max(1, d.len)) })
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setViewStart(vs => Math.max(0, vs - 2))
+    } else if (e.key === 'PageDown') {
+      e.preventDefault()
+      setViewStart(vs => {
+        let addr = vs
+        const steps = Math.max(1, Math.floor(lines.length * 0.75))
+        for (let i = 0; i < steps && addr < 0x3FFF; i++) { const d = sim.simDisassemble(addr); addr += Math.max(1, d.len) }
+        return addr
+      })
+    } else if (e.key === 'PageUp') {
+      e.preventDefault()
+      setViewStart(vs => Math.max(0, vs - Math.max(1, Math.floor(lines.length * 0.75)) * 2))
+    } else if (e.key === 'Home') {
+      e.preventDefault(); setViewStart(0)
+    } else if (e.key === 'End') {
+      e.preventDefault(); setViewStart(0x3F00)
+    }
+  }, [lines])
+
   return (
     <div className="panel disasm-panel">
       <div className="panel-hd"><span className="panel-icon">📋</span>DISASSEMBLY<PanelHelp panel="DISASSEMBLY" /></div>
-      <div className="disasm-list">
+      <div className="disasm-list" tabIndex={0} onKeyDown={handleKeyDown}>
         {lines.map(row => {
           const cur   = row.addr === regs.pc
           const bp    = breakpoints.has(row.addr)
