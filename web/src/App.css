@@ -94,6 +94,7 @@ body {
   gap: 16px;
 }
 .exmenu-cat:hover, .exmenu-cat-active { background: var(--bg3); color: var(--accent) }
+.exmenu-sep { border: none; border-top: 1px solid var(--border); margin: 3px 0 }
 .exmenu-arrow { font-size: 10px; color: var(--text3); flex-shrink: 0 }
 .exmenu-cat-active .exmenu-arrow { color: var(--accent) }
 .exmenu-sub {
