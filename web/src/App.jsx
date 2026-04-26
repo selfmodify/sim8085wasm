@@ -804,7 +804,7 @@ function CalcPanel() {
 // ── AI chat panel ────────────────────────────────────────────────────────
 const CHAT_SYSTEM = `You are an expert assistant embedded in an Intel 8085 microprocessor simulator. Help users with 8085 assembly language programming, instruction behaviour, register and flag effects, debugging, memory addressing, and general computer architecture. When showing code use 8085 assembly syntax. Be concise and practical.`
 
-function ChatPanel() {
+function ChatPanel({ regs, src }) {
   const [apiKey,      setApiKey]      = useState(() => localStorage.getItem('ant_key') || '')
   const [keyDraft,    setKeyDraft]    = useState('')
   const [setupOpen,   setSetupOpen]   = useState(!localStorage.getItem('ant_key'))
@@ -831,6 +831,29 @@ function ChatPanel() {
     setApiKey(''); setSetupOpen(true); setMessages([])
   }
 
+  function buildContext() {
+    if (!regs) return ''
+    const h2 = v => v.toString(16).toUpperCase().padStart(2, '0')
+    const h4 = v => v.toString(16).toUpperCase().padStart(4, '0')
+    const f = regs.flags ?? 0
+    const flags = [
+      `S=${(f>>7)&1}`, `Z=${(f>>6)&1}`, `AC=${(f>>4)&1}`,
+      `P=${(f>>2)&1}`, `CY=${f&1}`
+    ].join(' ')
+    const bc = (regs.b << 8) | regs.c
+    const de = (regs.d << 8) | regs.e
+    const hl = (regs.h << 8) | regs.l
+    const lines = [
+      `\n\n--- Current simulator state ---`,
+      `Registers: A=${h2(regs.a)} B=${h2(regs.b)} C=${h2(regs.c)} D=${h2(regs.d)} E=${h2(regs.e)} H=${h2(regs.h)} L=${h2(regs.l)}`,
+      `Pairs: BC=${h4(bc)}  DE=${h4(de)}  HL=${h4(hl)}`,
+      `PC=${h4(regs.pc)}  SP=${h4(regs.sp)}`,
+      `Flags: ${flags}`,
+    ]
+    if (src?.trim()) lines.push(`\nCurrent editor source:\n\`\`\`\n${src.trim()}\n\`\`\``)
+    return lines.join('\n')
+  }
+
   async function send() {
     const text = input.trim()
     if (!text || loading || !apiKey) return
@@ -848,7 +871,7 @@ function ChatPanel() {
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 1024,
-          system: CHAT_SYSTEM,
+          system: CHAT_SYSTEM + buildContext(),
           messages: next.map(m => ({ role: m.role, content: m.content })),
         }),
       })
@@ -1375,7 +1398,7 @@ export default function App() {
         {/* Code + Memory column */}
         <div className="col col-center">
           <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} buildId={buildId} />
-          <ChatPanel />
+          <ChatPanel regs={regs} src={src} />
           <MemPanel
             memStart={memStart}
             onJump={setMemStart}
