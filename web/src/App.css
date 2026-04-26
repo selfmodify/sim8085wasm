@@ -671,7 +671,7 @@ body {
   border-left: 1px solid var(--border); transition: background .15s;
 }
 .mem-watch-divider:hover { background: var(--accent2) }
-.mem-watch-watch { flex: 0 0 140px; min-width: 60px; display: flex; flex-direction: column; overflow: hidden }
+.mem-watch-watch { flex: 1 1 140px; min-width: 60px; display: flex; flex-direction: column; overflow: hidden }
 
 /* ── Watch panel ─────────────────────────────────────────────────── */
 .watch-panel { padding-bottom: 0; flex: 1; display: flex; flex-direction: column; overflow: hidden }
