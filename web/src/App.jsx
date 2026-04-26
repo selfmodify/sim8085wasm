@@ -1110,10 +1110,15 @@ function TracePanel({ trace, onClear }) {
           : trace.map((e, i) => (
             <div key={i} className="trace-row">
               <span className="trace-addr">{hex4(e.addr)}</span>
-              <span className="trace-text">{e.text}</span>
+              <span className="trace-text">{e.text.trim()}</span>
               {e.changedKeys.length > 0 &&
                 <span className="trace-delta">
-                  {e.changedKeys.map(k => `${k.toUpperCase()}=${fmtTraceVal(k, e.regs[k])}`).join(' ')}
+                  {e.changedKeys.map(k => {
+                    const FLAG_SHORT = { flagS:'S', flagZ:'Z', flagAC:'AC', flagP:'P', flagCY:'CY' }
+                    const name = FLAG_SHORT[k] ?? k.toUpperCase()
+                    const val  = FLAG_SHORT[k] ? e.regs[k] : fmtTraceVal(k, e.regs[k])
+                    return `${name}=${val}`
+                  }).join(' ')}
                 </span>
               }
             </div>
@@ -1544,7 +1549,8 @@ export default function App() {
   function addTraceEntry(prevR) {
     const r = sim.simGetRegisters()
     const d = sim.simDisassemble(prevR.pc)
-    const changed = Object.keys(prevR).filter(k => typeof prevR[k]==='number' && r[k] !== prevR[k])
+    const SKIP = new Set(['pc', 'flags', 'halted', 'hasError'])
+    const changed = Object.keys(prevR).filter(k => !SKIP.has(k) && typeof prevR[k]==='number' && r[k] !== prevR[k])
     setTrace(t => {
       const entry = { addr: prevR.pc, text: d.text, regs: r, changedKeys: changed }
       return t.length >= 50 ? [...t.slice(1), entry] : [...t, entry]
