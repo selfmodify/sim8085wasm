@@ -118,6 +118,12 @@ body {
 .btn-stop  { border-color: #6a2020; color: var(--red); font-weight: 600 }
 .btn-stop:hover { background: #2a1010 }
 .btn-reset { color: var(--amber) }
+.btn-back  { color: var(--text2) }
+
+/* Speed slider */
+.speed-label { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 12px; color: var(--text3); white-space: nowrap }
+.speed-slider { width: 70px; accent-color: var(--accent); cursor: pointer }
+.speed-val { color: var(--text2); min-width: 36px }
 .btn-xs {
   padding: 3px 7px;
   font-size: 12px;
@@ -240,6 +246,38 @@ body {
 }
 .reg-row.wide {}
 .reg-deref { color: var(--text2); font-size: 12px; margin-left: 6px }
+
+/* Register display base toggle */
+.reg-base-btn {
+  background: none; border: 1px solid var(--border); border-radius: 3px;
+  color: var(--text3); font-family: var(--mono); font-size: 10px;
+  padding: 1px 5px; cursor: pointer; letter-spacing: 0;
+}
+.reg-base-btn:hover { border-color: var(--border2); color: var(--text) }
+
+/* Editable register input */
+.reg-edit-input {
+  background: var(--bg3); border: 1px solid var(--accent2); border-radius: 3px;
+  color: var(--accent); font-family: var(--mono); font-size: 13px;
+  padding: 0 4px; width: 80px; outline: none;
+}
+
+/* Bit view of A */
+.reg-bits {
+  display: flex; gap: 2px; padding: 4px 10px 6px;
+  justify-content: space-between;
+}
+.reg-bit {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  width: 20px; padding: 2px 0;
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 3px;
+  cursor: pointer; transition: background .1s;
+}
+.reg-bit:hover { border-color: var(--border2); background: var(--bg2) }
+.reg-bit-on { background: rgba(74,240,160,.15); border-color: var(--accent2) }
+.reg-bit-lbl { font-family: var(--mono); font-size: 9px; color: var(--text3) }
+.reg-bit-val { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--text2) }
+.reg-bit-on .reg-bit-val { color: var(--accent) }
 .reg-name { color: var(--text3); width: 28px; font-size: 12px }
 .reg-hex  { color: var(--accent); font-weight: 600; width: 40px }
 .reg-dec  { color: var(--text3); font-size: 12px; flex: 1; text-align: right }

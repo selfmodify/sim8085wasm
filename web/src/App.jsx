@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { EditorView, keymap, lineNumbers, highlightActiveLine, hoverTooltip } from '@codemirror/view'
-import { EditorState } from '@codemirror/state'
+import { EditorView, keymap, lineNumbers, highlightActiveLine, hoverTooltip, Decoration } from '@codemirror/view'
+import { EditorState, StateEffect, StateField } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { oneDark } from '@codemirror/theme-one-dark'
 import * as sim from './sim8085Bridge.js'
@@ -127,6 +127,14 @@ xloop:
 const hex2 = n => (n >>> 0 & 0xFF).toString(16).toUpperCase().padStart(2,'0')
 const hex4 = n => (n >>> 0 & 0xFFFF).toString(16).toUpperCase().padStart(4,'0')
 
+const SPEEDS = [
+  { label:'Crawl', steps:1    },
+  { label:'Slow',  steps:20   },
+  { label:'Med',   steps:200  },
+  { label:'Fast',  steps:1000 },
+  { label:'Turbo', steps:10000},
+]
+
 // ── 8085 instruction reference ───────────────────────────────────────────
 const INST_HELP = {
   // Data transfer
@@ -221,6 +229,25 @@ const INST_HELP = {
   SETWORD: { brief:'Write a 16-bit word into memory at assembly time (little-endian)', flags:'—', bytes:2, cycles:'—', desc:'Writes a 16-bit value into two consecutive bytes in little-endian order: low byte at addr, high byte at addr+1. Handy for pre-loading address tables or 16-bit constants.', ex:'SETWORD 2060H, 1A2BH ; mem[2060H]=2BH, mem[2061H]=1AH' },
 }
 
+// ── CM6 error-line decoration ─────────────────────────────────────────────
+const setErrorLineEff = StateEffect.define()
+const errorLineField  = StateField.define({
+  create: () => Decoration.none,
+  update(deco, tr) {
+    for (const e of tr.effects) {
+      if (e.is(setErrorLineEff)) {
+        if (e.value == null) return Decoration.none
+        try {
+          const line = tr.state.doc.line(e.value)
+          return Decoration.set([Decoration.line({ class: 'cm-error-line' }).range(line.from)])
+        } catch { return Decoration.none }
+      }
+    }
+    return deco.map(tr.changes)
+  },
+  provide: f => EditorView.decorations.from(f),
+})
+
 function getInstWord(state, pos) {
   const line = state.doc.lineAt(pos)
   const text = line.text
@@ -252,7 +279,7 @@ function SevenSeg({ value }) {
 }
 
 // ── CodeMirror editor ────────────────────────────────────────────────────
-function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail }) {
+function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine }) {
   const elRef    = useRef(null)
   const viewRef  = useRef(null)
   const syncing  = useRef(false)
@@ -260,6 +287,11 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail }
   const detailCb = useRef(onInstructionDetail)
   useEffect(() => { cursorCb.current = onCursorInstruction }, [onCursorInstruction])
   useEffect(() => { detailCb.current = onInstructionDetail }, [onInstructionDetail])
+
+  useEffect(() => {
+    if (!viewRef.current) return
+    viewRef.current.dispatch({ effects: setErrorLineEff.of(errorLine ?? null) })
+  }, [errorLine])
 
   useEffect(() => {
     const view = new EditorView({
@@ -271,10 +303,12 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail }
           highlightActiveLine(),
           keymap.of([...defaultKeymap, ...historyKeymap]),
           oneDark,
+          errorLineField,
           EditorView.theme({
             '&': { height:'100%', fontFamily:'"JetBrains Mono","Fira Code",monospace', fontSize:'15px' },
             '.cm-scroller': { overflow:'auto' },
             '.cm-content': { padding:'8px 0', minHeight:'100%' },
+            '.cm-error-line': { background: 'rgba(255,60,60,0.18)' },
           }),
           EditorView.updateListener.of(u => {
             if (u.docChanged && !syncing.current) onChange(u.state.doc.toString())
@@ -335,41 +369,83 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail }
 }
 
 // ── Register panel ───────────────────────────────────────────────────────
-function RegPanel({ regs, prev, onJump }) {
-  function Row({ name, val, prevVal }) {
-    return (
-      <div className={`reg-row${prevVal !== undefined && val !== prevVal ? ' changed' : ''}`}>
-        <span className="reg-name">{name}</span>
-        <span className="reg-hex">{hex2(val)}</span>
-        <span className="reg-dec">{val}</span>
-      </div>
-    )
-  }
-  function Row16({ name, val, prevVal }) {
-    return (
-      <div className={`reg-row wide clickable${prevVal !== undefined && val !== prevVal ? ' changed' : ''}`}
-           onClick={() => onJump(val & 0xFFF0)}
-           title={`Jump memory to ${hex4(val)}H`}>
-        <span className="reg-name">{name}</span>
-        <span className="reg-hex">{hex4(val)}</span>
-        <span className="reg-dec">{val}</span>
-      </div>
-    )
-  }
+function fmtByte(v, base) {
+  if (base === 'dec') return String(v)
+  if (base === 'bin') return v.toString(2).padStart(8, '0')
+  return hex2(v)
+}
+function fmtWord(v, base) {
+  if (base === 'dec') return String(v)
+  if (base === 'bin') return v.toString(2).padStart(16, '0')
+  return hex4(v)
+}
+const BASE_CYCLE = ['hex', 'dec', 'bin']
+
+function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
   const p = prev || {}
+
+  function EditableRow({ name, val, prevVal, regKey, is16 }) {
+    const [editing, setEditing] = useState(false)
+    const [buf, setBuf] = useState('')
+    const changed = prevVal !== undefined && val !== prevVal
+
+    function commit() {
+      const radix = regBase === 'bin' ? 2 : regBase === 'dec' ? 10 : 16
+      const n = parseInt(buf, radix)
+      if (!isNaN(n)) { sim.simSetRegisters({ [regKey]: n }); onEdit() }
+      setEditing(false)
+    }
+
+    if (editing) return (
+      <div className={`reg-row${is16 ? ' wide' : ''}${changed ? ' changed' : ''}`}>
+        <span className="reg-name">{name}</span>
+        <input autoFocus className="reg-edit-input"
+          value={buf} onChange={e => setBuf(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }} />
+      </div>
+    )
+    return (
+      <div className={`reg-row${is16 ? ' wide clickable' : ' clickable'}${changed ? ' changed' : ''}`}
+           title={is16 ? `Jump memory to ${hex4(val)}H  (click to edit)` : 'Click to edit'}
+           onClick={() => { if (is16) onJump(val & 0xFFF0); setBuf(is16 ? fmtWord(val, regBase) : fmtByte(val, regBase)); setEditing(true) }}>
+        <span className="reg-name">{name}</span>
+        <span className="reg-hex">{is16 ? fmtWord(val, regBase) : fmtByte(val, regBase)}</span>
+        {regBase === 'hex' && !is16 && <span className="reg-dec">{val}</span>}
+        {regBase === 'hex' &&  is16 && <span className="reg-dec">{val}</span>}
+      </div>
+    )
+  }
+
+  const nextBase = BASE_CYCLE[(BASE_CYCLE.indexOf(regBase) + 1) % 3]
+
   return (
     <div className="panel reg-panel">
-      <div className="panel-hd">REGISTERS</div>
-      <Row   name="A"  val={regs.a}  prevVal={p.a} />
-      <Row   name="B"  val={regs.b}  prevVal={p.b} />
-      <Row   name="C"  val={regs.c}  prevVal={p.c} />
-      <Row   name="D"  val={regs.d}  prevVal={p.d} />
-      <Row   name="E"  val={regs.e}  prevVal={p.e} />
-      <Row   name="H"  val={regs.h}  prevVal={p.h} />
-      <Row   name="L"  val={regs.l}  prevVal={p.l} />
+      <div className="panel-hd">
+        REGISTERS
+        <button className="reg-base-btn" onClick={() => onRegBase(nextBase)}
+          title="Toggle display: hex / dec / bin">{regBase.toUpperCase()}</button>
+      </div>
+      <EditableRow name="A" val={regs.a} prevVal={p.a} regKey="a" />
+      <div className="reg-bits">
+        {[7,6,5,4,3,2,1,0].map(bit => (
+          <div key={bit} className={`reg-bit${(regs.a>>bit)&1 ? ' reg-bit-on' : ''}`}
+               title={`bit ${bit} — click to toggle`}
+               onClick={() => { const v = regs.a ^ (1<<bit); sim.simSetRegisters({a:v}); onEdit() }}>
+            <div className="reg-bit-lbl">{bit}</div>
+            <div className="reg-bit-val">{(regs.a>>bit)&1}</div>
+          </div>
+        ))}
+      </div>
+      <EditableRow name="B" val={regs.b} prevVal={p.b} regKey="b" />
+      <EditableRow name="C" val={regs.c} prevVal={p.c} regKey="c" />
+      <EditableRow name="D" val={regs.d} prevVal={p.d} regKey="d" />
+      <EditableRow name="E" val={regs.e} prevVal={p.e} regKey="e" />
+      <EditableRow name="H" val={regs.h} prevVal={p.h} regKey="h" />
+      <EditableRow name="L" val={regs.l} prevVal={p.l} regKey="l" />
       <div className="reg-sep" />
-      <Row16 name="PC" val={regs.pc} prevVal={p.pc} />
-      <Row16 name="SP" val={regs.sp} prevVal={p.sp} />
+      <EditableRow name="PC" val={regs.pc} prevVal={p.pc} regKey="pc" is16 />
+      <EditableRow name="SP" val={regs.sp} prevVal={p.sp} regKey="sp" is16 />
     </div>
   )
 }
@@ -769,9 +845,15 @@ export default function App() {
   const [buildId, setBuildId]   = useState(0)
   const [cursorInst, setCursorInst] = useState(null)
   const [helpInst, setHelpInst]     = useState(null)
+  const [errorLine, setErrorLine]   = useState(null)
+  const [runSpeed, setRunSpeed]     = useState(3)        // index into SPEEDS
+  const [regBase, setRegBase]       = useState('hex')    // 'hex'|'dec'|'bin'
+  const [histLen, setHistLen]       = useState(0)        // for disabling Step Back button
   const timerRef    = useRef(null)
   const editorColRef = useRef(null)
   const srcRef      = useRef(src)
+  const speedRef    = useRef(3)
+  const historyRef  = useRef([])                         // undo snapshots, max 10
 
   function onEditorResizeDown(e) {
     e.preventDefault()
@@ -813,28 +895,40 @@ export default function App() {
   function doAssemble(code) {
     try {
       stopRun()
+      historyRef.current = []
+      setHistLen(0)
       sim.simInit()
       const res = sim.simAssemble(code)
       setBuildId(id => id + 1)
       setSteps(0)
       refresh()
       if (!res.ok) {
+        const m = res.errorMsg?.match(/^Line (\d+)/)
+        setErrorLine(m ? parseInt(m[1]) : null)
         setAppState('error')
         setMsg(`✗ ${res.errorMsg}`)
       } else {
+        setErrorLine(null)
         setAppState('idle')
         const t = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})
         setMsg(`✓ ${res.bytesEmitted}B at ${hex4(res.entryPoint)}H — ready  ${t}`)
       }
     } catch (err) {
-      console.error('[doAssemble] EXCEPTION:', err)
       setAppState('error')
       setMsg(`✗ Internal error: ${err.message}`)
     }
   }
 
+  function pushHistory() {
+    const snap = { regs: sim.simGetRegisters(), ram: sim.simGetFullMemory() }
+    const next = [...historyRef.current.slice(-9), snap]
+    historyRef.current = next
+    setHistLen(next.length)
+  }
+
   function doStep() {
     stopRun()
+    pushHistory()
     const ok = sim.simStep()
     setSteps(s => s+1)
     refresh()
@@ -844,12 +938,24 @@ export default function App() {
     }
   }
 
+  function doStepBack() {
+    if (!historyRef.current.length) return
+    const snap = historyRef.current[historyRef.current.length - 1]
+    const next = historyRef.current.slice(0, -1)
+    historyRef.current = next
+    setHistLen(next.length)
+    sim.simRestoreSnapshot(snap)
+    setSteps(s => Math.max(0, s - 1))
+    setAppState('idle')
+    refresh()
+  }
+
   function startRun() {
     if (timerRef.current) return
     setAppState('running')
     setMsg('▶ Running…')
     timerRef.current = setInterval(() => {
-      const n = sim.simRun(1000)
+      const n = sim.simRun(SPEEDS[speedRef.current].steps)
       setSteps(s => s + n)
       refresh()
       if (!sim.simIsRunning()) {
@@ -902,9 +1008,16 @@ export default function App() {
           </select>
           <button className="btn btn-asm"   onClick={() => doAssemble(srcRef.current)}>⚙ Build  <kbd>F5</kbd></button>
           <button className="btn btn-step"  onClick={doStep}  disabled={running}>↓ Step  <kbd>F7</kbd></button>
+          <button className="btn btn-back"  onClick={doStepBack} disabled={running || histLen === 0} title="Undo last step">⟲ Back</button>
           <button className={`btn ${running ? 'btn-stop':'btn-run'}`} onClick={handleRun}>
             {running ? '■ Stop' : '▶ Run'}  <kbd>{running?'F9':'F9'}</kbd>
           </button>
+          <label className="speed-label" title={`${SPEEDS[runSpeed].steps} steps/tick`}>
+            Speed
+            <input type="range" min={0} max={4} value={runSpeed} className="speed-slider"
+              onChange={e => { const v = +e.target.value; setRunSpeed(v); speedRef.current = v }} />
+            <span className="speed-val">{SPEEDS[runSpeed].label}</span>
+          </label>
           <button className="btn btn-reset" onClick={handleReset}>↺ Reset  <kbd>F6</kbd></button>
         </div>
 
@@ -929,7 +1042,8 @@ export default function App() {
             <div className="panel-hd">EDITOR  <span className="editor-hint">; semicolons for comments</span></div>
             <AsmEditor value={src} onChange={v => { srcRef.current = v; setSrc(v) }}
               onCursorInstruction={setCursorInst}
-              onInstructionDetail={setHelpInst} />
+              onInstructionDetail={setHelpInst}
+              errorLine={errorLine} />
           </div>
           <HelpPanel instruction={cursorInst} />
           <LedDisplay leds={leds} />
@@ -955,7 +1069,8 @@ export default function App() {
 
         {/* Registers column */}
         <div className="col col-right">
-          <RegPanel   regs={regs} prev={prevRegs} onJump={setMemStart} />
+          <RegPanel   regs={regs} prev={prevRegs} onJump={setMemStart}
+            regBase={regBase} onRegBase={setRegBase} onEdit={refresh} />
           <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} />
           <FlagPanel  regs={regs} />
           <StackPanel regs={regs} />

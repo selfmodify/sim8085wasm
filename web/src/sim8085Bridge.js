@@ -755,6 +755,30 @@ export function simIsHalted()   { return !!(status & (HALTED|QUIT)); }
 export function simIsRunning()  { return !(status & (HALTED|QUIT|SEVERE_ERROR)); }
 export function simGetError()   { return lastError; }
 
+export function simSetRegisters(r) {
+  const c8  = v => Math.max(0, Math.min(255,   v | 0))
+  const c16 = v => Math.max(0, Math.min(65535, v | 0))
+  if (r.a     !== undefined) regs.a     = c8(r.a)
+  if (r.b     !== undefined) regs.b     = c8(r.b)
+  if (r.c     !== undefined) regs.c     = c8(r.c)
+  if (r.d     !== undefined) regs.d     = c8(r.d)
+  if (r.e     !== undefined) regs.e     = c8(r.e)
+  if (r.h     !== undefined) regs.h     = c8(r.h)
+  if (r.l     !== undefined) regs.l     = c8(r.l)
+  if (r.flags !== undefined) regs.flags = c8(r.flags)
+  if (r.pc    !== undefined) regs.pc    = c16(r.pc)
+  if (r.sp    !== undefined) regs.sp    = c16(r.sp)
+}
+
+export function simGetFullMemory() { return ram.slice(); }
+
+export function simRestoreSnapshot(snap) {
+  Object.assign(regs, snap.regs)
+  ram.set(snap.ram)
+  status = 0
+  lastError = ''
+}
+
 export function simDisassemble(addr) {
   if (addr >= MAIN_MEMORY) return { text: '???', len: 1 };
   const op = ram[addr];
