@@ -667,15 +667,26 @@ body {
 .trace-text { color: var(--text2); flex: 1; white-space: pre }
 .trace-delta { color: var(--accent); font-size: 11px; flex-shrink: 0; white-space: nowrap }
 
+/* ── Mem+Watch side-by-side ──────────────────────────────────────── */
+.mem-watch-row { display: flex; align-items: stretch; flex-shrink: 0; overflow: hidden }
+.mem-watch-mem { flex: 1 1 auto; min-width: 80px; overflow: hidden; display: flex; flex-direction: column }
+.mem-watch-divider {
+  flex: 0 0 4px; cursor: ew-resize; background: var(--bg3);
+  border-left: 1px solid var(--border); transition: background .15s;
+}
+.mem-watch-divider:hover { background: var(--accent2) }
+.mem-watch-watch { flex: 0 0 140px; min-width: 60px; display: flex; flex-direction: column; overflow: hidden }
+
 /* ── Watch panel ─────────────────────────────────────────────────── */
-.watch-panel { padding-bottom: 4px }
-.watch-add-row { display: flex; gap: 6px; padding: 6px 8px 4px }
+.watch-panel { padding-bottom: 0; flex: 1; display: flex; flex-direction: column; overflow: hidden }
+.watch-add-row { display: flex; gap: 6px; padding: 6px 8px 4px; flex-shrink: 0 }
 .watch-input {
   flex: 1; background: var(--bg3); border: 1px solid var(--border);
   border-radius: 3px; color: var(--text); font-family: var(--mono); font-size: 12px;
   padding: 3px 6px; outline: none; min-width: 0
 }
 .watch-input:focus { border-color: var(--border2) }
+.watch-body { flex: 1; overflow-y: auto; min-height: 0 }
 .watch-empty { color: var(--text3); font-size: 12px; padding: 2px 10px 6px }
 .watch-row {
   display: flex; align-items: center; gap: 6px;

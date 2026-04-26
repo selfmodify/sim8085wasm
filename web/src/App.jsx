@@ -803,8 +803,19 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
       parent: elRef.current,
     })
     viewRef.current = view
-    if (gotoRef) gotoRef.current = (lineNum) => {
+    if (gotoRef) gotoRef.current = (lineNum, labelName) => {
       try {
+        if (labelName) {
+          const text = view.state.doc.toString()
+          const escaped = labelName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          const m = new RegExp(`(^|\\n)[\\t ]*(${escaped})[\\t ]*:`, 'im').exec(text)
+          if (m) {
+            const nameIdx = m.index + m[0].indexOf(m[2])
+            view.dispatch({ selection: { anchor: nameIdx, head: nameIdx + m[2].length }, effects: EditorView.scrollIntoView(nameIdx, { y: 'center' }) })
+            view.focus()
+            return
+          }
+        }
         const line = view.state.doc.line(lineNum)
         view.dispatch({ selection: { anchor: line.from }, effects: EditorView.scrollIntoView(line.from, { y: 'center' }) })
         view.focus()
@@ -1119,8 +1130,8 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
             <div key={row.addr}>
             {label && (
               <div className="disasm-label"
-                onClick={() => onJumpMem?.(row.addr & 0xFFF0)}
-                title={`${label}: at ${hex4(row.addr)}H — click to jump memory view`}>
+                onClick={() => { onJumpMem?.(row.addr & 0xFFF0); onGotoLine?.(row.addr, label) }}
+                title={`${label}: at ${hex4(row.addr)}H — click to jump memory + editor`}>
                 {label}:
               </div>
             )}
@@ -1670,21 +1681,23 @@ function WatchPanel({ watches, regs, onAdd, onRemove }) {
           onKeyDown={e => e.key === 'Enter' && addWatch()} />
         <button className="btn btn-xs" onClick={addWatch}>+</button>
       </div>
-      {watches.length === 0
-        ? <div className="watch-empty">Type a register or address above</div>
-        : watches.map((w, i) => {
-            const v = getValue(w)
-            const label = w.type === 'reg' ? w.key.toUpperCase() : hex4(w.addr) + 'H'
-            return (
-              <div key={i} className="watch-row">
-                <span className="watch-label">{label}</span>
-                <span className="watch-val">{is16(w) ? hex4(v) : hex2(v)}</span>
-                <span className="watch-dec">{v}</span>
-                <button className="watch-rm" onClick={() => onRemove(i)}>✕</button>
-              </div>
-            )
-          })
-      }
+      <div className="watch-body">
+        {watches.length === 0
+          ? <div className="watch-empty">Type a register or address above</div>
+          : watches.map((w, i) => {
+              const v = getValue(w)
+              const label = w.type === 'reg' ? w.key.toUpperCase() : hex4(w.addr) + 'H'
+              return (
+                <div key={i} className="watch-row">
+                  <span className="watch-label">{label}</span>
+                  <span className="watch-val">{is16(w) ? hex4(v) : hex2(v)}</span>
+                  <span className="watch-dec">{v}</span>
+                  <button className="watch-rm" onClick={() => onRemove(i)}>✕</button>
+                </div>
+              )
+            })
+        }
+      </div>
     </div>
   )
 }
@@ -1959,6 +1972,7 @@ export default function App() {
   const fileInputRef   = useRef(null)
   const oneShotBpsRef  = useRef(new Set())
   const disasmJumpRef  = useRef(null)
+  const memWatchMemRef = useRef(null)
   const [addrLineMap, setAddrLineMap] = useState(new Map())
   const srcRef      = useRef(src)
   const speedRef    = useRef(3)
@@ -1994,6 +2008,21 @@ export default function App() {
     const startW = rightColRef.current.getBoundingClientRect().width
     function onMove(ev) {
       rightColRef.current.style.flexBasis = Math.max(160, Math.min(600, startW - (ev.clientX - startX))) + 'px'
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
+  function onMemWatchDividerDown(e) {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = memWatchMemRef.current.getBoundingClientRect().width
+    function onMove(ev) {
+      memWatchMemRef.current.style.flex = `0 0 ${Math.max(80, startW + (ev.clientX - startX))}px`
     }
     function onUp() {
       document.removeEventListener('mousemove', onMove)
@@ -2280,7 +2309,7 @@ export default function App() {
               </optgroup>
             ))}
           </select>
-          <input type="file" ref={fileInputRef} style={{display:'none'}} accept=".asm,.s,.txt" onChange={importFile} />
+          <input type="file" ref={fileInputRef} style={{display:'none'}} accept=".asm,.85,.s,.txt" onChange={importFile} />
           <button className="btn btn-file" onClick={() => fileInputRef.current.click()} title="Import .asm file">⇡ Import</button>
           <button className="btn btn-file" onClick={exportFile} title="Save .asm file">⇣ Export</button>
           <button className="btn btn-share" onClick={shareURL} title="Copy shareable URL">⎘ Share</button>
@@ -2344,26 +2373,33 @@ export default function App() {
             jumpRef={disasmJumpRef}
             symbols={symbols}
             onJumpMem={setMemStart}
-            onGotoLine={addr => { const ln = addrLineMap.get(addr); if (ln) gotoLineRef.current?.(ln) }} />
+            onGotoLine={(addr, labelName) => { const ln = addrLineMap.get(addr); if (ln) gotoLineRef.current?.(ln, labelName) }} />
           <ChatPanel regs={regs} src={src} />
-          <MemPanel
-            memStart={memStart}
-            onJump={setMemStart}
-            regs={regs}
-            buildId={buildId}
-            changedAddrs={changedAddrs}
-            programRegion={programRegion}
-            presetAddrs={presetAddrs}
-          />
+          <div className="mem-watch-row">
+            <div className="mem-watch-mem" ref={memWatchMemRef}>
+              <MemPanel
+                memStart={memStart}
+                onJump={setMemStart}
+                regs={regs}
+                buildId={buildId}
+                changedAddrs={changedAddrs}
+                programRegion={programRegion}
+                presetAddrs={presetAddrs}
+              />
+            </div>
+            <div className="mem-watch-divider" onMouseDown={onMemWatchDividerDown} />
+            <div className="mem-watch-watch">
+              <WatchPanel watches={watches} regs={regs}
+                onAdd={w => setWatches(ws => [...ws, w])}
+                onRemove={i => setWatches(ws => ws.filter((_,j) => j !== i))} />
+            </div>
+          </div>
           <div className="jump-row">
             <button className="btn btn-xs" onClick={()=>setMemStart(regs.pc & 0xFFF0)}>→ PC</button>
             <button className="btn btn-xs" onClick={()=>setMemStart(regs.sp & 0xFFF0)}>→ SP</button>
             <button className="btn btn-xs" onClick={()=>setMemStart(0x100)}>→ 100H</button>
             <button className="btn btn-xs" onClick={()=>setMemStart(0x200)}>→ 200H</button>
           </div>
-          <WatchPanel watches={watches} regs={regs}
-            onAdd={w => setWatches(ws => [...ws, w])}
-            onRemove={i => setWatches(ws => ws.filter((_,j) => j !== i))} />
         </div>
         <div className="col-resize-handle" onMouseDown={onRightResizeDown} />
 
