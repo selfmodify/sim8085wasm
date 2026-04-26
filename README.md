@@ -1,7 +1,7 @@
 # sim8085 — 8085 Microprocessor Simulator
 
 A complete Intel 8085 simulator ported from the original DOS application
-by V. Kumar (1995) to a modern web platform.
+by Vijay Kumar (1995) to a modern web platform.
 
 **[Live Demo →](https://selfmodify.github.io/sim8085wasm/)**
 
