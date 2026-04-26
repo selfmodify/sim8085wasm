@@ -1429,14 +1429,14 @@ export default function App() {
   useEffect(() => { sim.simInit(); doAssemble(src); }, [])
 
   const hotkeysRef = useRef(null)
-  useEffect(() => { hotkeysRef.current = { doAssemble, handleReset, doStep, handleRun, running } })
+  useEffect(() => { hotkeysRef.current = { doAssemble, handleReset, doStep, handleRun, running, appState } })
   useEffect(() => {
     function onKey(e) {
       const h = hotkeysRef.current
       if (e.key === 'F5') { e.preventDefault(); h.doAssemble(srcRef.current) }
       if (e.key === 'F6') { e.preventDefault(); h.handleReset() }
-      if (e.key === 'F7') { e.preventDefault(); if (!h.running) h.doStep() }
-      if (e.key === 'F9') { e.preventDefault(); h.handleRun() }
+      if (e.key === 'F7') { e.preventDefault(); if (!h.running && h.appState !== 'error') h.doStep() }
+      if (e.key === 'F9') { e.preventDefault(); if (h.appState !== 'error' || h.running) h.handleRun() }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -1464,6 +1464,7 @@ export default function App() {
       if (!res.ok) {
         const m = res.errorMsg?.match(/^Line (\d+)/)
         setErrorLine(m ? parseInt(m[1]) : null)
+        setAddrLineMap(new Map())
         setAppState('error')
         setMsg(`✗ ${res.errorMsg}`)
       } else {
@@ -1620,9 +1621,10 @@ export default function App() {
             {Object.keys(EXAMPLES).map(k => <option key={k} value={k}>{k}</option>)}
           </select>
           <button className="btn btn-asm"   onClick={() => doAssemble(srcRef.current)}>⚙ Build  <kbd>F5</kbd></button>
-          <button className="btn btn-step"  onClick={doStep}  disabled={running}>↓ Step  <kbd>F7</kbd></button>
-          <button className="btn btn-back"  onClick={doStepBack} disabled={running || histLen === 0} title="Undo last step">⟲ Back</button>
-          <button className={`btn ${running ? 'btn-stop':'btn-run'}`} onClick={handleRun}>
+          <button className="btn btn-step"  onClick={doStep}  disabled={running || appState==='error'}>↓ Step  <kbd>F7</kbd></button>
+          <button className="btn btn-back"  onClick={doStepBack} disabled={running || appState==='error' || histLen === 0} title="Undo last step">⟲ Back</button>
+          <button className={`btn ${running ? 'btn-stop':'btn-run'}`} onClick={handleRun}
+            disabled={!running && appState==='error'}>
             {running ? '■ Stop' : '▶ Run'}  <kbd>{running?'F9':'F9'}</kbd>
           </button>
           <label className="speed-label" title={`${SPEEDS[runSpeed].steps} steps/tick`}>
