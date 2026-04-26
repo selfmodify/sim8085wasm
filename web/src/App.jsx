@@ -1976,35 +1976,47 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
     return () => document.removeEventListener('mousedown', close)
   }, [ctxMenu])
 
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setViewStart(vs => { const d = sim.simDisassemble(vs); return Math.min(0x3FFF, vs + Math.max(1, d.len)) })
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setViewStart(vs => Math.max(0, vs - 2))
-    } else if (e.key === 'PageDown') {
-      e.preventDefault()
-      setViewStart(vs => {
-        let addr = vs
-        const steps = Math.max(1, Math.floor(lines.length * 0.75))
-        for (let i = 0; i < steps && addr < 0x3FFF; i++) { const d = sim.simDisassemble(addr); addr += Math.max(1, d.len) }
-        return addr
-      })
-    } else if (e.key === 'PageUp') {
-      e.preventDefault()
-      setViewStart(vs => Math.max(0, vs - Math.max(1, Math.floor(lines.length * 0.75)) * 2))
-    } else if (e.key === 'Home') {
-      e.preventDefault(); setViewStart(0)
-    } else if (e.key === 'End') {
-      e.preventDefault(); setViewStart(0x3F00)
+  const hoveredRef = useRef(false)
+  const linesRef   = useRef(lines)
+  useEffect(() => { linesRef.current = lines }, [lines])
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (!hoveredRef.current) return
+      const ls = linesRef.current
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setViewStart(vs => { const d = sim.simDisassemble(vs); return Math.min(0x3FFF, vs + Math.max(1, d.len)) })
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setViewStart(vs => Math.max(0, vs - 2))
+      } else if (e.key === 'PageDown') {
+        e.preventDefault()
+        setViewStart(vs => {
+          let addr = vs
+          const steps = Math.max(1, Math.floor(ls.length * 0.75))
+          for (let i = 0; i < steps && addr < 0x3FFF; i++) { const d = sim.simDisassemble(addr); addr += Math.max(1, d.len) }
+          return addr
+        })
+      } else if (e.key === 'PageUp') {
+        e.preventDefault()
+        setViewStart(vs => Math.max(0, vs - Math.max(1, Math.floor(ls.length * 0.75)) * 2))
+      } else if (e.key === 'Home') {
+        e.preventDefault(); setViewStart(0)
+      } else if (e.key === 'End') {
+        e.preventDefault(); setViewStart(0x3F00)
+      }
     }
-  }, [lines])
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
 
   return (
     <div className="panel disasm-panel">
       <div className="panel-hd"><span className="panel-icon">📋</span>DISASSEMBLY<PanelHelp panel="DISASSEMBLY" /></div>
-      <div className="disasm-list" tabIndex={0} onKeyDown={handleKeyDown}>
+      <div className="disasm-list"
+        onMouseEnter={() => { hoveredRef.current = true }}
+        onMouseLeave={() => { hoveredRef.current = false }}>
         {lines.map(row => {
           const cur   = row.addr === regs.pc
           const bp    = breakpoints.has(row.addr)
