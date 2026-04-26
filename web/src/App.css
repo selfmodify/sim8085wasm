@@ -505,6 +505,7 @@ body {
 .disasm-bp { color: var(--text3); width: 14px; text-align: center; flex-shrink: 0; cursor: pointer; padding: 0 2px }
 .disasm-bp:hover { color: var(--red) }
 .disasm-text { color: var(--text2); flex: 1; white-space: pre }
+.disasm-row.assert .disasm-text { color: var(--amber); font-style: italic; opacity: .85 }
 .disasm-pc-arrow { color: var(--accent); font-size: 12px; margin-left: 4px }
 .disasm-cond { font-size: 10px; color: var(--amber); font-family: var(--mono); opacity: .8; margin-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px }
 

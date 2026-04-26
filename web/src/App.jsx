@@ -1472,6 +1472,7 @@ const INST_HELP = {
   KICKOFF: { brief:'Set the program entry point (start address)', flags:'—', bytes:0, cycles:'—', desc:'Tells the simulator which address to load into PC when the program is reset or first built. Unlike ORG it does not move the assembly pointer — use it once, usually before your first ORG or at the top of the file.', ex:'KICKOFF 0200H ; PC starts at 0200H\nORG 0200H\nMVI A, 01H' },
   SETBYTE: { brief:'Write a byte into memory at assembly time', flags:'—', bytes:1, cycles:'—', desc:'Writes a single 8-bit value directly into the simulator RAM at the specified address during assembly. Useful for pre-initialising data areas before the program runs.', ex:'SETBYTE 2050H, 0FFH  ; mem[2050H] = FFH' },
   SETWORD: { brief:'Write a 16-bit word into memory at assembly time (little-endian)', flags:'—', bytes:2, cycles:'—', desc:'Writes a 16-bit value into two consecutive bytes in little-endian order: low byte at addr, high byte at addr+1. Handy for pre-loading address tables or 16-bit constants.', ex:'SETWORD 2060H, 1A2BH ; mem[2060H]=2BH, mem[2061H]=1AH' },
+  ASSERT:  { brief:'Simulator assertion — halt with error if value does not match', flags:'—', bytes:'3–5', cycles:'—', desc:'Simulator-only directive (encoded as opcode DDH). At runtime, compares a register, flag, register pair, or memory byte against an expected value. If they differ, execution stops immediately and the status bar shows what was expected vs. what was found. Use in test programs to verify correctness step-by-step.\n\nForms and encoded sizes:\n  ASSERT r, val      — 8-bit register B C D E H L M A  (3 bytes)\n  ASSERT f, 0|1      — flag: CY Z S P AC               (3 bytes)\n  ASSERT rp, val16   — 16-bit pair: BC DE HL SP PC     (4 bytes)\n  ASSERT MEM, addr, val — byte at memory address       (5 bytes)\n\nNot a real 8085 instruction; opcode DDH is undefined on real hardware.', ex:'ASSERT A,   42H         ; stop if A ≠ 42H\nASSERT CY,  1           ; stop if carry ≠ 1\nASSERT HL,  1234H       ; stop if HL ≠ 1234H\nASSERT MEM, 0300H, 0FFH ; stop if mem[0300H] ≠ FFH' },
 }
 
 // ── CM6 error-line decoration ─────────────────────────────────────────────
@@ -1992,7 +1993,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
               </div>
             )}
             <div
-              className={`disasm-row${cur ? ' cur' : ''}${bp ? ' bp' : ''}`}
+              className={`disasm-row${cur ? ' cur' : ''}${bp ? ' bp' : ''}${row.mnem === 'ASSERT' ? ' assert' : ''}`}
               onClick={() => onGotoLine?.(row.addr)}
               onContextMenu={e => { e.preventDefault(); setCtxMenu({ addr: row.addr, x: e.clientX, y: e.clientY }) }}
             >
