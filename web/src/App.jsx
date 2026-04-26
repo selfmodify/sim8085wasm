@@ -3,7 +3,9 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration } from
 import { EditorState, StateEffect, StateField } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { search, searchKeymap } from '@codemirror/search'
-import { oneDark } from '@codemirror/theme-one-dark'
+import { StreamLanguage, HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { oneDarkTheme } from '@codemirror/theme-one-dark'
+import { tags as hTags } from '@lezer/highlight'
 import * as sim from './sim8085Bridge.js'
 import './App.css'
 
@@ -1546,6 +1548,7 @@ const PANEL_HELP_TEXT = {
 
 function PanelHelp({ panel, wide }) {
   const [show, setShow] = useState(false)
+  const [flipUp, setFlipUp] = useState(false)
   const wrapRef = useRef(null)
   const text = PANEL_HELP_TEXT[panel]
   useEffect(() => {
@@ -1561,10 +1564,17 @@ function PanelHelp({ panel, wide }) {
     return () => document.removeEventListener('keydown', h)
   }, [show])
   if (!text) return null
+  const toggle = () => {
+    if (!show && wrapRef.current) {
+      const rect = wrapRef.current.getBoundingClientRect()
+      setFlipUp(window.innerHeight - rect.bottom < 280)
+    }
+    setShow(o => !o)
+  }
   return (
     <div className="panel-help-wrap" ref={wrapRef}>
-      <button className="panel-help-btn" onClick={() => setShow(o => !o)} title="Panel help">?</button>
-      {show && <div className={`panel-help-popup${wide ? ' panel-help-popup-wide' : ''}`}>{text}</div>}
+      <button className="panel-help-btn" onClick={toggle} title="Panel help">?</button>
+      {show && <div className={`panel-help-popup${wide ? ' panel-help-popup-wide' : ''}${flipUp ? ' panel-help-popup-up' : ''}`}>{text}</div>}
     </div>
   )
 }
@@ -1600,6 +1610,50 @@ function SevenSeg({ value }) {
   )
 }
 
+// ── 8085 assembly syntax highlighting ────────────────────────────────────
+const ASM8085_MNEMONICS = new Set([
+  'ACI','ADC','ADD','ADI','ANA','ANI','CALL','CC','CM','CMA','CMC','CMP','CNC','CNZ','CP','CPE','CPI','CPO','CZ',
+  'DAA','DAD','DCR','DCX','DI','EI','HLT','IN','INR','INX','JC','JM','JMP','JNC','JNZ','JP','JPE','JPO','JZ',
+  'LDA','LDAX','LHLD','LXI','MOV','MVI','NOP','ORA','ORI','OUT','PCHL','POP','PUSH','RAL','RAR','RC','RET','RLC',
+  'RM','RNC','RNZ','RP','RPE','RPO','RRC','RST','RZ','SBB','SBI','SHLD','SPHL','STA','STAX','STC','SUB','SUI',
+  'XCHG','XRA','XRI','XTHL',
+  'ASSERT','KICKOFF',
+])
+const ASM8085_REGS = new Set(['A','B','C','D','E','H','L','M','SP','PSW'])
+const ASM8085_DIRECTIVES = new Set(['ORG','EQU','DB','DW','DS','END','IF','ENDIF','MACRO','ENDM','SET'])
+
+const asm8085Lang = StreamLanguage.define({
+  token(stream) {
+    if (stream.eatSpace()) return null
+    if (stream.eat(';')) { stream.skipToEnd(); return 'comment' }
+    if (stream.match(/^[0-9A-Fa-f]+[Hh]\b/)) return 'number'
+    if (stream.match(/^[01]+[Bb]\b/))         return 'number'
+    if (stream.match(/^[0-9]+\b/))            return 'number'
+    if (stream.match(/^'[^']*'/))             return 'string'
+    if (stream.match(/^[A-Za-z_][A-Za-z0-9_]*:/)) return 'labelName'
+    if (stream.match(/^[A-Za-z_][A-Za-z0-9_]*/)) {
+      const word = stream.current().toUpperCase()
+      if (ASM8085_MNEMONICS.has(word)) return 'keyword'
+      if (ASM8085_REGS.has(word))      return 'atom'
+      if (ASM8085_DIRECTIVES.has(word)) return 'meta'
+      return 'variableName'
+    }
+    stream.next()
+    return null
+  },
+})
+
+const asm8085HighlightStyle = HighlightStyle.define([
+  { tag: hTags.keyword,      color: '#4090ff', fontWeight: '600' },
+  { tag: hTags.atom,         color: '#f0a840' },
+  { tag: hTags.number,       color: '#4af0a0' },
+  { tag: hTags.string,       color: '#a8e86a' },
+  { tag: hTags.comment,      color: '#4a5470', fontStyle: 'italic' },
+  { tag: hTags.labelName,    color: '#82aaff' },
+  { tag: hTags.meta,         color: '#c792ea' },
+  { tag: hTags.variableName, color: '#c8d4e8' },
+])
+
 // ── CodeMirror editor ────────────────────────────────────────────────────
 function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, gotoRef, onRunTo, lineAddrRef }) {
   const elRef      = useRef(null)
@@ -1628,7 +1682,9 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
           highlightActiveLine(),
           search({ top: true }),
           keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
-          oneDark,
+          oneDarkTheme,
+          asm8085Lang.extension,
+          syntaxHighlighting(asm8085HighlightStyle),
           errorLineField,
           EditorView.theme({
             '&': { height:'100%', fontFamily:'"JetBrains Mono","Fira Code",monospace', fontSize:'15px' },
@@ -2398,7 +2454,8 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
           <button className="mem-btn" onClick={runFill}>Fill range</button>
         </div>
       )}
-      <div className="mem-scroll" ref={scrollRef}>
+      <div className="mem-scroll" ref={scrollRef}
+        onWheel={e => { e.preventDefault(); const delta = e.deltaY > 0 ? COLS : -COLS; onJump(Math.max(0, Math.min(0x3F00, memStart + delta))) }}>
         <table className="mem-tbl">
           <thead>
             <tr>
