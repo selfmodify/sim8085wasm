@@ -1968,8 +1968,15 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
     if (!ls.length) return
     const lo = ls[0].addr
     const hi = ls[ls.length - 1].addr
-    if (regs.pc < lo || regs.pc > hi) { setViewStart(regs.pc); return }
-    curRowRef.current?.scrollIntoView({ block: 'nearest' })
+    if (regs.pc >= lo && regs.pc <= hi) {
+      curRowRef.current?.scrollIntoView({ block: 'nearest' })
+    } else if (regs.pc > hi && regs.pc - hi <= 6) {
+      // PC just stepped past the bottom — advance one instruction at a time
+      setViewStart(lo => { const d = sim.simDisassemble(lo); return lo + Math.max(1, d.len) })
+    } else {
+      // Far jump — hard reset to PC
+      setViewStart(regs.pc)
+    }
   }, [regs.pc]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -1978,6 +1985,15 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
   }, [ctxMenu])
+
+  // Scan backwards from `target` to find the nearest instruction boundary at or before it
+  const scanBack = useCallback((target, bytes) => {
+    const start = Math.max(0, target - bytes)
+    let addr = start
+    let prev = start
+    while (addr < target) { prev = addr; const d = sim.simDisassemble(addr); addr += Math.max(1, d.len) }
+    return prev
+  }, [])
 
   useEffect(() => {
     const handler = (e) => {
@@ -1988,7 +2004,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
         setViewStart(vs => { const d = sim.simDisassemble(vs); return Math.min(0x3FFF, vs + Math.max(1, d.len)) })
       } else if (e.key === 'ArrowUp') {
         e.preventDefault()
-        setViewStart(vs => Math.max(0, vs - 2))
+        setViewStart(vs => scanBack(vs, 16))
       } else if (e.key === 'PageDown') {
         e.preventDefault()
         setViewStart(vs => {
@@ -1999,7 +2015,10 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
         })
       } else if (e.key === 'PageUp') {
         e.preventDefault()
-        setViewStart(vs => Math.max(0, vs - Math.max(1, Math.floor(ls.length * 0.75)) * 2))
+        setViewStart(vs => {
+          const steps = Math.max(1, Math.floor(ls.length * 0.75))
+          return scanBack(vs, steps * 3)
+        })
       } else if (e.key === 'Home') {
         e.preventDefault(); setViewStart(0)
       } else if (e.key === 'End') {
@@ -2008,7 +2027,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onSetCondition, onGotoLine
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [scanBack])
 
   return (
     <div className="panel disasm-panel">
