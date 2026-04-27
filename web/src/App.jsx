@@ -1733,14 +1733,16 @@ function BrandMenu({ onShowWelcome, onImport, onExport, onShare, onCalc, memSize
 
 // ── Welcome modal ────────────────────────────────────────────────────────
 const WELCOME_FEATURES = [
-  { icon: '✏️', title: 'Editor',        desc: 'Write 8085 assembly on the left. Ctrl+click any instruction for full details.' },
-  { icon: '▶',  title: 'Assemble & Run', desc: 'F5 assembles, F7 steps one instruction, F9 runs/pauses. Use the speed slider to control execution pace.' },
-  { icon: '📋', title: 'Disassembly',   desc: 'The center column shows the assembled code. Click the gutter to set breakpoints; execution pauses there.' },
-  { icon: '🧠', title: 'CPU State',     desc: 'Registers, flags, and register pairs update live. Click a pair to jump memory to its address. Values are editable.' },
-  { icon: '💾', title: 'Memory',        desc: 'Browse and edit all 64 KB of RAM. Use the address bar or ◀▶ buttons to navigate. Drag the top handle to resize.' },
-  { icon: '💡', title: 'LED Display',   desc: 'Load the "LED Scroll" example from the toolbar to see the 7-segment display animate in real time.' },
-  { icon: '🖩', title: 'Calculator',    desc: 'Convert values between binary, octal, decimal, and hex — handy when working with immediate operands.' },
-  { icon: '🤖', title: 'AI Assistant',  desc: 'Enter your Anthropic API key (stored only in your browser) to ask questions about 8085 assembly.' },
+  { icon: '✏️', title: 'Editor',          desc: 'Write 8085 assembly with syntax highlighting and auto-indent. Ctrl+click any mnemonic for the full instruction reference. Load from 20+ built-in examples across six categories.' },
+  { icon: '▶',  title: 'Build & Run',     desc: 'F5 assembles, F7 steps one instruction, F9 runs/pauses, F6 resets. ⟲ Back undoes the last step. Use the speed slider to go from single-step up to turbo.' },
+  { icon: '📋', title: 'Disassembly',     desc: 'Live disassembly follows the program counter. Click any row to toggle a breakpoint — execution pauses automatically when PC hits it.' },
+  { icon: '🧠', title: 'CPU State',       desc: 'Registers, flags, and register pairs update live and highlight green on every change. Click any register pair to jump the memory view to that address. Values are editable in place.' },
+  { icon: '💾', title: 'Memory',          desc: 'Browse and edit all of RAM in the hex editor. Double-click any cell to change it. RAM size is configurable (16 / 32 / 64 KB) in the menu.' },
+  { icon: '💡', title: 'LED Display',     desc: 'The 7-segment LED display is driven by Intel SDK CALL 5 system calls. Load "LED Count" or "LED Scroll" from the I/O examples to see it in action.' },
+  { icon: '🔔', title: 'Interrupts',      desc: 'Fire TRAP, RST 7.5, RST 6.5, or RST 5.5 mid-program with the FIRE buttons. Control the interrupt flip-flop via EI/DI/SIM/RIM. HLT pauses and resumes on the next interrupt.' },
+  { icon: '🔌', title: 'I/O & Keyboard',  desc: 'Pre-set input port values returned by the IN instruction. Queue keystrokes for the CALL 5 C=01H read-key syscall. Try the "Keyboard Read" example under I/O.' },
+  { icon: '🖩', title: 'Calculator',      desc: 'Convert values between binary, octal, decimal, and hex — handy when working out immediate operands or memory addresses.' },
+  { icon: '🤖', title: 'AI Assistant',    desc: 'Enter your Anthropic API key (stored only in your browser, never sent to any server) to ask questions about 8085 assembly directly in the app.' },
 ]
 
 function WelcomeModal({ onClose }) {
@@ -1774,7 +1776,7 @@ function WelcomeModal({ onClose }) {
           ))}
         </div>
         <div className="welcome-footer">
-          <span className="welcome-tip">💡 Load an example from the toolbar to get started quickly.</span>
+          <span className="welcome-tip">💡 Start with Examples → I/O → LED Count to see the display in action, or Examples → Interrupts → TRAP to try the interrupt system.</span>
           <button className="btn welcome-btn" onClick={onClose}>Got it, let's go →</button>
         </div>
       </div>
