@@ -1324,56 +1324,54 @@ loop:
     jnz  loop           ; stop when A wraps to 0
     hlt`,
 
-    'LED Count': `; Count 0000 → FFFF on the 4 LED address digits.
+    'LED Count': `; Count 00000000 → 99999999 on all 8 LED fields.
+; One decimal digit (0-9) stored per byte at 300H-307H.
+; Field 0 (leftmost) = ten-millions; field 7 (rightmost) = units.
 ; Run at Fast or Turbo speed to watch it count up.
     org     100H
     kickoff 100H
     lxi     sp, 200H
-    lxi     d, 0000H    ; DE = 16-bit counter
+
+    ; Initialise all 8 digit bytes to 0
+    xra     a
+    lxi     h, 300H
+    mvi     b, 08H
+clr:
+    mov     m, a
+    inx     h
+    dcr     b
+    jnz     clr
 
 show:
-    ; Extract the 4 hex nibbles of DE into scratch RAM 300H-303H
-    mov     a, d
-    rrc
-    rrc
-    rrc
-    rrc
-    ani     0FH
-    sta     300H        ; high nibble of D (leftmost digit)
-    mov     a, d
-    ani     0FH
-    sta     301H        ; low  nibble of D
-    mov     a, e
-    rrc
-    rrc
-    rrc
-    rrc
-    ani     0FH
-    sta     302H        ; high nibble of E
-    mov     a, e
-    ani     0FH
-    sta     303H        ; low  nibble of E (rightmost digit)
-
-    ; Write each nibble to a display field (field 5 = leftmost address digit)
-    mvi     b, 05H
+    ; Write each digit to its field (B = field 0..7, HL = digit byte)
+    mvi     b, 00H
     lxi     h, 300H
+dsp:
     mvi     c, 02H
     call    5
-    mvi     b, 04H
-    lxi     h, 301H
-    mvi     c, 02H
-    call    5
-    mvi     b, 03H
-    lxi     h, 302H
-    mvi     c, 02H
-    call    5
-    mvi     b, 02H
-    lxi     h, 303H
-    mvi     c, 02H
-    call    5
+    inr     b
+    inr     l
+    mov     a, b
+    cpi     08H
+    jnz     dsp
 
-    inx     d           ; increment (FFFF wraps to 0000 naturally)
+    ; Ripple increment from rightmost digit (307H) leftward
+    lxi     h, 307H
+inc:
+    mov     a, m
+    inr     a           ; increment this digit
+    cpi     0AH         ; reached 10?
+    jz      carry
+    mov     m, a        ; no carry — store and show
     jmp     show
+carry:
+    mvi     m, 00H      ; reset digit to 0
+    dcx     h           ; move one digit left
+    mov     a, h
+    cpi     03H         ; still within 300H-307H? (H must stay 03H)
+    jnc     inc         ; yes — propagate carry
+    jmp     show        ; no — wrapped 99999999 → 00000000
+
     hlt`,
   },
 }
