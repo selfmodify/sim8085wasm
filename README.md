@@ -7,19 +7,26 @@ by Vijay Kumar (1995) to a modern web platform.
 
 ---
 
+![sim8085 — LED counter running at turbo speed](screenshots/01-led-count.png)
+
+---
+
 ## Features
 
-- **Full 8085 instruction set** — all 256 opcodes, correct flag behavior
+- **Full 8085 instruction set** — all 256 opcodes, correct flag behavior, HLT halt-wait with interrupt resume
 - **Two-pass assembler** — labels, directives (`ORG`, `KICKOFF`, `SETBYTE`, `SETWORD`), hex literals
-- **Interactive debugger** — step, run, breakpoints (click any instruction)
-- **Live register panel** — changed registers highlighted in green
+- **Interactive debugger** — step, run, breakpoints (click any instruction in disassembly)
+- **Live register panel** — changed registers highlighted in green after every step
 - **Flag display** — S, Z, AC, P, CY decoded and shown
-- **Hex memory editor** — double-click any cell to edit, PC/SP highlighted
+- **Hex memory editor** — double-click any cell to edit; PC and SP highlighted
 - **Disassembly view** — live disassembly following PC
-- **Stack inspector** — top-of-stack shown with decoded values  
+- **Stack inspector** — top-of-stack shown with decoded values
 - **7-segment LED display** — Intel SDK system calls (`CALL 5`) drive the LEDs
-- **5 built-in examples** — Counter, Bubble Sort, Fibonacci, LED Scroll, Checksum
-- **Zero dependencies at runtime** — pure JS, no server, works offline
+- **Interrupt support** — TRAP, RST 7.5, RST 6.5, RST 5.5 with enable/disable controls
+- **Keyboard input** — queue keystrokes for `CALL 5 / C=01H` read-key syscall
+- **Configurable RAM** — 16 KB, 32 KB, or 64 KB selectable from the menu
+- **20+ built-in examples** — Arithmetic, Algorithms, I/O, Strings, Interrupts categories
+- **Zero runtime dependencies** — pure JS, no server, works fully offline
 
 ---
 
