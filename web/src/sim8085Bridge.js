@@ -36,6 +36,9 @@ let lastProgStart   = DEFAULT_IP
 let lastProgEnd     = DEFAULT_IP
 let lastPresetAddrs = new Set()
 
+// ── Keyboard input queue (fed by simEnqueueKeys, consumed by syscall C=01H) ─
+let keyQueue = []      // array of char codes (0-255)
+
 // ── Interrupt state ────────────────────────────────────────────────────
 let iff      = false   // interrupt enable flip-flop
 let iffNext  = false   // EI delay: iff enables after next instruction
@@ -115,7 +118,7 @@ function systemCall() {
   const c = regs.c;
   switch(c) {
     case 0x00: break; // reset - nop
-    case 0x01: regs.a = 0; break; // read key → 0
+    case 0x01: regs.a = keyQueue.length > 0 ? keyQueue.shift() : 0; break; // read key from queue
     case 0x02: { // display digit
       const f = regs.b;
       const v = numTo7Seg(memR(getHL()));
@@ -869,6 +872,7 @@ export function simInit() {
   iff = false; iffNext = false; intMask = 0
   rst75ff = false; trapPend = false
   intLines = { rst65: false, rst55: false, intr: false, intrVec: 0xFF }
+  keyQueue = []
   // ioIn is intentionally NOT reset here — user presets survive a build
 }
 
@@ -970,6 +974,12 @@ export function simDeassertInterrupt(type) {
     case 'INTR':  intLines.intr  = false; break
   }
 }
+export function simEnqueueKeys(str) {
+  for (let i = 0; i < str.length; i++) keyQueue.push(str.charCodeAt(i) & 0xFF)
+}
+export function simClearKeyQueue() { keyQueue = [] }
+export function simGetKeyQueue()   { return keyQueue.map(c => String.fromCharCode(c)) }
+
 export function simGetIntState() {
   return { iff, intMask, rst75ff, trapPend,
            rst65: intLines.rst65, rst55: intLines.rst55,

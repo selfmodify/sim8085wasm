@@ -158,7 +158,11 @@ const PANEL_HELP_TEXT = {
 • INPUT section: preset values for IN to read
   · Type a port number + value, press Enter
   · Presets survive a Build
-  · Used by IN port, A when the program reads that port`,
+  · Used by IN port, A when the program reads that port
+• KEYBOARD section: character queue for syscall C=01H
+  · Type text and press Enter (or +) to enqueue characters
+  · Each CALL 5 with C=01H dequeues the next char (returns 00H when empty)
+  · ✕ clears the entire queue`,
 
   'SYMBOLS': `• All labels defined in your source code
 • Populated after a successful Build
@@ -1480,9 +1484,10 @@ function WatchPanel({ watches, regs, onAdd, onRemove, regBase, onRegBase }) {
 }
 
 // ── I/O port panel ───────────────────────────────────────────────────────
-function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput }) {
+function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput, keyQueue, onEnqueueKeys, onClearKeyQueue }) {
   const [portBuf, setPortBuf] = useState('')
   const [valBuf,  setValBuf]  = useState('')
+  const [kbdBuf,  setKbdBuf]  = useState('')
 
   function addPreset() {
     const port = parseInt(portBuf.replace(/h$/i,''), 16)
@@ -1490,6 +1495,12 @@ function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput }) {
     if (isNaN(port) || port < 0 || port > 255) return
     onSetInput(port & 0xFF, isNaN(val) ? 0 : val & 0xFF)
     setPortBuf(''); setValBuf('')
+  }
+
+  function submitKbd() {
+    if (!kbdBuf) return
+    onEnqueueKeys(kbdBuf)
+    setKbdBuf('')
   }
 
   return (
@@ -1530,6 +1541,26 @@ function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput }) {
             <button className="watch-rm" onClick={() => onRemoveInput(port)}>✕</button>
           </div>
         ))
+      }
+
+      <div className="ioport-section-hd" style={{marginTop:'6px'}}>KEYBOARD  <span className="ioport-hint">C=01H syscall input</span></div>
+      <div className="ioport-add-row">
+        <input className="ioport-kbd-input" placeholder="type to enqueue…"
+          value={kbdBuf} onChange={e => setKbdBuf(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && submitKbd()} />
+        <button className="btn btn-xs" onClick={submitKbd}>+</button>
+      </div>
+      {keyQueue.length === 0
+        ? <div className="ioport-empty">Queue empty</div>
+        : <div className="ioport-kbd-chips">
+            {keyQueue.map((ch, i) => (
+              <span key={i} className="ioport-kbd-chip"
+                title={`0x${ch.charCodeAt(0).toString(16).toUpperCase().padStart(2,'0')}`}>
+                {ch === ' ' ? '·' : ch}
+              </span>
+            ))}
+            <button className="watch-rm" onClick={onClearKeyQueue} title="Clear queue">✕</button>
+          </div>
       }
     </div>
   )
@@ -1839,6 +1870,7 @@ export default function App() {
   const [watches, setWatches]   = useState([])
   const [outputPorts, setOutputPorts] = useState([])      // [{port,val}] written by OUT
   const [inputPresets, setInputPresets] = useState([])    // [{port,val}] preset for IN
+  const [keyQueue, setKeyQueue]   = useState([])          // chars queued for C=01H syscall
   const [intState, setIntState] = useState(() => sim.simGetIntState())
   const [memStart, setMemStart] = useState(0x100)
   const [appState, setAppState] = useState('idle')  // idle | running | halted | error
@@ -1956,6 +1988,7 @@ export default function App() {
     setLeds(sim.simGetAllLeds())
     setCycles(sim.simGetCycles())
     setIntState(sim.simGetIntState())
+    setKeyQueue(sim.simGetKeyQueue())
   }
 
   function refreshOutputPorts() {
@@ -1970,6 +2003,7 @@ export default function App() {
       setTrace([])
       setChangedAddrs(new Set())
       setOutputPorts([])
+      setKeyQueue([])
       prevMemRef.current = null
       sim.simInit()
       const res = sim.simAssemble(code)
@@ -2203,6 +2237,15 @@ export default function App() {
     setInputPresets(ps => ps.filter(p => p.port !== port))
   }
 
+  function enqueueKeys(str) {
+    sim.simEnqueueKeys(str)
+    setKeyQueue(sim.simGetKeyQueue())
+  }
+  function clearKeyQueue() {
+    sim.simClearKeyQueue()
+    setKeyQueue([])
+  }
+
   function assertInterrupt(type, vec) {
     sim.simAssertInterrupt(type, vec)
     setIntState(sim.simGetIntState())
@@ -2320,7 +2363,8 @@ export default function App() {
           <FlagPanel  regs={regs} />
           <IntPanel intState={intState} onAssert={assertInterrupt} onDeassert={deassertInterrupt} />
           <IOPortPanel outputPorts={outputPorts} inputPresets={inputPresets}
-            onSetInput={setInputPort} onRemoveInput={removeInputPort} />
+            onSetInput={setInputPort} onRemoveInput={removeInputPort}
+            keyQueue={keyQueue} onEnqueueKeys={enqueueKeys} onClearKeyQueue={clearKeyQueue} />
           <StackPanel regs={regs} regBase={regBase} onRegBase={setRegBase} />
           <TracePanel trace={trace} onClear={() => setTrace([])} />
         </div>

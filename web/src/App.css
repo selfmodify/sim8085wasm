@@ -791,6 +791,22 @@ body {
 .ioport-arrow { color: var(--text3); flex-shrink: 0 }
 .ioport-val   { color: var(--accent); width: 28px; flex-shrink: 0 }
 .ioport-dec   { color: var(--text3); flex: 1 }
+.ioport-kbd-input {
+  flex: 1; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 3px; color: var(--text); font-family: var(--mono); font-size: 12px;
+  padding: 2px 5px; outline: none; min-width: 0;
+}
+.ioport-kbd-input:focus { border-color: var(--border2) }
+.ioport-kbd-chips {
+  display: flex; flex-wrap: wrap; gap: 2px 3px; padding: 3px 10px;
+  align-items: center;
+}
+.ioport-kbd-chip {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 2px; padding: 0 4px;
+  font-family: var(--mono); font-size: 11px; color: var(--accent);
+  cursor: default;
+}
 
 /* ── Trace panel ─────────────────────────────────────────────────── */
 .trace-panel { overflow: hidden; display: flex; flex-direction: column; flex: 1 1 0; min-height: 72px }

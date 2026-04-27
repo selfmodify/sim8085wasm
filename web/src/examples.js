@@ -970,6 +970,64 @@ done:
     daa                 ; adjust → A = 82H (BCD 82 = decimal 82)
     sta 200H
     hlt`,
+
+    'BCD Counter': `; Count from BCD 00 to BCD 99 using DAA.
+; Each pass: binary +1 then DAA corrects to valid packed BCD.
+; Watch 200H in the Memory panel to see the value tick.
+; CY=1 from DAA means the count wrapped past 99 → done.
+    org 100H
+    kickoff 100H
+    mvi a, 00H
+loop:
+    sta 200H            ; store current BCD value
+    adi 01H             ; binary +1
+    daa                 ; adjust to packed BCD (tens in upper nibble)
+    jnc loop            ; CY=0: still 00..99 → continue
+    hlt                 ; CY=1: overflowed past 99 → done`,
+
+    '32-bit Add': `; Add two 32-bit little-endian numbers using ADC carry chain.
+; A at 200H..203H (lo→hi),  B at 204H..207H,  sum at 208H..20CH.
+; Values chosen so carry ripples through all three low bytes:
+;   A = 00FFFFFFh  +  B = 00000001h  =  01000000h
+    org 100H
+    kickoff 100H
+    setbyte 200H, 0FFH  ; A byte 0 (LSB)
+    setbyte 201H, 0FFH  ; A byte 1
+    setbyte 202H, 0FFH  ; A byte 2
+    setbyte 203H, 00H   ; A byte 3 (MSB)
+    setbyte 204H, 01H   ; B byte 0 (LSB)
+    setbyte 205H, 00H
+    setbyte 206H, 00H
+    setbyte 207H, 00H   ; B byte 3 (MSB)
+
+    lda  200H           ; byte 0: plain ADD (no carry-in)
+    mov  b, a
+    lda  204H
+    add  b
+    sta  208H
+
+    lda  201H           ; byte 1: ADC carries forward
+    mov  b, a
+    lda  205H
+    adc  b
+    sta  209H
+
+    lda  202H           ; byte 2
+    mov  b, a
+    lda  206H
+    adc  b
+    sta  20AH
+
+    lda  203H           ; byte 3
+    mov  b, a
+    lda  207H
+    adc  b
+    sta  20BH
+
+    mvi  a, 00H
+    adc  a              ; carry out into byte 4
+    sta  20CH
+    hlt`,
   },
 
   'Logic': {
@@ -1284,6 +1342,27 @@ done:
     sta 202H
     hlt`,
 
+    'Delay Loop': `; Software delay using a nested counter loop.
+; Inner body: DCX D (6) + MOV A,D (4) + ORA E (4) + JNZ (10) = 24 T-states.
+; Total ≈ outer × inner × 24 T-states.  At 3 MHz: 10×100×24 ≈ 80 μs.
+; Tune B (outer) and DE (inner) for longer or shorter delays.
+; Writes FFH to 200H when complete — check it in the Memory panel.
+    org 100H
+    kickoff 100H
+    mvi b, 0AH          ; outer loop count = 10
+outer:
+    lxi d, 0064H        ; inner loop count = 100
+inner:
+    dcx d               ; DE-- (6 T-states; does NOT affect flags)
+    mov a, d
+    ora e               ; Z=1 only when D and E are both 0
+    jnz inner
+    dcr b
+    jnz outer
+    mvi a, 0FFH
+    sta 200H            ; signal completion
+    hlt`,
+
     'Checksum': `; XOR checksum of a 5-byte block at 200H.  Result at 300H.
     org 100H
     kickoff 100H
@@ -1322,6 +1401,24 @@ loop:
     out  01H            ; send counter value to port 01H
     inr  a
     jnz  loop           ; stop when A wraps to 0
+    hlt`,
+
+    'Keyboard Read': `; Read characters queued in the Keyboard panel (syscall C=01H).
+; Type some text in the I/O PORTS → KEYBOARD section, then Run.
+; Characters are stored at 200H onwards, null-terminated.
+; C=01H returns 0 when the queue is empty — that ends the loop.
+    org 100H
+    kickoff 100H
+    lxi  h, 200H        ; destination pointer
+read:
+    mvi  c, 01H
+    call 5              ; A = next queued key (00H if empty)
+    mov  m, a           ; store in memory
+    ora  a              ; null check
+    jz   done
+    inx  h
+    jmp  read
+done:
     hlt`,
 
     'LED Count': `; Count 00000000 → 99999999 on all 8 LED fields.
@@ -1372,6 +1469,106 @@ carry:
     jnc     inc         ; yes — propagate carry
     jmp     show        ; no — wrapped 99999999 → 00000000
 
+    hlt`,
+  },
+
+  'Strings': {
+    'Length': `; Count the length of a null-terminated ASCII string.
+; String stored at 200H.  Result (byte count) stored at 210H.
+; "Hello" has 5 characters → 210H = 05H.
+    org 100H
+    kickoff 100H
+    setbyte 200H, 48H   ; 'H'
+    setbyte 201H, 65H   ; 'e'
+    setbyte 202H, 6CH   ; 'l'
+    setbyte 203H, 6CH   ; 'l'
+    setbyte 204H, 6FH   ; 'o'
+    setbyte 205H, 00H   ; null terminator
+    lxi  h, 200H
+    mvi  b, 00H         ; B = length counter
+scan:
+    mov  a, m
+    ora  a              ; set flags; Z=1 if null
+    jz   done
+    inr  b
+    inx  h
+    jmp  scan
+done:
+    mov  a, b
+    sta  210H           ; store length = 05H
+    hlt`,
+
+    'Uppercase': `; Convert all lowercase letters in a string to uppercase.
+; Works in-place.  Non-letter bytes are left unchanged.
+; ASCII 'a'..'z' = 61H..7AH → subtract 20H → 'A'..'Z' = 41H..5AH.
+    org 100H
+    kickoff 100H
+    setbyte 200H, 48H   ; 'H'  (already upper — left alone)
+    setbyte 201H, 65H   ; 'e'  → 'E'
+    setbyte 202H, 6CH   ; 'l'  → 'L'
+    setbyte 203H, 6CH   ; 'l'  → 'L'
+    setbyte 204H, 6FH   ; 'o'  → 'O'
+    setbyte 205H, 21H   ; '!'  (not a letter — left alone)
+    setbyte 206H, 00H   ; null terminator
+    lxi  h, 200H
+loop:
+    mov  a, m
+    ora  a              ; null check
+    jz   done
+    cpi  61H            ; below 'a'?
+    jc   next           ; yes — not lowercase, skip
+    cpi  7BH            ; above 'z'?
+    jnc  next           ; yes — not lowercase, skip
+    sui  20H            ; to uppercase
+    mov  m, a
+next:
+    inx  h
+    jmp  loop
+done:
+    hlt`,
+
+    'Reverse': `; Reverse a null-terminated string in-place.
+; DE = left pointer,  HL = right pointer,  B = char temp,  C = swap count.
+; "Hello" (5 chars) → "olleH".
+    org 100H
+    kickoff 100H
+    setbyte 200H, 48H   ; 'H'
+    setbyte 201H, 65H   ; 'e'
+    setbyte 202H, 6CH   ; 'l'
+    setbyte 203H, 6CH   ; 'l'
+    setbyte 204H, 6FH   ; 'o'
+    setbyte 205H, 00H   ; null terminator
+    lxi  d, 200H        ; DE = left pointer (fixed start)
+    lxi  h, 200H        ; HL = scan to find end
+    mvi  c, 00H         ; C = length counter
+scan:
+    mov  a, m
+    ora  a              ; null check
+    jz   found
+    inr  c
+    inx  h
+    jmp  scan
+found:
+    ; C = length.  Length < 2 → nothing to reverse.
+    mov  a, c
+    cpi  02H
+    jc   done
+    dcx  h              ; HL = last char (was pointing at null)
+    ; Swap count = floor(length / 2): clear CY then shift right
+    ora  a              ; A still holds length; clears CY
+    rar                 ; A = length / 2 (floor)
+    mov  c, a           ; C = swap count (reuse register)
+swap:
+    mov  b, m           ; B = right char
+    ldax d              ; A = left char
+    mov  m, a           ; mem[HL] = left
+    mov  a, b
+    stax d              ; mem[DE] = right
+    inx  d              ; left pointer advances right
+    dcx  h              ; right pointer advances left
+    dcr  c
+    jnz  swap
+done:
     hlt`,
   },
 
