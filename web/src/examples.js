@@ -1374,5 +1374,144 @@ carry:
 
     hlt`,
   },
+
+  'Interrupts': {
+    'TRAP (NMI)': `; TRAP — non-maskable interrupt (vector 0024H).
+; Fires regardless of EI/DI or SIM masks.
+; Click FIRE next to TRAP in the Interrupts panel.
+; Port 01H: main-loop counter.  Port 02H: TRAP event count.
+
+    org  0024H          ; TRAP vector
+    push psw
+    lda  300H
+    inr  a
+    sta  300H
+    out  02H            ; bump event count → port 02H
+    pop  psw
+    ei                  ; re-enable maskable interrupts
+    ret
+
+    org  100H
+    kickoff 100H
+    lxi  sp, 1FFH
+    xra  a
+    sta  300H           ; zero event counter
+                        ; no EI needed — TRAP ignores IFF
+loop:
+    inr  a
+    out  01H            ; main-loop counter → port 01H
+    jmp  loop`,
+
+    'RST 7.5 (Edge)': `; RST 7.5 — edge-triggered (latched) interrupt (vector 003CH).
+; Each FIRE click sets the latch; the ISR clears it on service.
+; Fires exactly once per click even if the click is brief.
+; Port 01H: main-loop counter.  Port 02H: interrupt event count.
+; Click FIRE while running to trigger.
+
+    org  003CH          ; RST 7.5 vector
+    jmp  isr
+
+    org  100H
+    kickoff 100H
+    lxi  sp, 1FFH
+    xra  a
+    sta  300H           ; zero event counter
+    ei                  ; enable interrupts
+
+loop:
+    inr  a
+    out  01H            ; main-loop counter → port 01H
+    jmp  loop
+
+isr:
+    push psw
+    lda  300H
+    inr  a
+    sta  300H
+    out  02H            ; event count → port 02H
+    pop  psw
+    ei                  ; re-enable for the next FIRE
+    ret`,
+
+    'RST 6.5 (Level)': `; RST 6.5 — level-triggered interrupt (vector 0034H).
+; While the line is held HIGH the ISR fires after every EI,
+; i.e. once per interrupt-return.
+; Toggle RST 6.5 ON → ISR fires continuously.
+; Toggle RST 6.5 OFF → stops.
+; Port 01H: main-loop counter.  Port 02H: ISR event count.
+
+    org  0034H          ; RST 6.5 vector
+    jmp  isr
+
+    org  100H
+    kickoff 100H
+    lxi  sp, 1FFH
+    xra  a
+    sta  300H
+    ei
+
+loop:
+    inr  a
+    out  01H
+    jmp  loop
+
+isr:
+    push psw
+    lda  300H
+    inr  a
+    sta  300H
+    out  02H            ; ISR count → port 02H
+    pop  psw
+    ei                  ; re-enables → fires again while line is HIGH
+    ret`,
+
+    'SIM / RIM Mask': `; SIM / RIM — programmatic interrupt masking (RST 5.5, vector 002CH).
+;
+; Before running: assert RST 5.5 ON in the Interrupts panel.
+;
+; Phase 1 (20 loops): RST 5.5 masked via SIM — ISR never fires.
+;   Port 03H (RIM): b0=1 mask, b3=1 IFF, b4=1 pending → 19H
+; Phase 2 (infinite): mask cleared via SIM — ISR fires every pass.
+;   Port 03H (RIM): b0=0 unmasked, b3=1 IFF, b4=1 pending → 18H
+; Port 02H: ISR event count (stays 0 in phase 1, increments in phase 2).
+
+    org  002CH          ; RST 5.5 vector
+    jmp  isr
+
+    org  100H
+    kickoff 100H
+    lxi  sp, 1FFH
+    xra  a
+    sta  300H           ; zero event counter
+
+    mvi  a, 09H         ; SIM: MSE(b3)=1 + RST5.5 mask(b0)=1
+    sim
+    ei                  ; IFF on, but RST 5.5 masked
+
+    mvi  b, 14H         ; 20 phase-1 iterations
+phase1:
+    rim
+    out  03H            ; RIM result → port 03H  (expect 19H)
+    dcr  b
+    jnz  phase1
+
+    mvi  a, 08H         ; SIM: MSE=1, all mask bits cleared
+    sim                 ; RST 5.5 now unmasked
+
+phase2:
+    rim
+    out  03H            ; RIM result → port 03H  (expect 18H)
+    jmp  phase2
+
+isr:
+    push psw
+    lda  300H
+    inr  a
+    sta  300H
+    out  02H            ; event count → port 02H
+    pop  psw
+    ei
+    ret`,
+  },
 }
 
