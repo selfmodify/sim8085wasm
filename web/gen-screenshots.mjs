@@ -1,6 +1,6 @@
 /**
  * gen-screenshots.mjs
- * Captures screenshots of the simulator using Puppeteer.
+ * Captures annotated screenshots of the simulator using Puppeteer.
  * Usage:  npm run screenshots
  * Output: ../screenshots/
  */
@@ -49,7 +49,6 @@ async function build(page) {
 }
 
 async function setSpeed(page, index) {
-  // Focus the range slider then press Home (min) and arrow right to target index
   await page.focus('.speed-slider')
   await page.keyboard.press('Home')
   for (let i = 0; i < index; i++) await page.keyboard.press('ArrowRight')
@@ -65,20 +64,192 @@ async function stop(page) {
   if (btn) { await btn.click(); await sleep(400) }
 }
 
-// ── Shot 01: LED Count ────────────────────────────────────────────────────
+// ── Annotation helpers ────────────────────────────────────────────────────────
+
+const ANN_STYLE = `
+  position: fixed;
+  z-index: 999999;
+  font: 600 13px/1.45 ui-monospace, 'Cascadia Code', monospace;
+  color: #0d0d0d;
+  background: rgba(255, 210, 60, 0.97);
+  border: 1.5px solid rgba(0,0,0,0.3);
+  border-radius: 5px;
+  padding: 7px 12px;
+  box-shadow: 0 3px 14px rgba(0,0,0,0.55);
+  white-space: pre;
+  max-width: 260px;
+  pointer-events: none;
+`
+
+async function injectAnnotations(page, labels) {
+  await page.evaluate((labels, style) => {
+    labels.forEach(({ text, x, y }) => {
+      const el = document.createElement('div')
+      el.className = '__sc_ann'
+      el.style.cssText = style + `left:${x}px; top:${y}px;`
+      el.textContent = text
+      document.body.appendChild(el)
+    })
+  }, labels, ANN_STYLE)
+  await sleep(120)
+}
+
+async function removeAnnotations(page) {
+  await page.evaluate(() =>
+    document.querySelectorAll('.__sc_ann').forEach(el => el.remove())
+  )
+}
+
+async function getRect(page, selector) {
+  return page.evaluate(sel => {
+    const el = document.querySelector(sel)
+    if (!el) return null
+    const r = el.getBoundingClientRect()
+    return { x: r.left, y: r.top, w: r.width, h: r.height }
+  }, selector)
+}
+
+async function shotClip(page, filename, selector, labels, extraTop = 0) {
+  const r = await getRect(page, selector)
+  if (!r) throw new Error(`Selector not found: ${selector}`)
+  await injectAnnotations(page, labels)
+  const clip = {
+    x: r.x,
+    y: Math.max(0, r.y - extraTop),
+    width: r.w,
+    height: r.h + extraTop,
+  }
+  await page.screenshot({ path: path.join(OUT, filename), clip })
+  await removeAnnotations(page)
+  console.log(`  Saved: ${filename}`)
+}
+
+// ── Shot 01: Full app — LED counter running ───────────────────────────────────
 async function shot01_ledCount(page) {
-  console.log('  Shot 01 — LED Count…')
+  console.log('  Shot 01 — LED Count (full view)…')
   await loadExample(page, 'I/O', 'LED Count')
   await build(page)
   await setSpeed(page, 4)   // Turbo
   await run(page)
-  await sleep(3000)         // let counter advance
+  await sleep(3000)
   await stop(page)
   await page.screenshot({ path: path.join(OUT, '01-led-count.png') })
   console.log('  Saved: 01-led-count.png')
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────
+// ── Shot 02: Left panel — Editor ──────────────────────────────────────────────
+async function shot02_editor(page) {
+  console.log('  Shot 02 — Editor panel…')
+
+  const toolbar = await getRect(page, '.toolbar')
+  const col     = await getRect(page, '.col-editor')
+  const led     = await getRect(page, '.led-panel')
+
+  const ty = toolbar ? toolbar.y : 0
+  const th = toolbar ? toolbar.h : 40
+
+  const labels = [
+    {
+      text: '✏️  Write 8085 assembly\nSyntax highlighting · auto-indent',
+      x: col.x + 12,
+      y: col.y + 52,
+    },
+    {
+      text: '📂  20+ built-in examples\nArithmetic · Strings · I/O\nInterrupts · Algorithms',
+      x: col.x + 12,
+      y: col.y + 220,
+    },
+    {
+      text: '💡  7-segment LED display\nDriven by Intel SDK CALL 5',
+      x: col.x + 12,
+      y: (led ? led.y : col.y + col.h - 130) + 8,
+    },
+  ]
+
+  await injectAnnotations(page, labels)
+  await page.screenshot({
+    path: path.join(OUT, '02-editor-panel.png'),
+    clip: { x: col.x, y: ty, width: col.w, height: th + col.h },
+  })
+  await removeAnnotations(page)
+  console.log('  Saved: 02-editor-panel.png')
+}
+
+// ── Shot 03: Center panel — Disassembly + Memory ──────────────────────────────
+async function shot03_center(page) {
+  console.log('  Shot 03 — Center panel…')
+
+  const toolbar = await getRect(page, '.toolbar')
+  const col     = await getRect(page, '.col-center')
+  const disasm  = await getRect(page, '.disasm-panel')
+  const mem     = await getRect(page, '.mem-panel')
+
+  const ty = toolbar ? toolbar.y : 0
+  const th = toolbar ? toolbar.h : 40
+
+  const labels = [
+    {
+      text: '📋  Live disassembly\nClick any row to set a breakpoint',
+      x: col.x + 12,
+      y: (disasm ? disasm.y : col.y) + 44,
+    },
+    {
+      text: '💾  Hex memory editor\nDouble-click any cell to edit\nPC and SP highlighted',
+      x: col.x + 12,
+      y: (mem ? mem.y : col.y + col.h / 2) + 44,
+    },
+  ]
+
+  await injectAnnotations(page, labels)
+  await page.screenshot({
+    path: path.join(OUT, '03-center-panel.png'),
+    clip: { x: col.x, y: ty, width: col.w, height: th + col.h },
+  })
+  await removeAnnotations(page)
+  console.log('  Saved: 03-center-panel.png')
+}
+
+// ── Shot 04: Right panel — Registers + Interrupts + I/O ──────────────────────
+async function shot04_right(page) {
+  console.log('  Shot 04 — Right panel…')
+
+  const toolbar = await getRect(page, '.toolbar')
+  const col     = await getRect(page, '.col-right')
+  const regs    = await getRect(page, '.reg-panel')
+  const intp    = await getRect(page, '.int-panel')
+  const iop     = await getRect(page, '.ioport-panel')
+
+  const ty = toolbar ? toolbar.y : 0
+  const th = toolbar ? toolbar.h : 40
+
+  const labels = [
+    {
+      text: '🧠  Registers & flags\nHighlighted green on each step',
+      x: col.x + 8,
+      y: (regs ? regs.y : col.y) + 44,
+    },
+    {
+      text: '🔔  TRAP · RST 7.5/6.5/5.5\nFire interrupts mid-program',
+      x: col.x + 8,
+      y: (intp ? intp.y : col.y + 400) + 10,
+    },
+    {
+      text: '🔌  I/O ports · keyboard queue\nRead ports · queue keystrokes',
+      x: col.x + 8,
+      y: (iop ? iop.y : col.y + 540) + 10,
+    },
+  ]
+
+  await injectAnnotations(page, labels)
+  await page.screenshot({
+    path: path.join(OUT, '04-right-panel.png'),
+    clip: { x: col.x, y: ty, width: col.w, height: th + col.h },
+  })
+  await removeAnnotations(page)
+  console.log('  Saved: 04-right-panel.png')
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
   if (!existsSync(OUT)) await mkdir(OUT, { recursive: true })
 
@@ -94,12 +265,11 @@ async function main() {
 
     const browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
     })
     const page = await browser.newPage()
     await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 })
 
-    // Suppress welcome modal via localStorage before page scripts run
     await page.evaluateOnNewDocument(() => {
       localStorage.setItem('sim8085_welcomed', '1')
     })
@@ -109,6 +279,9 @@ async function main() {
     console.log('App loaded.')
 
     await shot01_ledCount(page)
+    await shot02_editor(page)
+    await shot03_center(page)
+    await shot04_right(page)
 
     await browser.close()
   } finally {

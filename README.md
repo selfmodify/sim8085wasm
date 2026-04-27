@@ -9,6 +9,14 @@ by Vijay Kumar (1995) to a modern web platform.
 
 ![sim8085 — LED counter running at turbo speed](screenshots/01-led-count.png)
 
+<table>
+<tr>
+<td><img src="screenshots/02-editor-panel.png" alt="Editor panel — write 8085 assembly with syntax highlighting and 20+ built-in examples"></td>
+<td><img src="screenshots/03-center-panel.png" alt="Center panel — live disassembly and hex memory editor"></td>
+<td><img src="screenshots/04-right-panel.png" alt="Right panel — registers, flags, interrupts, and I/O ports"></td>
+</tr>
+</table>
+
 ---
 
 ## Features
