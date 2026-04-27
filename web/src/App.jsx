@@ -1,1482 +1,15 @@
-﻿import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration } from '@codemirror/view'
 import { EditorState, StateEffect, StateField } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { search, searchKeymap } from '@codemirror/search'
-import { StreamLanguage, HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { oneDarkTheme } from '@codemirror/theme-one-dark'
-import { tags as hTags } from '@lezer/highlight'
 import * as sim from './sim8085Bridge.js'
+import { EXAMPLES } from './examples.js'
+import { INST_HELP } from './instHelp.js'
+import { hex2, hex4, b64encode, b64decode, BASE_CYCLE, SPEEDS, fmtByte, fmtWord, TRACE_REG16, fmtTraceVal, evalCondition } from './utils.js'
+import { asm8085Lang, asm8085Highlighting } from './lang.js'
 import './App.css'
-
-// ── Example programs (grouped by category) ──────────────────────────────
-const EXAMPLES = {
-
-  'Tests': {
-
-    'Data Transfer': `; ── DATA TRANSFER TESTS ──────────────────────────────────────────
-; Tests: MVI, MOV, MOV M, LDA/STA, LHLD/SHLD, LDAX/STAX, XCHG, LXI
-; Run → should reach HLT cleanly. Any ASSERT failure stops with error.
-    org     100H
-    kickoff 100H
-
-; MVI: load immediate value
-    mvi a, 42H
-    assert A, 42H
-
-; MOV r,r: register to register
-    mvi b, 0AAH
-    mov a, b
-    assert A, 0AAH
-    mvi c, 55H
-    mov b, c
-    assert B, 55H
-
-; MOV to/from M (memory via HL)
-    lxi h, 300H
-    mvi m, 7FH
-    mov a, m
-    assert A, 7FH
-    assert MEM, 300H, 7FH
-
-; STA / LDA: direct memory access
-    mvi a, 0A5H
-    sta 400H
-    mvi a, 00H
-    lda 400H
-    assert A, 0A5H
-    assert MEM, 400H, 0A5H
-
-; SHLD / LHLD: 16-bit memory access (HL stored little-endian)
-    lxi h, 1234H
-    shld 500H
-    lxi h, 0000H
-    lhld 500H
-    assert HL, 1234H
-    assert MEM, 500H, 34H     ; low byte first
-    assert MEM, 501H, 12H     ; high byte second
-
-; STAX / LDAX via BC
-    lxi b, 600H
-    mvi a, 0CDH
-    stax b
-    mvi a, 00H
-    ldax b
-    assert A, 0CDH
-    assert MEM, 600H, 0CDH
-
-; STAX / LDAX via DE
-    lxi d, 601H
-    mvi a, 0EFH
-    stax d
-    mvi a, 00H
-    ldax d
-    assert A, 0EFH
-
-; XCHG: swap DE and HL
-    lxi h, 1111H
-    lxi d, 2222H
-    xchg
-    assert HL, 2222H
-    assert DE, 1111H
-
-; LXI SP
-    lxi sp, 3FFEH
-    assert SP, 3FFEH
-
-    hlt`,
-
-    'ADD & ADC': `; ── ADD & ADC TESTS ──────────────────────────────────────────────
-; Covers: ADD r, ADD M, ADI, ADC r, ACI, ADD A (self)
-; Corner cases: carry out, zero result, sign bit, carry propagation
-    org     100H
-    kickoff 100H
-
-; ADD r: basic addition
-    mvi a, 05H
-    mvi b, 03H
-    add b
-    assert A, 08H
-    assert CY, 0
-    assert Z,  0
-    assert S,  0
-
-; ADD r: result is zero
-    mvi a, 00H
-    mvi b, 00H
-    add b
-    assert A, 00H
-    assert Z,  1
-    assert CY, 0
-
-; ADD r: overflow → carry out (FFH + 01H = 00H, CY=1)
-    mvi a, 0FFH
-    mvi b, 01H
-    add b
-    assert A, 00H
-    assert CY, 1
-    assert Z,  1
-
-; ADD r: result is negative (bit 7 set) → S=1
-    mvi a, 7FH
-    mvi b, 01H
-    add b
-    assert A, 80H
-    assert S,  1
-    assert CY, 0
-
-; ADI: add immediate (wraps with carry)
-    mvi a, 0FAH
-    adi 0AH
-    assert A, 04H
-    assert CY, 1
-
-; ADD A: double accumulator (A = A + A)
-    mvi a, 40H
-    add a
-    assert A, 80H
-    assert S,  1
-    assert CY, 0
-
-; ADD M: add memory byte via HL
-    lxi h, 300H
-    mvi m, 22H
-    mvi a, 11H
-    add m
-    assert A, 33H
-    assert CY, 0
-
-; ADC r: add with carry (CY acts as extra +1)
-    stc              ; CY = 1
-    mvi a, 10H
-    mvi b, 20H
-    adc b            ; A = 10 + 20 + 1 = 31H
-    assert A, 31H
-    assert CY, 0
-
-; ACI: add immediate with carry
-    stc              ; CY = 1
-    mvi a, 0FFH
-    aci 00H          ; FFH + 00H + 1 = 00H, CY=1
-    assert A, 00H
-    assert CY, 1
-    assert Z,  1
-
-; ADC A with carry: A = A + A + CY
-    stc              ; CY = 1
-    mvi a, 40H
-    adc a            ; 40 + 40 + 1 = 81H
-    assert A, 81H
-    assert S,  1
-    assert CY, 0
-
-    hlt`,
-
-    'SUB & SBB': `; ── SUB & SBB TESTS ──────────────────────────────────────────────
-; Covers: SUB r, SUB A, SUI, SBB r, SBI
-; Corner cases: borrow (CY=1), zero result, sign, SBB propagation
-    org     100H
-    kickoff 100H
-
-; SUB r: basic subtraction
-    mvi a, 0AH
-    mvi b, 03H
-    sub b
-    assert A, 07H
-    assert CY, 0
-    assert Z,  0
-    assert S,  0
-
-; SUB r: result is zero
-    mvi a, 05H
-    mvi b, 05H
-    sub b
-    assert A, 00H
-    assert Z,  1
-    assert CY, 0
-
-; SUB r: borrow (underflow) → CY=1, S=1
-    mvi a, 02H
-    mvi b, 05H
-    sub b
-    assert A, 0FDH
-    assert CY, 1
-    assert S,  1
-    assert Z,  0
-
-; SUB A: A - A = 0  (CY and S always clear, Z always set)
-    mvi a, 55H
-    sub a
-    assert A, 00H
-    assert Z,  1
-    assert CY, 0
-    assert S,  0
-
-; SUI: subtract immediate, no borrow
-    mvi a, 50H
-    sui 10H
-    assert A, 40H
-    assert CY, 0
-
-; SUI: subtract immediate with borrow
-    mvi a, 10H
-    sui 20H
-    assert A, 0F0H
-    assert CY, 1
-    assert S,  1
-
-; SBB r: subtract with borrow-in (CY=1 → result is one less)
-    stc              ; set borrow in
-    mvi a, 10H
-    mvi b, 05H
-    sbb b            ; A = 10H - 05H - 1 = 0AH
-    assert A, 0AH
-    assert CY, 0
-
-; SBB r: borrow propagation (00H - 00H - 1 = FFH, CY=1)
-    stc
-    mvi a, 00H
-    mvi b, 00H
-    sbb b
-    assert A, 0FFH
-    assert CY, 1
-    assert S,  1
-
-; SBI: subtract immediate with borrow
-    stc
-    mvi a, 20H
-    sbi 10H          ; 20H - 10H - 1 = 0FH
-    assert A, 0FH
-    assert CY, 0
-
-    hlt`,
-
-    'INC & DEC': `; ── INR / DCR / INX / DCX TESTS ──────────────────────────────────
-; KEY RULE: INR/DCR do NOT affect CY.  INX/DCX affect NO flags at all.
-    org     100H
-    kickoff 100H
-
-; INR r: basic increment
-    mvi b, 05H
-    inr b
-    assert B, 06H
-    assert Z,  0
-    assert S,  0
-
-; INR r: FFH → 00H  (Z=1, but CY NOT set — INR never touches CY)
-    stc              ; pre-set CY=1 to prove INR preserves it
-    mvi a, 0FFH
-    inr a
-    assert A, 00H
-    assert Z,  1
-    assert CY, 1     ; CY unchanged from before INR
-
-; INR r: 7FH → 80H  (S=1, AC=1, Z=0, CY unchanged)
-    mvi a, 7FH
-    inr a
-    assert A, 80H
-    assert S,  1
-    assert Z,  0
-
-; DCR r: basic decrement
-    mvi c, 05H
-    dcr c
-    assert C, 04H
-    assert Z,  0
-
-; DCR r: 01H → 00H  (Z=1)
-    mvi a, 01H
-    dcr a
-    assert A, 00H
-    assert Z,  1
-    assert S,  0
-
-; DCR r: 00H → FFH  (S=1, CY NOT set — DCR never touches CY)
-    mvi a, 00H
-    sub a            ; clear CY explicitly via SUB A
-    dcr a
-    assert A, 0FFH
-    assert S,  1
-    assert Z,  0
-    assert CY, 0     ; CY still 0 (from SUB A), not touched by DCR
-
-; INR M: increment memory byte
-    lxi h, 300H
-    mvi m, 0FEH
-    inr m
-    assert MEM, 300H, 0FFH
-    inr m            ; FFH → 00H
-    assert MEM, 300H, 00H
-    assert Z,  1
-
-; INX: 16-bit increment — wraps FFFFH → 0000H, NO flags touched
-    stc              ; CY=1 before INX to prove flags unchanged
-    lxi b, 0FFFFH
-    inx b
-    assert BC, 0000H
-    assert CY, 1     ; INX must not clear CY
-
-; DCX: 16-bit decrement — wraps 0000H → FFFFH, NO flags touched
-    lxi d, 0000H
-    dcx d
-    assert DE, 0FFFFH
-
-    hlt`,
-
-    'AND / OR / XOR': `; ── ANA / ORA / XRA / CMA TESTS ──────────────────────────────────
-; KEY FLAG RULES: all logical ops → CY=0 always.
-; ANA also sets AC=0.  ORA/XRA set AC=0.
-    org     100H
-    kickoff 100H
-
-; ANA r: bitwise AND, CY always 0
-    stc              ; pre-set CY to prove AND clears it
-    mvi a, 0FFH
-    mvi b, 0F0H
-    ana b
-    assert A, 0F0H
-    assert CY, 0
-    assert S,  1
-    assert Z,  0
-
-; ANA r: result zero
-    mvi a, 0F0H
-    mvi b, 0FH
-    ana b
-    assert A, 00H
-    assert Z,  1
-    assert CY, 0
-
-; ANI: AND immediate
-    mvi a, 0ABH
-    ani 0FH
-    assert A, 0BH
-    assert CY, 0
-
-; ORA r: bitwise OR, CY always 0
-    stc              ; prove CY gets cleared
-    mvi a, 0F0H
-    mvi b, 0FH
-    ora b
-    assert A, 0FFH
-    assert CY, 0
-    assert S,  1
-
-; ORA A: self-OR (no change, just updates flags)
-    mvi a, 55H
-    ora a
-    assert A, 55H
-    assert CY, 0
-
-; ORI: OR immediate
-    mvi a, 00H
-    ori 0FFH
-    assert A, 0FFH
-    assert Z,  0
-    assert S,  1
-
-; XRA r: bitwise XOR
-    mvi a, 0FFH
-    mvi b, 0FFH
-    xra b
-    assert A, 00H
-    assert Z,  1
-    assert CY, 0
-
-; XRA A: self-XOR always gives zero — fastest way to clear A and set Z
-    mvi a, 0ABH
-    xra a
-    assert A, 00H
-    assert Z,  1
-    assert CY, 0
-
-; XRI: XOR immediate, toggle bits
-    mvi a, 0F0H
-    xri 0FFH
-    assert A, 0FH
-    assert S,  0
-    assert CY, 0
-
-; CMA: complement A (bitwise NOT) — does NOT affect flags
-    stc
-    mvi a, 55H
-    cma
-    assert A, 0AAH
-    assert CY, 1     ; CMA leaves flags untouched
-
-    hlt`,
-
-    'Compare & Flags': `; ── CMP / CPI / STC / CMC / CMA TESTS ────────────────────────────
-; CMP subtracts but discards result. CY=1 means A < operand (borrow).
-    org     100H
-    kickoff 100H
-
-; CMP r: equal  (Z=1, CY=0)
-    mvi a, 42H
-    mvi b, 42H
-    cmp b
-    assert Z,  1
-    assert CY, 0
-    assert A, 42H    ; CMP must NOT change A
-
-; CMP r: A > B  (Z=0, CY=0, no borrow)
-    mvi a, 50H
-    mvi b, 30H
-    cmp b
-    assert Z,  0
-    assert CY, 0
-
-; CMP r: A < B  (Z=0, CY=1, borrow occurred)
-    mvi a, 10H
-    mvi b, 20H
-    cmp b
-    assert Z,  0
-    assert CY, 1
-
-; CMP A: self-compare always equal (Z=1, CY=0, A unchanged)
-    mvi a, 0ABH
-    cmp a
-    assert Z,  1
-    assert CY, 0
-    assert A, 0ABH
-
-; CPI: compare with immediate
-    mvi a, 80H
-    cpi 80H
-    assert Z,  1
-    assert CY, 0
-
-    mvi a, 7FH
-    cpi 80H          ; 7FH < 80H unsigned → CY=1
-    assert Z,  0
-    assert CY, 1
-
-    mvi a, 90H
-    cpi 80H          ; 90H > 80H unsigned → CY=0
-    assert Z,  0
-    assert CY, 0
-
-; STC: set carry unconditionally
-    xra a            ; clear flags
-    stc
-    assert CY, 1
-
-; CMC: complement carry
-    stc
-    cmc
-    assert CY, 0
-    cmc
-    assert CY, 1
-
-    hlt`,
-
-    'Rotate': `; ── ROTATE INSTRUCTION TESTS ──────────────────────────────────────
-; RLC/RRC: circular (bit wraps around, also goes into CY)
-; RAL/RAR: rotate through CY (9-bit rotation)
-    org     100H
-    kickoff 100H
-
-; RLC: bit 7 → CY and bit 0
-    mvi a, 80H       ; 10000000
-    rlc              ; → 00000001, CY=1
-    assert A, 01H
-    assert CY, 1
-
-    mvi a, 55H       ; 01010101
-    rlc              ; → 10101010, CY=0
-    assert A, 0AAH
-    assert CY, 0
-
-; RLC four times: should rotate 80H back to 80H
-    mvi a, 80H
-    rlc
-    rlc
-    rlc
-    rlc
-    rlc
-    rlc
-    rlc
-    rlc              ; 8 times = full rotation back
-    assert A, 80H
-
-; RRC: bit 0 → CY and bit 7
-    mvi a, 01H       ; 00000001
-    rrc              ; → 10000000, CY=1
-    assert A, 80H
-    assert CY, 1
-
-    mvi a, 0AAH      ; 10101010
-    rrc              ; → 01010101, CY=0
-    assert A, 55H
-    assert CY, 0
-
-; RAL: rotate left through CY (9-bit ring)
-    mvi a, 80H       ; b7=1
-    stc              ; CY=1 going in
-    ral              ; A = 00000001 | cy=1 = 01H, new CY = old b7 = 1
-    assert A, 01H
-    assert CY, 1
-
-    mvi a, 55H       ; 01010101, CY=1 from above
-    ral              ; A = 10101010 | 1 = ABH, new CY = old b7(01010101)=0
-    assert A, 0ABH
-    assert CY, 0
-
-; RAR: rotate right through CY (9-bit ring)
-    mvi a, 01H       ; b0=1
-    stc              ; CY=1 going in
-    rar              ; A = 10000000 = 80H, new CY = old b0 = 1
-    assert A, 80H
-    assert CY, 1
-
-    mvi a, 0AAH      ; 10101010, CY=1 from above
-    rar              ; A = 11010101 = D5H, new CY = old b0(0AAH)=0
-    assert A, 0D5H
-    assert CY, 0
-
-    hlt`,
-
-    'Jumps': `; ── CONDITIONAL JUMP TESTS ────────────────────────────────────────
-; Each test uses ORA A or ADI to set flags, then checks the branch.
-; If a jump fails to take (or takes when it should not), HLT is hit early.
-    org     100H
-    kickoff 100H
-
-; JNZ: jump if Z=0
-    mvi a, 01H
-    ora a            ; Z=0 (nonzero result)
-    jnz t2
-    hlt              ; must not reach
-t2: assert A, 01H
-
-; JZ: jump if Z=1
-    mvi a, 00H
-    ora a            ; Z=1
-    jz t3
-    hlt
-t3: assert Z, 1
-
-; JNC: jump if CY=0
-    mvi a, 0FFH
-    adi 00H          ; FF+00 = FF, no carry
-    jnc t4
-    hlt
-t4: assert CY, 0
-
-; JC: jump if CY=1
-    mvi a, 0FFH
-    adi 01H          ; FF+01 overflows → CY=1
-    jc t5
-    hlt
-t5: assert CY, 1
-
-; JP: jump if S=0 (positive / non-negative result)
-    mvi a, 7FH
-    ora a            ; S=0
-    jp t6
-    hlt
-t6: assert S, 0
-
-; JM: jump if S=1 (minus / bit 7 set)
-    mvi a, 80H
-    ora a            ; S=1
-    jm t7
-    hlt
-t7: assert S, 1
-
-; JPO: jump if parity odd (P=0) — 01H has one 1-bit = odd
-    mvi a, 01H
-    ora a
-    jpo t8
-    hlt
-t8: assert P, 0
-
-; JPE: jump if parity even (P=1) — 03H = 00000011 has two 1-bits = even
-    mvi a, 03H
-    ora a
-    jpe t9
-    hlt
-t9: assert P, 1
-
-; JNZ NOT taken: Z=1, JNZ should fall through
-    mvi a, 00H
-    ora a            ; Z=1
-    jnz bad_jnz
-    jmp t10
-bad_jnz: hlt
-t10: assert Z, 1
-
-    hlt`,
-
-    'CALL & RET': `; ── CALL / RET / CONDITIONAL CALL & RETURN TESTS ─────────────────
-; CALL pushes PC+3, jumps to subroutine. RET pops and resumes.
-    org     100H
-    kickoff 100H
-    lxi sp, 3FFEH
-
-; Basic CALL / RET
-    call sub_basic
-    assert A, 0AAH
-
-; CZ: conditional call when Z=1
-    mvi a, 00H
-    ora a            ; Z=1
-    cz sub_cz
-    assert A, 0BBH
-
-; CNZ: conditional call when Z=0
-    mvi a, 01H
-    ora a            ; Z=0
-    cnz sub_cnz
-    assert A, 0CCH
-
-; CC: conditional call when CY=1
-    stc
-    cc sub_cc
-    assert A, 0DDH
-
-; CNC: conditional call when CY=0 (after CMC, CY becomes 0)
-    stc
-    cmc              ; CY=0
-    cnc sub_cnc
-    assert A, 0EEH
-
-; RNZ: return if Z=0 — should return, leaving B unchanged
-    mvi b, 01H
-    call sub_rnz
-    assert B, 01H    ; B stays 01H because RNZ returned before INR B
-
-    hlt
-
-sub_basic:
-    mvi a, 0AAH
-    ret
-
-sub_cz:
-    mvi a, 0BBH
-    ret
-
-sub_cnz:
-    mvi a, 0CCH
-    ret
-
-sub_cc:
-    mvi a, 0DDH
-    ret
-
-sub_cnc:
-    mvi a, 0EEH
-    ret
-
-sub_rnz:
-    mvi a, 01H
-    ora a            ; Z=0
-    rnz              ; taken — return here
-    inr b            ; NOT reached
-    ret`,
-
-    'PUSH & POP': `; ── PUSH / POP TESTS ──────────────────────────────────────────────
-; PUSH decrements SP by 2 then writes; POP reads then increments SP by 2.
-; Data is stored little-endian: low byte at lower address.
-    org     100H
-    kickoff 100H
-    lxi sp, 3FFEH
-
-; PUSH/POP B: round-trip
-    lxi b, 1234H
-    push b
-    lxi b, 0000H     ; clear BC
-    pop b
-    assert BC, 1234H
-
-; PUSH/POP D: round-trip
-    lxi d, 5678H
-    push d
-    lxi d, 0000H
-    pop d
-    assert DE, 5678H
-
-; PUSH/POP H: round-trip
-    lxi h, 9ABCH
-    push h
-    lxi h, 0000H
-    pop h
-    assert HL, 9ABCH
-
-; SP movement: each PUSH decrements SP by 2, each POP increments
-    lxi sp, 3FFEH
-    assert SP, 3FFEH
-    push b
-    assert SP, 3FFCH
-    push d
-    assert SP, 3FFAH
-    pop d
-    assert SP, 3FFCH
-    pop b
-    assert SP, 3FFEH
-
-; Stack memory layout: little-endian (low byte at lower address)
-    lxi b, 0AABBH
-    lxi sp, 3FFEH
-    push b
-    assert MEM, 3FFCH, 0BBH   ; B=BB is the low byte → [SP]
-    assert MEM, 3FFDH, 0AAH   ; B=AA is the high byte → [SP+1]
-
-; PUSH/POP PSW: saves A and flags together
-    mvi a, 0F0H
-    stc              ; CY=1
-    push psw         ; saves A=F0H, flags (with CY=1)
-    mvi a, 00H
-    xra a            ; A=0, CY=0, Z=1 — overwrites flags
-    pop psw          ; restore A=F0H, flags with CY=1
-    assert A, 0F0H
-    assert CY, 1
-
-    hlt`,
-
-    '16-bit Arithmetic': `; ── DAD / INX / DCX / SPHL TESTS ─────────────────────────────────
-; DAD: 16-bit HL = HL + pair.  Only CY is affected.
-; INX / DCX: 16-bit inc/dec.  NO flags are changed at all.
-    org     100H
-    kickoff 100H
-
-; DAD B: HL = HL + BC, no carry
-    lxi h, 1000H
-    lxi b, 0200H
-    dad b
-    assert HL, 1200H
-    assert CY, 0
-
-; DAD B: carry out (overflow 16 bits)
-    lxi h, 0FF00H
-    lxi b, 0200H
-    dad b
-    assert HL, 0100H
-    assert CY, 1
-
-; DAD D
-    lxi h, 2000H
-    lxi d, 3000H
-    dad d
-    assert HL, 5000H
-    assert CY, 0
-
-; DAD H: HL = HL + HL (double HL)
-    lxi h, 1000H
-    dad h
-    assert HL, 2000H
-    assert CY, 0
-
-; DAD SP
-    lxi h, 1000H
-    lxi sp, 2000H
-    dad sp
-    assert HL, 3000H
-
-; INX: wraps FFFFH → 0000H, does NOT affect CY
-    stc              ; CY=1 before INX
-    lxi b, 0FFFFH
-    inx b
-    assert BC, 0000H
-    assert CY, 1     ; CY must be unchanged by INX
-
-; INX: regular increment
-    lxi d, 1234H
-    inx d
-    assert DE, 1235H
-
-; DCX: wraps 0000H → FFFFH
-    lxi h, 0000H
-    dcx h
-    assert HL, 0FFFFH
-
-; DCX: regular decrement
-    lxi b, 0500H
-    dcx b
-    assert BC, 04FFH
-
-; SPHL: SP = HL
-    lxi h, 2000H
-    sphl
-    assert SP, 2000H
-
-    hlt`,
-
-    'DAA (BCD)': `; ── DAA — DECIMAL ADJUST ACCUMULATOR TESTS ───────────────────────
-; After binary addition, DAA corrects A to a valid packed-BCD byte.
-; Two decimal digits per byte: upper nibble = tens, lower = units.
-    org     100H
-    kickoff 100H
-
-; 09 + 01 = BCD 10 (adjust lower nibble: 0AH → 10H)
-    mvi a, 09H
-    adi 01H          ; A = 0AH (invalid BCD)
-    daa              ; → 10H  (BCD 10)
-    assert A, 10H
-    assert CY, 0
-
-; 09 + 09 = BCD 18
-    mvi a, 09H
-    adi 09H          ; A = 12H, AC=1 (9+9=18, lower nibble carries)
-    daa              ; → 18H  (BCD 18)
-    assert A, 18H
-    assert CY, 0
-
-; 08 + 08 = BCD 16 (AC set because 8+8=16, lower nibble carry)
-    mvi a, 08H
-    adi 08H          ; A = 10H, AC=1
-    daa              ; → 16H  (BCD 16)
-    assert A, 16H
-    assert CY, 0
-
-; 47 + 35 = BCD 82
-    mvi a, 47H
-    adi 35H          ; A = 7CH
-    daa              ; → 82H  (BCD 82)
-    assert A, 82H
-    assert CY, 0
-
-; 99 + 01 = BCD 00 with carry (BCD overflow: 99+1=100)
-    mvi a, 99H
-    adi 01H          ; A = 9AH, no binary carry
-    daa              ; → 00H, CY=1  (BCD 100)
-    assert A, 00H
-    assert CY, 1
-
-; 99 + 99 = BCD 98 with carry (199 in BCD)
-    mvi a, 99H
-    adi 99H          ; A = 32H, binary CY=1
-    daa              ; → 98H, CY=1
-    assert A, 98H
-    assert CY, 1
-
-; 50 + 50 = BCD 00 with carry (100 in BCD)
-    mvi a, 50H
-    adi 50H          ; A = A0H
-    daa              ; → 00H, CY=1
-    assert A, 00H
-    assert CY, 1
-
-    hlt`,
-
-  },
-
-  'Basic': {
-    'Counter': `; Increment A and B registers in a tight loop.
-; Watch the Registers panel update live.
-    org 100H
-    kickoff 100H
-    mvi a, 00H
-    mvi b, 00H
-loop:
-    inr a
-    inr b
-    jnz loop
-    hlt`,
-  },
-
-  'Arithmetic': {
-    'Add': `; 8-bit addition: mem[200H] + mem[201H] → mem[202H]
-; If the sum overflows 8 bits, CY flag is set.
-    org 100H
-    kickoff 100H
-    setbyte 200H, 3CH   ; 60
-    setbyte 201H, 2AH   ; 42  (sum = 102 = 66H)
-    lda 200H
-    mov b, a
-    lda 201H
-    add b               ; A = sum,  CY set on overflow
-    sta 202H
-    mvi a, 00H
-    adc a               ; A = carry (0 or 1)
-    sta 203H
-    hlt`,
-
-    'Subtract': `; 8-bit subtraction: mem[200H] - mem[201H] → mem[202H]
-; CY=1 after SUB means borrow (result negative).
-    org 100H
-    kickoff 100H
-    setbyte 200H, 5AH   ; 90  (minuend)
-    setbyte 201H, 1EH   ; 30  (subtrahend)  result = 60 = 3CH
-    lda 201H
-    mov b, a            ; B = subtrahend
-    lda 200H
-    sub b               ; A = minuend - subtrahend
-    sta 202H
-    hlt`,
-
-    'Multiply': `; 8-bit multiply via repeated addition (result is 16-bit)
-; mem[200H] x mem[201H] → mem[202H](lo), mem[203H](hi)
-    org 100H
-    kickoff 100H
-    setbyte 200H, 0CH   ; multiplicand = 12
-    setbyte 201H, 0AH   ; multiplier   = 10  (product = 120 = 78H)
-    lda 200H
-    mov b, a            ; B = multiplicand
-    lda 201H
-    mov c, a            ; C = multiplier (loop count)
-    lxi h, 0000H        ; HL = running product
-    mov a, c
-    ora a
-    jz done             ; multiplier = 0 → result = 0
-mul:
-    mov a, l
-    add b
-    mov l, a
-    mov a, h
-    aci 00H             ; propagate carry into high byte
-    mov h, a
-    dcr c
-    jnz mul
-done:
-    shld 202H           ; store 16-bit result (lo at 202H, hi at 203H)
-    hlt`,
-
-    'Divide': `; 8-bit divide: mem[200H] / mem[201H]
-; Quotient → mem[202H],  Remainder → mem[203H]
-    org 100H
-    kickoff 100H
-    setbyte 200H, 64H   ; dividend  = 100
-    setbyte 201H, 07H   ; divisor   =   7  (quotient=14, remainder=2)
-    lda 201H
-    mov c, a            ; C = divisor
-    lda 200H
-    mov b, a            ; B = working dividend
-    mvi d, 00H          ; D = quotient
-div:
-    mov a, b
-    sub c               ; A = B - divisor
-    jc  done            ; borrow → B < divisor → done
-    mov b, a            ; B = new remainder
-    inr d               ; quotient++
-    jmp div
-done:
-    mov a, d
-    sta 202H            ; quotient
-    mov a, b
-    sta 203H            ; remainder
-    hlt`,
-
-    '16-bit Add': `; Add two 16-bit values using DAD (HL = HL + DE).
-; Operand 1 at 200H-201H (lo-hi), operand 2 at 202H-203H.
-; 16-bit result stored at 204H-205H.  CY = carry out.
-    org 100H
-    kickoff 100H
-    setword 200H, 12A4H ; first  operand = 12A4H (4772)
-    setword 202H, 0E73H ; second operand = 0E73H (3699)
-    lhld 200H           ; HL = first operand
-    xchg                ; DE = first operand
-    lhld 202H           ; HL = second operand
-    dad d               ; HL = HL + DE  (result = 2117H = 8471)
-    shld 204H           ; store result
-    hlt`,
-
-    'BCD Add': `; BCD (packed) addition using DAA.
-; Two BCD digits in A and B are added and adjusted.
-; Result in A is a valid two-digit BCD number.
-    org 100H
-    kickoff 100H
-    mvi a, 47H          ; BCD 47 (= decimal 47)
-    mvi b, 35H          ; BCD 35 (= decimal 35)
-    add b               ; binary sum = 7CH (wrong for BCD)
-    daa                 ; adjust → A = 82H (BCD 82 = decimal 82)
-    sta 200H
-    hlt`,
-  },
-
-  'Logic': {
-    'AND / OR / XOR': `; Demonstrate bitwise AND, OR, and XOR.
-; Operands: F0H (11110000) and AAH (10101010)
-; AND → A0H   OR → FAH   XOR → 5AH
-    org 100H
-    kickoff 100H
-    setbyte 200H, 0F0H
-    setbyte 201H, 0AAH
-    lda 200H
-    mov b, a
-    lda 201H
-    ana b               ; AND: F0 & AA = A0H
-    sta 202H
-    lda 200H
-    mov b, a
-    lda 201H
-    ora b               ; OR:  F0 | AA = FAH
-    sta 203H
-    lda 200H
-    mov b, a
-    lda 201H
-    xra b               ; XOR: F0 ^ AA = 5AH
-    sta 204H
-    hlt`,
-
-    'Bit Test': `; Test whether bit 3 of mem[200H] is set.
-; Result at 201H: 01H = bit set,  00H = bit clear.
-    org 100H
-    kickoff 100H
-    setbyte 200H, 2CH   ; 0010 1100 — bit 3 is 1
-    lda 200H
-    ani 08H             ; mask bit 3  (08H = 0000 1000)
-    jz  clear
-    mvi a, 01H          ; bit was set
-    sta 201H
-    hlt
-clear:
-    mvi a, 00H          ; bit was clear
-    sta 201H
-    hlt`,
-
-    'Complement & Rotate': `; Show CMA (bitwise NOT) and RLC/RRC rotations.
-    org 100H
-    kickoff 100H
-    mvi a, 0F0H         ; A = 1111 0000
-    cma                 ; A = ~A = 0000 1111 = 0FH
-    sta 200H
-    mvi a, 01H          ; A = 0000 0001
-    rlc                 ; A = 0000 0010  CY=0
-    rlc                 ; A = 0000 0100
-    rlc                 ; A = 0000 1000
-    rlc                 ; A = 0001 0000 = 10H
-    sta 201H
-    mvi a, 80H          ; A = 1000 0000
-    rrc                 ; A = 0100 0000  CY=0
-    rrc                 ; A = 0010 0000
-    rrc                 ; A = 0001 0000 = 10H
-    sta 202H
-    hlt`,
-  },
-
-  'Memory': {
-    'Block Move': `; Copy 8 bytes from source (200H) to destination (300H).
-    org 100H
-    kickoff 100H
-    setbyte 200H, 11H
-    setbyte 201H, 22H
-    setbyte 202H, 33H
-    setbyte 203H, 44H
-    setbyte 204H, 55H
-    setbyte 205H, 66H
-    setbyte 206H, 77H
-    setbyte 207H, 88H
-    lxi h, 200H         ; HL = source
-    lxi d, 300H         ; DE = destination
-    mvi c, 08H          ; C  = byte count
-copy:
-    mov a, m            ; A = mem[HL]
-    stax d              ; mem[DE] = A
-    inx h
-    inx d
-    dcr c
-    jnz copy
-    hlt`,
-
-    'Memory Fill': `; Fill 16 bytes starting at 200H with the value AAH.
-    org 100H
-    kickoff 100H
-    lxi h, 200H         ; start address
-    mvi b, 10H          ; count = 16
-    mvi a, 0AAH         ; fill value
-fill:
-    mov m, a
-    inx h
-    dcr b
-    jnz fill
-    hlt`,
-
-    'Find Maximum': `; Find the largest byte in an 8-element array at 200H.
-; Result stored at 210H.
-    org 100H
-    kickoff 100H
-    setbyte 200H, 34H
-    setbyte 201H, 78H
-    setbyte 202H, 12H
-    setbyte 203H, 9AH
-    setbyte 204H, 56H
-    setbyte 205H, 0BH
-    setbyte 206H, 0EFH
-    setbyte 207H, 23H
-    lxi h, 200H
-    mvi b, 08H          ; element count
-    mvi a, 00H          ; current max
-scan:
-    cmp m               ; A vs mem[HL]
-    jnc skip            ; if A >= mem[HL], keep A
-    mov a, m            ; new maximum found
-skip:
-    inx h
-    dcr b
-    jnz scan
-    sta 210H            ; store result (EFH = 239)
-    hlt`,
-
-    'Find Minimum': `; Find the smallest byte in an 8-element array at 200H.
-; Result stored at 210H.
-    org 100H
-    kickoff 100H
-    setbyte 200H, 34H
-    setbyte 201H, 78H
-    setbyte 202H, 12H
-    setbyte 203H, 9AH
-    setbyte 204H, 56H
-    setbyte 205H, 0BH
-    setbyte 206H, 0EFH
-    setbyte 207H, 23H
-    lxi h, 200H
-    mvi b, 08H
-    mov a, m            ; seed with first element
-    inx h
-    dcr b
-scan:
-    cmp m               ; A vs mem[HL]
-    jc  skip            ; if A < mem[HL], A is still smaller
-    mov a, m            ; new minimum found
-skip:
-    inx h
-    dcr b
-    jnz scan
-    sta 210H            ; store result (0BH = 11)
-    hlt`,
-  },
-
-  'Sorting': {
-    'Bubble Sort': `; Bubble sort — sorts 10 values at 251H..25AH into ascending order.
-    setbyte 251H, 34H
-    setbyte 252H, 30H
-    setbyte 253H, 26H
-    setbyte 254H, 23H
-    setbyte 255H, 20H
-    setbyte 256H, 17H
-    setbyte 257H, 14H
-    setbyte 258H, 10H
-    setbyte 259H, 07H
-    setbyte 25AH, 03H
-
-    org 100H
-    kickoff 100H
-    mvi  b, 09H
-outer:
-    lxi  h, 251H
-    mov  c, b
-inner:
-    mov  a, m
-    inx  h
-    cmp  m
-    jc   next
-    mov  d, m           ; swap mem[HL-1] and mem[HL]
-    mov  m, a
-    dcx  h
-    mov  m, d
-    inx  h
-next:
-    dcr  c
-    jnz  inner
-    dcr  b
-    jnz  outer
-    hlt`,
-
-    'Selection Sort': `; Selection sort — finds the minimum and places it at the front.
-; Sorts 8 bytes at 200H..207H into ascending order.
-    setbyte 200H, 45H
-    setbyte 201H, 12H
-    setbyte 202H, 78H
-    setbyte 203H, 03H
-    setbyte 204H, 9AH
-    setbyte 205H, 56H
-    setbyte 206H, 23H
-    setbyte 207H, 67H
-
-    org 100H
-    kickoff 100H
-    mvi  e, 08H         ; total elements
-    lxi  h, 200H        ; outer pointer (i)
-outer:
-    dcr  e
-    jz   done
-    mov  d, e           ; inner count
-    push h              ; save i
-    mov  b, h           ; min pointer = i (hi)
-    mov  c, l           ; min pointer = i (lo)
-    mov  a, m           ; current min value
-    inx  h
-inner:
-    cmp  m
-    jc   no_swap
-    mov  a, m           ; new min value
-    mov  b, h
-    mov  c, l           ; save address of new min
-no_swap:
-    inx  h
-    dcr  d
-    jnz  inner
-    ; swap mem[i] and mem[min_addr]
-    pop  h              ; HL = i
-    push h
-    mov  d, a           ; D = min value
-    mov  a, m           ; A = mem[i]
-    push b
-    pop  h              ; HL = min address
-    mov  m, a           ; mem[min] = old mem[i]
-    pop  h              ; HL = i again
-    mov  m, d           ; mem[i] = min value
-    inx  h
-    jmp  outer
-done:
-    hlt`,
-  },
-
-  'Algorithms': {
-    'Fibonacci': `; Fibonacci sequence — stores 16 values starting at 200H.
-; F(0)=0, F(1)=1, F(2)=1, F(3)=2 … F(15)=EFH (wraps at 256)
-    org 100H
-    kickoff 100H
-    lxi  h, 200H
-    mvi  a, 00H
-    mov  m, a           ; F(0) = 0
-    inx  h
-    mvi  a, 01H
-    mov  m, a           ; F(1) = 1
-    inx  h
-    mvi  b, 0EH         ; compute 14 more terms
-fib:
-    dcx  h
-    mov  a, m           ; A = F(n-1)
-    inx  h
-    add  m              ; A = F(n-1) + F(n) = F(n+1)
-    inx  h
-    mov  m, a
-    dcr  b
-    jnz  fib
-    hlt`,
-
-    'Factorial': `; Compute N! using repeated multiplication (repeated addition).
-; N stored at 200H.  Result at 201H.  Valid for N <= 5 (5! = 120).
-    org 100H
-    kickoff 100H
-    setbyte 200H, 05H   ; N = 5  →  5! = 120 = 78H
-    lda 200H
-    mov b, a            ; B = current factor (counts down N..1)
-    mvi a, 01H          ; A = running result = 1
-loop:
-    mov c, a            ; C = current result
-    mov d, b            ; D = factor (multiply count)
-    mvi a, 00H
-mul:
-    add c               ; A += C  (repeated D times = C * B)
-    dcr d
-    jnz mul
-    dcr b               ; next factor
-    jnz loop
-    sta 201H            ; store result
-    hlt`,
-
-    'GCD': `; Greatest common divisor — Euclid's subtraction algorithm.
-; GCD(mem[200H], mem[201H]) stored at 202H.
-    org 100H
-    kickoff 100H
-    setbyte 200H, 30H   ; 48
-    setbyte 201H, 14H   ; 20   GCD = 4
-    lda 200H
-    mov b, a            ; B = first value
-    lda 201H
-    mov c, a            ; C = second value
-gcd:
-    mov a, b
-    cmp c
-    jz  done            ; B == C → answer found
-    jc  b_lt            ; B < C  → subtract other way
-    sub c
-    mov b, a            ; B = B - C
-    jmp gcd
-b_lt:
-    mov a, c
-    sub b
-    mov c, a            ; C = C - B
-    jmp gcd
-done:
-    mov a, b
-    sta 202H
-    hlt`,
-
-    'Checksum': `; XOR checksum of a 5-byte block at 200H.  Result at 300H.
-    org 100H
-    kickoff 100H
-    setbyte 200H, 0AH
-    setbyte 201H, 1BH
-    setbyte 202H, 2CH
-    setbyte 203H, 3DH
-    setbyte 204H, 4EH
-    lxi h, 200H
-    mvi b, 05H
-    mvi a, 00H
-xloop:
-    xra m               ; A ^= mem[HL]
-    inx h
-    dcr b
-    jnz xloop
-    sta 300H            ; checksum = 0AH^1BH^2CH^3DH^4EH = 10H
-    hlt`,
-  },
-
-  'I/O': {
-    'Port Echo': `; Read a byte from input port 01H, write it to output port 02H.
-; Before running: set port 01H value in the I/O Ports panel.
-    org 100H
-    kickoff 100H
-    in   01H            ; A = value preset on input port 01H
-    out  02H            ; write A to output port 02H (visible in panel)
-    hlt`,
-
-    'Port Counter': `; Count from 0..FFH, sending each value to output port 01H.
-; Watch port 01H increment in the I/O Ports panel.
-    org 100H
-    kickoff 100H
-    mvi a, 00H
-loop:
-    out  01H            ; send counter value to port 01H
-    inr  a
-    jnz  loop           ; stop when A wraps to 0
-    hlt`,
-
-    'LED Scroll': `; Scroll digits across the LED display using Intel SDK system calls.
-    org 100H
-    kickoff 100H
-    setbyte 511H, 00H
-    setbyte 512H, 01H
-    setbyte 513H, 02H
-    setbyte 514H, 03H
-    setbyte 515H, 04H
-    setbyte 516H, 05H
-    setbyte 517H, 06H
-    setbyte 518H, 07H
-    lxi sp, 200H
-again:
-    lxi h, 511H
-    mvi b, 08H
-loop:
-    mvi  c, 0BH
-    mov  d, m
-    call 5              ; scroll LED left, insert D
-    mvi  a, 09H
-    push h
-    lxi  h, 55H
-    call 5              ; delay
-    pop  h
-    inx  h
-    dcr  b
-    jnz  loop
-    jmp  again
-    hlt`,
-  },
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────────
-const hex2 = n => (n >>> 0 & 0xFF).toString(16).toUpperCase().padStart(2,'0')
-const hex4 = n => (n >>> 0 & 0xFFFF).toString(16).toUpperCase().padStart(4,'0')
-
-const b64encode = str => btoa(Array.from(new TextEncoder().encode(str), b => String.fromCharCode(b)).join(''))
-const b64decode = b64 => { try { return new TextDecoder().decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0))) } catch { return null } }
-
-const SPEEDS = [
-  { label:'Crawl', steps:1    },
-  { label:'Slow',  steps:20   },
-  { label:'Med',   steps:200  },
-  { label:'Fast',  steps:1000 },
-  { label:'Turbo', steps:10000},
-]
-
-// ── 8085 instruction reference ───────────────────────────────────────────
-const INST_HELP = {
-  // Data transfer
-  MOV:  { brief:'Copy register/memory to register/memory', flags:'—', bytes:1, cycles:'4 / 7 (M)', desc:'MOV dst, src copies 8-bit content of src into dst. Either operand can be M (memory at HL).', ex:'MOV A, B      ; A ← B\nMOV M, C      ; mem[HL] ← C' },
-  MVI:  { brief:'Load immediate byte into register/memory', flags:'—', bytes:2, cycles:'7 / 10 (M)', desc:'MVI dst, imm8 loads an 8-bit constant. dst can be A B C D E H L or M (memory at HL).', ex:'MVI A, 42H    ; A ← 42H\nMVI M, 00H    ; mem[HL] ← 0' },
-  LDA:  { brief:'Load A from 16-bit memory address', flags:'—', bytes:3, cycles:'13', desc:'Loads the byte stored at the given 16-bit address into the accumulator.', ex:'LDA 2050H     ; A ← mem[2050H]' },
-  STA:  { brief:'Store A to 16-bit memory address', flags:'—', bytes:3, cycles:'13', desc:'Stores the accumulator into the byte at the given 16-bit address.', ex:'STA 2050H     ; mem[2050H] ← A' },
-  LHLD: { brief:'Load HL from memory (16-bit)', flags:'—', bytes:3, cycles:'16', desc:'Loads L from addr and H from addr+1.', ex:'LHLD 2040H    ; L←mem[2040H], H←mem[2041H]' },
-  SHLD: { brief:'Store HL to memory (16-bit)', flags:'—', bytes:3, cycles:'16', desc:'Stores L at addr and H at addr+1.', ex:'SHLD 2040H    ; mem[2040H]←L, mem[2041H]←H' },
-  LDAX: { brief:'Load A from address in BC or DE', flags:'—', bytes:1, cycles:'7', desc:'Loads A from the address held in BC (LDAX B) or DE (LDAX D).', ex:'LDAX D        ; A ← mem[DE]' },
-  STAX: { brief:'Store A to address in BC or DE', flags:'—', bytes:1, cycles:'7', desc:'Stores A at the address held in BC (STAX B) or DE (STAX D).', ex:'STAX B        ; mem[BC] ← A' },
-  XCHG: { brief:'Exchange HL and DE registers', flags:'—', bytes:1, cycles:'4', desc:'Swaps the full contents of the HL and DE register pairs.', ex:'XCHG          ; HL ↔ DE' },
-  LXI:  { brief:'Load register pair with 16-bit immediate', flags:'—', bytes:3, cycles:'10', desc:'Loads a 16-bit constant into BC (B), DE (D), HL (H), or SP.', ex:'LXI H, 1000H  ; HL ← 1000H' },
-  PUSH: { brief:'Push register pair onto stack', flags:'—', bytes:1, cycles:'12', desc:'SP decrements by 2; high byte pushed first, then low byte. PUSH PSW pushes A and flags.', ex:'PUSH B        ; push BC\nPUSH PSW      ; push A + flags' },
-  POP:  { brief:'Pop register pair from stack', flags:'— (PSW restores flags)', bytes:1, cycles:'10', desc:'Pops 2 bytes from stack into the pair. POP PSW restores A and all flags.', ex:'POP H         ; pop into HL' },
-  XTHL: { brief:'Exchange HL with top of stack', flags:'—', bytes:1, cycles:'16', desc:'Swaps H with (SP+1) and L with (SP) without changing SP.', ex:'XTHL' },
-  SPHL: { brief:'Copy HL into SP', flags:'—', bytes:1, cycles:'6', desc:'Loads the stack pointer with the content of HL.', ex:'SPHL          ; SP ← HL' },
-  PCHL: { brief:'Jump indirect through HL', flags:'—', bytes:1, cycles:'6', desc:'Loads the program counter with HL — an indirect/computed jump.', ex:'PCHL          ; PC ← HL' },
-  // Arithmetic
-  ADD:  { brief:'Add register/memory to A', flags:'S Z AC P CY', bytes:1, cycles:'4 / 7 (M)', desc:'A ← A + src. Sets all arithmetic flags.', ex:'ADD B         ; A ← A + B\nADD M         ; A ← A + mem[HL]' },
-  ADC:  { brief:'Add register/memory to A with carry', flags:'S Z AC P CY', bytes:1, cycles:'4 / 7 (M)', desc:'A ← A + src + CY. Used for multi-byte addition.', ex:'ADC C         ; A ← A + C + CY' },
-  ADI:  { brief:'Add immediate byte to A', flags:'S Z AC P CY', bytes:2, cycles:'7', desc:'A ← A + imm8.', ex:'ADI 05H       ; A ← A + 5' },
-  ACI:  { brief:'Add immediate to A with carry', flags:'S Z AC P CY', bytes:2, cycles:'7', desc:'A ← A + imm8 + CY.', ex:'ACI 02H       ; A ← A + 2 + CY' },
-  DAD:  { brief:'Add register pair to HL', flags:'CY only', bytes:1, cycles:'10', desc:'HL ← HL + rp. Only CY is affected; other flags unchanged.', ex:'DAD B         ; HL ← HL + BC\nDAD SP        ; HL ← HL + SP' },
-  SUB:  { brief:'Subtract register/memory from A', flags:'S Z AC P CY', bytes:1, cycles:'4 / 7 (M)', desc:'A ← A − src. CY=1 indicates a borrow.', ex:'SUB D         ; A ← A − D' },
-  SBB:  { brief:'Subtract register/memory from A with borrow', flags:'S Z AC P CY', bytes:1, cycles:'4 / 7 (M)', desc:'A ← A − src − CY. Used for multi-byte subtraction.', ex:'SBB E         ; A ← A − E − CY' },
-  SUI:  { brief:'Subtract immediate from A', flags:'S Z AC P CY', bytes:2, cycles:'7', desc:'A ← A − imm8.', ex:'SUI 10H       ; A ← A − 16' },
-  SBI:  { brief:'Subtract immediate from A with borrow', flags:'S Z AC P CY', bytes:2, cycles:'7', desc:'A ← A − imm8 − CY.', ex:'SBI 05H' },
-  INR:  { brief:'Increment register/memory by 1', flags:'S Z AC P (not CY)', bytes:1, cycles:'4 / 10 (M)', desc:'dst ← dst + 1. Does NOT affect the carry flag.', ex:'INR A         ; A ← A + 1\nINR M         ; mem[HL] ← mem[HL] + 1' },
-  DCR:  { brief:'Decrement register/memory by 1', flags:'S Z AC P (not CY)', bytes:1, cycles:'4 / 10 (M)', desc:'dst ← dst − 1. Does NOT affect the carry flag.', ex:'DCR B         ; B ← B − 1' },
-  INX:  { brief:'Increment register pair by 1', flags:'—', bytes:1, cycles:'6', desc:'rp ← rp + 1. No flags are affected (including CY).', ex:'INX H         ; HL ← HL + 1' },
-  DCX:  { brief:'Decrement register pair by 1', flags:'—', bytes:1, cycles:'6', desc:'rp ← rp − 1. No flags are affected.', ex:'DCX D         ; DE ← DE − 1' },
-  DAA:  { brief:'Decimal adjust accumulator after BCD operation', flags:'S Z AC P CY', bytes:1, cycles:'4', desc:'Corrects A after BCD addition/subtraction so both nibbles hold valid BCD digits (0–9). Must follow ADD/ADC/SUB/SBB on BCD data.', ex:'ADD B\nDAA           ; adjust for BCD' },
-  // Logic
-  ANA:  { brief:'AND register/memory with A', flags:'S Z P  AC=1  CY=0', bytes:1, cycles:'4 / 7 (M)', desc:'A ← A & src. Resets CY, sets AC.', ex:'ANA B         ; A ← A & B' },
-  ANI:  { brief:'AND immediate with A', flags:'S Z P  AC=1  CY=0', bytes:2, cycles:'7', desc:'A ← A & imm8. Common use: masking bits.', ex:'ANI 0FH       ; keep lower nibble' },
-  ORA:  { brief:'OR register/memory with A', flags:'S Z P  AC=0  CY=0', bytes:1, cycles:'4 / 7 (M)', desc:'A ← A | src. Resets CY and AC.', ex:'ORA C         ; A ← A | C' },
-  ORI:  { brief:'OR immediate with A', flags:'S Z P  AC=0  CY=0', bytes:2, cycles:'7', desc:'A ← A | imm8. Common use: setting specific bits.', ex:'ORI 80H       ; set bit 7' },
-  XRA:  { brief:'XOR register/memory with A', flags:'S Z P  AC=0  CY=0', bytes:1, cycles:'4 / 7 (M)', desc:'A ← A ⊕ src. XRA A is the standard way to clear A quickly.', ex:'XRA A         ; A ← 0, clears flags' },
-  XRI:  { brief:'XOR immediate with A', flags:'S Z P  AC=0  CY=0', bytes:2, cycles:'7', desc:'A ← A ⊕ imm8. Common use: toggling bits.', ex:'XRI 0FFH      ; invert all bits' },
-  CMA:  { brief:'Complement accumulator (bitwise NOT)', flags:'—', bytes:1, cycles:'4', desc:'A ← ~A. Inverts every bit; no flags changed.', ex:'CMA           ; A ← ~A' },
-  CMC:  { brief:'Complement carry flag', flags:'CY', bytes:1, cycles:'4', desc:'CY ← ~CY. Other flags unaffected.', ex:'CMC' },
-  STC:  { brief:'Set carry flag to 1', flags:'CY=1', bytes:1, cycles:'4', desc:'Sets CY to 1. Other flags unaffected.', ex:'STC' },
-  CMP:  { brief:'Compare register/memory with A (sets flags only)', flags:'S Z AC P CY', bytes:1, cycles:'4 / 7 (M)', desc:'Performs A − src and sets flags without modifying A. ZF=1 means equal; CY=1 means A < src.', ex:'CMP B         ; set flags for A vs B\nJZ equal      ; jump if equal' },
-  CPI:  { brief:'Compare immediate with A (sets flags only)', flags:'S Z AC P CY', bytes:2, cycles:'7', desc:'Performs A − imm8 and sets flags without changing A.', ex:'CPI 0AH       ; compare A with 10' },
-  RLC:  { brief:'Rotate A left, MSB goes to CY and bit 0', flags:'CY', bytes:1, cycles:'4', desc:'Bit 7 is copied to CY and also wraps into bit 0. Other flags unchanged.', ex:'RLC           ; A: b7→CY, b7→b0' },
-  RRC:  { brief:'Rotate A right, LSB goes to CY and bit 7', flags:'CY', bytes:1, cycles:'4', desc:'Bit 0 is copied to CY and also wraps into bit 7. Other flags unchanged.', ex:'RRC           ; A: b0→CY, b0→b7' },
-  RAL:  { brief:'Rotate A left through carry (9-bit)', flags:'CY', bytes:1, cycles:'4', desc:'Bit 7 → CY; old CY → bit 0. All 9 bits (A + CY) rotate together.', ex:'RAL           ; CY←b7, b0←old CY' },
-  RAR:  { brief:'Rotate A right through carry (9-bit)', flags:'CY', bytes:1, cycles:'4', desc:'Bit 0 → CY; old CY → bit 7. All 9 bits (A + CY) rotate together.', ex:'RAR           ; CY←b0, b7←old CY' },
-  // Branch
-  JMP:  { brief:'Unconditional jump to address', flags:'—', bytes:3, cycles:'10', desc:'PC ← addr. Program continues at the specified address.', ex:'JMP 0100H' },
-  JC:   { brief:'Jump if carry set (CY=1)', flags:'—', bytes:3, cycles:'10 / 7', desc:'PC ← addr only if CY=1, otherwise executes next instruction.', ex:'JC carry_err' },
-  JNC:  { brief:'Jump if no carry (CY=0)', flags:'—', bytes:3, cycles:'10 / 7', desc:'PC ← addr only if CY=0.', ex:'JNC continue' },
-  JZ:   { brief:'Jump if zero flag set (ZF=1)', flags:'—', bytes:3, cycles:'10 / 7', desc:'PC ← addr only if ZF=1 (last result was zero).', ex:'JZ done' },
-  JNZ:  { brief:'Jump if not zero (ZF=0)', flags:'—', bytes:3, cycles:'10 / 7', desc:'PC ← addr only if ZF=0. Classic loop instruction.', ex:'DCR B\nJNZ loop' },
-  JP:   { brief:'Jump if positive (SF=0)', flags:'—', bytes:3, cycles:'10 / 7', desc:'PC ← addr only if SF=0 (result was non-negative).', ex:'JP positive' },
-  JM:   { brief:'Jump if minus (SF=1)', flags:'—', bytes:3, cycles:'10 / 7', desc:'PC ← addr only if SF=1 (result was negative / bit 7 set).', ex:'JM negative' },
-  JPE:  { brief:'Jump if parity even (PF=1)', flags:'—', bytes:3, cycles:'10 / 7', desc:'PC ← addr only if PF=1 (even number of 1-bits in result).', ex:'JPE even' },
-  JPO:  { brief:'Jump if parity odd (PF=0)', flags:'—', bytes:3, cycles:'10 / 7', desc:'PC ← addr only if PF=0.', ex:'JPO odd' },
-  CALL: { brief:'Unconditional subroutine call', flags:'—', bytes:3, cycles:'18', desc:'Pushes the return address (PC+3) onto the stack, then jumps to addr.', ex:'CALL delay    ; call subroutine' },
-  CC:   { brief:'Call subroutine if carry (CY=1)', flags:'—', bytes:3, cycles:'18 / 9', desc:'Conditional call — pushes return addr and jumps only if CY=1.', ex:'CC overflow' },
-  CNC:  { brief:'Call subroutine if no carry (CY=0)', flags:'—', bytes:3, cycles:'18 / 9', desc:'Conditional call if CY=0.', ex:'CNC proceed' },
-  CZ:   { brief:'Call subroutine if zero (ZF=1)', flags:'—', bytes:3, cycles:'18 / 9', desc:'Conditional call if ZF=1.', ex:'CZ zero_case' },
-  CNZ:  { brief:'Call subroutine if not zero (ZF=0)', flags:'—', bytes:3, cycles:'18 / 9', desc:'Conditional call if ZF=0.', ex:'CNZ loop' },
-  CP:   { brief:'Call subroutine if positive (SF=0)', flags:'—', bytes:3, cycles:'18 / 9', desc:'Conditional call if SF=0.', ex:'CP pos_handler' },
-  CM:   { brief:'Call subroutine if minus (SF=1)', flags:'—', bytes:3, cycles:'18 / 9', desc:'Conditional call if SF=1.', ex:'CM neg_handler' },
-  CPE:  { brief:'Call subroutine if parity even (PF=1)', flags:'—', bytes:3, cycles:'18 / 9', desc:'Conditional call if PF=1.', ex:'CPE even_handler' },
-  CPO:  { brief:'Call subroutine if parity odd (PF=0)', flags:'—', bytes:3, cycles:'18 / 9', desc:'Conditional call if PF=0.', ex:'CPO odd_handler' },
-  RET:  { brief:'Return from subroutine', flags:'—', bytes:1, cycles:'10', desc:'Pops the return address from the stack back into PC.', ex:'RET' },
-  RC:   { brief:'Return if carry (CY=1)', flags:'—', bytes:1, cycles:'12 / 6', desc:'Conditional return — pops PC only if CY=1.', ex:'RC' },
-  RNC:  { brief:'Return if no carry (CY=0)', flags:'—', bytes:1, cycles:'12 / 6', desc:'Conditional return if CY=0.', ex:'RNC' },
-  RZ:   { brief:'Return if zero (ZF=1)', flags:'—', bytes:1, cycles:'12 / 6', desc:'Conditional return if ZF=1.', ex:'RZ' },
-  RNZ:  { brief:'Return if not zero (ZF=0)', flags:'—', bytes:1, cycles:'12 / 6', desc:'Conditional return if ZF=0.', ex:'RNZ' },
-  RP:   { brief:'Return if positive (SF=0)', flags:'—', bytes:1, cycles:'12 / 6', desc:'Conditional return if SF=0.', ex:'RP' },
-  RM:   { brief:'Return if minus (SF=1)', flags:'—', bytes:1, cycles:'12 / 6', desc:'Conditional return if SF=1.', ex:'RM' },
-  RPE:  { brief:'Return if parity even (PF=1)', flags:'—', bytes:1, cycles:'12 / 6', desc:'Conditional return if PF=1.', ex:'RPE' },
-  RPO:  { brief:'Return if parity odd (PF=0)', flags:'—', bytes:1, cycles:'12 / 6', desc:'Conditional return if PF=0.', ex:'RPO' },
-  RST:  { brief:'Software restart (interrupt vector call)', flags:'—', bytes:1, cycles:'12', desc:'RST n pushes PC and jumps to address n×8 (0H–38H). Used for interrupt service routines.', ex:'RST 7         ; push PC, jump to 0038H' },
-  // I/O and control
-  IN:   { brief:'Read byte from I/O port into A', flags:'—', bytes:2, cycles:'10', desc:'A ← port(imm8). Reads from the given 8-bit I/O port number.', ex:'IN 01H        ; A ← port 1' },
-  OUT:  { brief:'Write A to I/O port', flags:'—', bytes:2, cycles:'10', desc:'port(imm8) ← A. Writes the accumulator to the given 8-bit I/O port.', ex:'OUT 01H       ; port 1 ← A' },
-  HLT:  { brief:'Halt the processor', flags:'—', bytes:1, cycles:'5', desc:'Stops execution. The CPU enters a halted state until an interrupt or hardware reset occurs.', ex:'HLT' },
-  NOP:  { brief:'No operation — does nothing for 4 cycles', flags:'—', bytes:1, cycles:'4', desc:'Advances PC by 1 and burns 4 clock cycles. Used for timing delays and code alignment.', ex:'NOP' },
-  EI:   { brief:'Enable maskable interrupts', flags:'—', bytes:1, cycles:'4', desc:'Sets the interrupt-enable flip-flop (INTE). Interrupts are acknowledged after the next instruction completes.', ex:'EI\nRET           ; enable before return' },
-  DI:   { brief:'Disable maskable interrupts', flags:'—', bytes:1, cycles:'4', desc:'Resets INTE so maskable interrupts (INTR, RST5.5, RST6.5, RST7.5) are ignored.', ex:'DI' },
-  RIM:  { brief:'Read interrupt mask into A', flags:'—', bytes:1, cycles:'4', desc:'Loads A with interrupt mask bits, pending interrupt flags, and the SID (serial input data) bit.', ex:'RIM           ; read interrupt status' },
-  SIM:  { brief:'Set interrupt mask from A', flags:'—', bytes:1, cycles:'4', desc:'Uses A to set RST5.5/RST6.5/RST7.5 masks and write the SOD (serial output data) bit.', ex:'SIM           ; write interrupt mask' },
-  // Assembler directives
-  ORG:     { brief:'Set assembly origin address', flags:'—', bytes:0, cycles:'—', desc:'Moves the assembly pointer to the given address. All instructions and data after ORG are placed starting at that address. Does not emit any machine code.', ex:'ORG 0100H\nMVI A, 42H    ; assembled at 0100H' },
-  KICKOFF: { brief:'Set the program entry point (start address)', flags:'—', bytes:0, cycles:'—', desc:'Tells the simulator which address to load into PC when the program is reset or first built. Unlike ORG it does not move the assembly pointer — use it once, usually before your first ORG or at the top of the file.', ex:'KICKOFF 0200H ; PC starts at 0200H\nORG 0200H\nMVI A, 01H' },
-  SETBYTE: { brief:'Write a byte into memory at assembly time', flags:'—', bytes:1, cycles:'—', desc:'Writes a single 8-bit value directly into the simulator RAM at the specified address during assembly. Useful for pre-initialising data areas before the program runs.', ex:'SETBYTE 2050H, 0FFH  ; mem[2050H] = FFH' },
-  SETWORD: { brief:'Write a 16-bit word into memory at assembly time (little-endian)', flags:'—', bytes:2, cycles:'—', desc:'Writes a 16-bit value into two consecutive bytes in little-endian order: low byte at addr, high byte at addr+1. Handy for pre-loading address tables or 16-bit constants.', ex:'SETWORD 2060H, 1A2BH ; mem[2060H]=2BH, mem[2061H]=1AH' },
-  ASSERT:  { brief:'Simulator assertion — halt with error if value does not match', flags:'—', bytes:'3–5', cycles:'—', desc:'Simulator-only directive (encoded as opcode DDH). At runtime, compares a register, flag, register pair, or memory byte against an expected value. If they differ, execution stops immediately and the status bar shows what was expected vs. what was found. Use in test programs to verify correctness step-by-step.\n\nForms and encoded sizes:\n  ASSERT r, val      — 8-bit register B C D E H L M A  (3 bytes)\n  ASSERT f, 0|1      — flag: CY Z S P AC               (3 bytes)\n  ASSERT rp, val16   — 16-bit pair: BC DE HL SP PC     (4 bytes)\n  ASSERT MEM, addr, val — byte at memory address       (5 bytes)\n\nNot a real 8085 instruction; opcode DDH is undefined on real hardware.', ex:'ASSERT A,   42H         ; stop if A ≠ 42H\nASSERT CY,  1           ; stop if carry ≠ 1\nASSERT HL,  1234H       ; stop if HL ≠ 1234H\nASSERT MEM, 0300H, 0FFH ; stop if mem[0300H] ≠ FFH' },
-}
 
 // ── CM6 error-line decoration ─────────────────────────────────────────────
 const setErrorLineEff = StateEffect.define()
@@ -1515,66 +48,168 @@ function buildAddrLineMap(code) {
   return map
 }
 
-function evalCondition(expr, r) {
-  try {
-    const BC = (r.b<<8)|r.c, DE = (r.d<<8)|r.e, HL = (r.h<<8)|r.l
-    // eslint-disable-next-line no-new-func
-    return !!new Function('A','B','C','D','E','H','L','PC','SP','BC','DE','HL','FLAGS',
-      `return !!(${expr})`)(r.a,r.b,r.c,r.d,r.e,r.h,r.l,r.pc,r.sp,BC,DE,HL,r.flags)
-  } catch { return true }
-}
-
-const TRACE_REG16 = new Set(['pc','sp'])
-function fmtTraceVal(k, v) { return TRACE_REG16.has(k) ? hex4(v) : hex2(v) }
-
 // ── Panel help descriptions ──────────────────────────────────────────────
 const PANEL_HELP_TEXT = {
-  'EDITOR':           'Write 8085 assembly here. ORG sets the load address; KICKOFF sets the entry point. Ctrl+click a mnemonic for full docs. Ctrl+F opens find/replace. Right-click an assembled line to run execution up to that address.',
-  'INSTRUCTION HELP': 'Shows documentation for the instruction under your cursor — flags affected, byte size, cycle count, and an example. Updates as you type.',
-  'LED DISPLAY':      'Simulates the Intel SDK-85 7-segment display. Drive with CALL 5: C=02H writes a digit (B=field, HL→data), C=09H/0BH scrolls left inserting D, C=03H blanks fields.',
-  'DISASSEMBLY':      'Live disassembly of RAM. Type a hex address in the header and press Enter to jump there. PC↓ locks the view to follow the program counter; PC· unlocks it for free scrolling. Each row shows the T-state cycle count. Click · in the gutter to set a breakpoint (●); right-click a breakpoint to add a condition. The breakpoint list below lets you jump to or remove any breakpoint. Click a row to jump the editor to that source line.',
-  'AI ASSISTANT':     'Ask questions about your 8085 code. The current register state and source are included automatically. Requires your own Anthropic API key (stored in this browser only).',
-  'MEMORY':           'Hex dump of RAM. PC cell is green, SP cell is amber. Double-click a cell to edit. Arrow keys + PgUp/Dn navigate. Drag the top handle to resize.\n\n🔍 Search — enter a hex byte and press Search; matching cells highlight amber. Use ◀ ▶ to step through all hits.\n\n⊞ Fill — enter a start address, end address, and a fill value, then press Fill to write that byte across the whole range.',
-  'REGISTERS':        'Live 8085 register values. Click any value to edit it. Right-click to copy the value to the clipboard. The base toggle (HEX/DEC/BIN) cycles the display format. Registers that changed since the last step are highlighted green.',
-  'REGISTER PAIRS':   'BC, DE, and HL shown as combined 16-bit addresses, plus the byte stored at each address. Click an address to jump the memory view there; click the value to edit the pair. Right-click either cell to copy its value.',
-  'FLAGS':            'Current state of the five 8085 status flags: Sign (S), Zero (Z), Auxiliary Carry (AC), Parity (P), Carry (CY). Updated automatically after every arithmetic and logic instruction.',
-  'STACK':            'Memory at and above SP interpreted as a stack of 16-bit values. The top entry is highlighted green. PUSH decrements SP by 2; POP increments it.',
-  'TRACE':            'Last 50 instructions executed in order. Each row shows the address, disassembled text, and any registers that changed (green). Cleared on every Build. Step to populate it.',
-  'WATCH':            'Monitor registers or memory addresses in real time. Type a name (A, BC, HL…) or a hex address (0200H) and press Enter or +. Values update after each step.',
-  'CALCULATOR':       'Convert 16-bit values between binary, octal, decimal, and hex. Type in any field and the others update instantly — handy for working out immediate operands.',
-  'I/O PORTS':        'Shows ports written by OUT instructions (output) and lets you preset values that IN will read (input). Input presets survive a Build; output clears on each Build.',
-  'SYMBOLS':          'Labels defined in your source code and their resolved addresses after a successful Build. Click a row to jump the memory view to that address.',
+  'EDITOR': `• Write 8085 assembly — one instruction per line
+• ORG <addr>  sets the load address
+• KICKOFF <addr>  sets the entry point (where execution starts)
+• Ctrl+click any mnemonic → full instruction docs
+• Ctrl+F → find / replace bar
+• Right-click an assembled line → run execution up to that line
+• Pseudo-ops: SETBYTE, SETWORD, ASSERT, KICKOFF (highlighted red)`,
+
+  'INSTRUCTION HELP': `• Shows docs for the instruction under your cursor
+• Updates live as you type or move the cursor
+• Displays: flags affected, byte size, T-state count, example
+• Ctrl+click a mnemonic in the editor to pin its details`,
+
+  'LED DISPLAY': `• Simulates the Intel SDK-85 7-segment LED display
+• Drive it with CALL 5 system calls:
+  · C=02H  write digit  (B=field, HL→data byte)
+  · C=09H  scroll left, insert D as new right digit
+  · C=0BH  scroll left with delay
+  · C=03H  blank all fields
+• Load the "LED Scroll" example to see it in action`,
+
+  'DISASSEMBLY': `• Live disassembly of RAM starting from any address
+• Type a hex address in the header + Enter to jump there
+• PC↓ button  locks view to follow the program counter
+• PC·  button  unlocks for free scrolling
+• Each row shows the T-state cycle count on the right
+• Click · in the gutter to set a breakpoint (●)
+• Right-click a breakpoint to add a condition expression
+• Breakpoint list below: jump to or remove any breakpoint
+• Click a disasm row to jump the editor to that source line`,
+
+  'AI ASSISTANT': `• Ask questions about your 8085 code
+• Current register state + source are sent automatically
+• Requires your own Anthropic API key
+• Key is stored in this browser only — never sent elsewhere
+• Click ⚙ to enter or change your API key`,
+
+  'MEMORY': `• Hex dump of the full 16 KB RAM
+• Green cell = program counter (PC)
+• Amber cell = stack pointer (SP)
+• Blue cells = assembled program region
+• Double-click a cell to edit its value
+• Arrow keys + PgUp/PgDn to navigate
+• Mouse wheel scrolls the view
+• Drag the top handle to resize the panel
+
+🔍 Search (hex byte):
+• Enter a hex byte and press Search
+• Matching cells highlight amber
+• ◀ ▶ step through all hits
+
+⊞ Fill range:
+• Enter start address, end address, fill value
+• Cells in range preview highlighted before filling
+• Press Fill range to write the byte across the range`,
+
+  'REGISTERS': `• Live 8085 register values (A, B, C, D, E, H, L, PC, SP)
+• Click any value to edit it inline
+• Right-click a value to copy it to the clipboard
+• HEX / DEC / BIN toggle cycles the display format
+• Green highlight = register changed since last step
+• Bit toggles below A let you flip individual bits`,
+
+  'REGISTER PAIRS': `• BC, DE, HL shown as combined 16-bit pointers
+• ADDR column: the 16-bit address held by the pair
+• CONTENT column: the byte in RAM at that address
+• Click ADDR to jump the memory view there
+• Click CONTENT to edit the byte at that address
+• Right-click either cell to copy its value
+• HEX / DEC / BIN toggle applies to both columns`,
+
+  'FLAGS': `• Five 8085 status flags, updated after each instruction:
+  · S   Sign flag — set if result is negative
+  · Z   Zero flag — set if result is zero
+  · AC  Auxiliary Carry — carry from bit 3 to 4 (BCD)
+  · P   Parity — set if result has even number of 1-bits
+  · CY  Carry — set if arithmetic produced a carry/borrow`,
+
+  'STACK': `• Shows memory at and above SP as a 16-bit value stack
+• Top entry (current SP) is highlighted green
+• PUSH rp: SP − 2, stores high byte then low byte
+• POP rp:  loads low byte then high byte, SP + 2
+• Stack grows downward — set SP before using PUSH`,
+
+  'TRACE': `• Last 50 instructions executed, newest at bottom
+• Each row: address · disassembled text · changed registers
+• Changed register values are highlighted green
+• Cleared on every Build
+• Step through code to populate the trace`,
+
+  'WATCH': `• Monitor any register or memory location in real time
+• Type a register name: A, B, BC, HL, SP, PC …
+• Type a hex address: 0200H, 1000H …
+• Press Enter or + to add it to the list
+• Values update automatically after every step
+• Click × on any row to remove it`,
+
+  'CALCULATOR': `• Converts 16-bit values across four bases simultaneously
+• BIN / OCT / DEC / HEX — type in any field
+• All other fields update instantly
+• Handy for working out immediate operands or addresses`,
+
+  'I/O PORTS': `• OUTPUT section: ports written by OUT instructions
+  · Values appear here after each OUT port, A
+  · Cleared on every Build
+• INPUT section: preset values for IN to read
+  · Type a port number + value, press Enter
+  · Presets survive a Build
+  · Used by IN port, A when the program reads that port`,
+
+  'SYMBOLS': `• All labels defined in your source code
+• Populated after a successful Build
+• Shows label name and resolved hex address
+• Click any row to jump the memory view to that address`,
 }
 
 function PanelHelp({ panel, wide }) {
-  const [show, setShow] = useState(false)
-  const [flipUp, setFlipUp] = useState(false)
+  const [popupPos, setPopupPos] = useState(null)  // null = hidden, {top,bottom,left} = visible
   const wrapRef = useRef(null)
   const text = PANEL_HELP_TEXT[panel]
+  const show = popupPos !== null
+
   useEffect(() => {
     if (!show) return
-    const h = e => { if (!wrapRef.current?.contains(e.target)) setShow(false) }
+    const h = e => { if (!wrapRef.current?.contains(e.target)) setPopupPos(null) }
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
   }, [show])
   useEffect(() => {
     if (!show) return
-    const h = e => { if (e.key === 'Escape') setShow(false) }
+    const h = e => { if (e.key === 'Escape') setPopupPos(null) }
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
   }, [show])
+
   if (!text) return null
+
   const toggle = () => {
-    if (!show && wrapRef.current) {
-      const rect = wrapRef.current.getBoundingClientRect()
-      setFlipUp(window.innerHeight - rect.bottom < 280)
+    if (show) { setPopupPos(null); return }
+    if (!wrapRef.current) return
+    const rect = wrapRef.current.getBoundingClientRect()
+    const popupW = wide ? 420 : 300
+    const left = Math.max(8, Math.min(rect.right - popupW, window.innerWidth - popupW - 8))
+    const spaceBelow = window.innerHeight - rect.bottom
+    if (spaceBelow < 280) {
+      setPopupPos({ bottom: window.innerHeight - rect.top + 5, top: 'auto', left })
+    } else {
+      setPopupPos({ top: rect.bottom + 5, bottom: 'auto', left })
     }
-    setShow(o => !o)
   }
+
   return (
     <div className="panel-help-wrap" ref={wrapRef}>
       <button className="panel-help-btn" onClick={toggle} title="Panel help">?</button>
-      {show && <div className={`panel-help-popup${wide ? ' panel-help-popup-wide' : ''}${flipUp ? ' panel-help-popup-up' : ''}`}>{text}</div>}
+      {show && (
+        <div className={`panel-help-popup${wide ? ' panel-help-popup-wide' : ''}`}
+          style={{ top: popupPos.top, bottom: popupPos.bottom, left: popupPos.left }}>
+          {text}
+        </div>
+      )}
     </div>
   )
 }
@@ -1610,50 +245,6 @@ function SevenSeg({ value }) {
   )
 }
 
-// ── 8085 assembly syntax highlighting ────────────────────────────────────
-const ASM8085_MNEMONICS = new Set([
-  'ACI','ADC','ADD','ADI','ANA','ANI','CALL','CC','CM','CMA','CMC','CMP','CNC','CNZ','CP','CPE','CPI','CPO','CZ',
-  'DAA','DAD','DCR','DCX','DI','EI','HLT','IN','INR','INX','JC','JM','JMP','JNC','JNZ','JP','JPE','JPO','JZ',
-  'LDA','LDAX','LHLD','LXI','MOV','MVI','NOP','ORA','ORI','OUT','PCHL','POP','PUSH','RAL','RAR','RC','RET','RLC',
-  'RM','RNC','RNZ','RP','RPE','RPO','RRC','RST','RZ','SBB','SBI','SHLD','SPHL','STA','STAX','STC','SUB','SUI',
-  'XCHG','XRA','XRI','XTHL',
-  'ASSERT','KICKOFF',
-])
-const ASM8085_REGS = new Set(['A','B','C','D','E','H','L','M','SP','PSW'])
-const ASM8085_DIRECTIVES = new Set(['ORG','EQU','DB','DW','DS','END','IF','ENDIF','MACRO','ENDM','SET'])
-
-const asm8085Lang = StreamLanguage.define({
-  token(stream) {
-    if (stream.eatSpace()) return null
-    if (stream.eat(';')) { stream.skipToEnd(); return 'comment' }
-    if (stream.match(/^[0-9A-Fa-f]+[Hh]\b/)) return 'number'
-    if (stream.match(/^[01]+[Bb]\b/))         return 'number'
-    if (stream.match(/^[0-9]+\b/))            return 'number'
-    if (stream.match(/^'[^']*'/))             return 'string'
-    if (stream.match(/^[A-Za-z_][A-Za-z0-9_]*:/)) return 'labelName'
-    if (stream.match(/^[A-Za-z_][A-Za-z0-9_]*/)) {
-      const word = stream.current().toUpperCase()
-      if (ASM8085_MNEMONICS.has(word)) return 'keyword'
-      if (ASM8085_REGS.has(word))      return 'atom'
-      if (ASM8085_DIRECTIVES.has(word)) return 'meta'
-      return 'variableName'
-    }
-    stream.next()
-    return null
-  },
-})
-
-const asm8085HighlightStyle = HighlightStyle.define([
-  { tag: hTags.keyword,      color: '#4090ff', fontWeight: '600' },
-  { tag: hTags.atom,         color: '#f0a840' },
-  { tag: hTags.number,       color: '#4af0a0' },
-  { tag: hTags.string,       color: '#a8e86a' },
-  { tag: hTags.comment,      color: '#4a5470', fontStyle: 'italic' },
-  { tag: hTags.labelName,    color: '#82aaff' },
-  { tag: hTags.meta,         color: '#c792ea' },
-  { tag: hTags.variableName, color: '#c8d4e8' },
-])
-
 // ── CodeMirror editor ────────────────────────────────────────────────────
 function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, gotoRef, onRunTo, lineAddrRef }) {
   const elRef      = useRef(null)
@@ -1684,7 +275,7 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
           keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
           oneDarkTheme,
           asm8085Lang.extension,
-          syntaxHighlighting(asm8085HighlightStyle),
+          asm8085Highlighting,
           errorLineField,
           EditorView.theme({
             '&': { height:'100%', fontFamily:'"JetBrains Mono","Fira Code",monospace', fontSize:'15px' },
@@ -1780,19 +371,6 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
     </div>
   )
 }
-
-// ── Register panel ───────────────────────────────────────────────────────
-function fmtByte(v, base) {
-  if (base === 'dec') return String(v)
-  if (base === 'bin') return v.toString(2).padStart(8, '0')
-  return hex2(v)
-}
-function fmtWord(v, base) {
-  if (base === 'dec') return String(v)
-  if (base === 'bin') return v.toString(2).padStart(16, '0')
-  return hex4(v)
-}
-const BASE_CYCLE = ['hex', 'dec', 'bin']
 
 function useCopy() {
   const [copied, setCopied] = useState(null)
@@ -1982,7 +560,7 @@ function PairPanel({ regs, prev, onJump, onEdit, regBase, onRegBase }) {
         const editAddr    = editing?.key === name && editing?.field === 'addr'
         const editContent = editing?.key === name && editing?.field === 'content'
         return (
-          <div key={name} className={`pair-row${changed ? ' changed' : ''}`}>
+          <div key={name} className={`pair-row${changed ? ' changed' : ''}${regBase === 'bin' ? ' bin' : ''}`}>
             <span className="reg-name">{name}</span>
             {editAddr
               ? <input autoFocus className="reg-edit-input pair-edit-input" value={buf}
