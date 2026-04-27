@@ -1324,25 +1324,28 @@ loop:
     jnz  loop           ; stop when A wraps to 0
     hlt`,
 
-    'LED Count': `; Count 0 → 7 repeatedly on the LED display.
-; Each digit scrolls in from the right with a short pause.
+    'LED Count': `; Count 0 → 7 on the LED display, one digit at a time.
+; Run at Slow or Med speed to see each digit scroll in.
     org     100H
     kickoff 100H
     lxi     sp, 200H
-    mvi     d, 00H      ; d = current digit (0..7)
+    mvi     e, 00H      ; E = digit counter (0..7)
 again:
-    mvi     c, 0BH      ; CALL 5 fn: scroll left, insert D
+    mov     d, e        ; D = digit to show (NumTo7Seg converts it)
+    mvi     c, 09H      ; CALL 5 fn 09H: scroll left, insert D
     call    5
-    mvi     a, 09H      ; CALL 5 fn: delay (HL = tick count)
-    push    h
-    lxi     h, 80H
-    call    5
-    pop     h
-    inr     d           ; next digit
-    mvi     a, 08H      ; wrap back to 0 after 7
-    cmp     d
+    ; Software delay (~500 iterations)
+    lxi     h, 01F4H
+dly:
+    dcx     h
+    mov     a, h
+    ora     l
+    jnz     dly
+    inr     e           ; advance digit
+    mov     a, e
+    cpi     08H         ; past 7?
     jnz     again
-    mvi     d, 00H
+    mvi     e, 00H      ; wrap back to 0
     jmp     again
     hlt`,
   },

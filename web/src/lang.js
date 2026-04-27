@@ -26,7 +26,7 @@ export const asm8085Lang = StreamLanguage.define({
       if (ASM8085_MNEMONICS.has(word))  return 'keyword'
       if (ASM8085_REGS.has(word))       return 'atom'
       if (ASM8085_DIRECTIVES.has(word)) return 'meta'
-      if (ASM8085_PSEUDO.has(word))     return 'special'
+      if (ASM8085_PSEUDO.has(word))     return 'variable-2'
       return 'variableName'
     }
     stream.next()
@@ -43,7 +43,7 @@ const asm8085HighlightStyle = HighlightStyle.define([
   { tag: hTags.labelName,           color: '#82aaff' },
   { tag: hTags.meta,                color: '#c792ea' },
   { tag: hTags.variableName,        color: '#c8d4e8' },
-  { tag: hTags.special(hTags.string), color: '#ff6b6b', fontWeight: '600' },
+  { tag: hTags.special(hTags.variableName), color: '#ff6b6b', fontWeight: '600' },
 ])
 
 export const asm8085Highlighting = syntaxHighlighting(asm8085HighlightStyle)
