@@ -1409,6 +1409,7 @@ loop:
 ; C=01H returns 0 when the queue is empty — that ends the loop.
     org 100H
     kickoff 100H
+    lxi  sp, 3FFH       ; stack must be set up before any CALL
     lxi  h, 200H        ; destination pointer
 read:
     mvi  c, 01H
