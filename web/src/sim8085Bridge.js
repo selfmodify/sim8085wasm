@@ -10,7 +10,7 @@
  * ─────────────────────────────────────────────────────────────
  */
 
-const MAIN_MEMORY = 16 * 1024;
+let MAIN_MEMORY = 64 * 1024;
 const DEFAULT_IP  = 0x100;
 const DEFAULT_SP  = 0x000;
 const HLT_OP     = 0x76;
@@ -955,6 +955,12 @@ export function simGetSymbols()       { return {...lastSymbols} }
 export function simGetCycles()        { return cycles }
 export function simGetProgramRegion() { return { start: lastProgStart, end: lastProgEnd } }
 export function simGetPresetAddrs()   { return new Set(lastPresetAddrs) }
+
+export function simSetMemorySize(n) {
+  MAIN_MEMORY = n
+  ram = new Uint8Array(n)
+}
+export function simGetMemorySize() { return MAIN_MEMORY }
 
 export function simAssertInterrupt(type, vec) {
   switch (type) {

@@ -1674,7 +1674,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onImport, onExport, onShare, onCalc }) {
+function BrandMenu({ onShowWelcome, onImport, onExport, onShare, onCalc, memSize, onMemSize }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
 
@@ -1710,6 +1710,15 @@ function BrandMenu({ onShowWelcome, onImport, onExport, onShare, onCalc }) {
           {item('🐛  Report a Bug',    () => window.open('https://github.com/selfmodify/sim8085wasm/issues/new', '_blank'))}
           {item('💬  Ask a Question',  () => window.open('https://github.com/selfmodify/sim8085wasm/discussions', '_blank'))}
           <div className="bmenu-sep" />
+          <div className="bmenu-setting">
+            <span className="bmenu-setting-label">RAM size</span>
+            <select className="bmenu-setting-sel" value={memSize}
+              onChange={e => { onMemSize(+e.target.value); setOpen(false) }}>
+              <option value={16*1024}>16 KB</option>
+              <option value={32*1024}>32 KB</option>
+              <option value={64*1024}>64 KB</option>
+            </select>
+          </div>
           <div className="bmenu-credits">
             <div>8085 Simulator</div>
             <div>Original: V. Kumar · 1995</div>
@@ -1888,6 +1897,12 @@ export default function App() {
   const [showCalc,    setShowCalc]    = useState(false)
   function dismissWelcome() { localStorage.setItem('sim8085_welcomed', '1'); setShowWelcome(false) }
   const [runSpeed, setRunSpeed]     = useState(3)        // index into SPEEDS
+  const MEM_SIZES = [16*1024, 32*1024, 64*1024]
+  const [memSize, _setMemSize] = useState(() => {
+    const s = parseInt(localStorage.getItem('sim8085_memsize'), 10)
+    return MEM_SIZES.includes(s) ? s : 64*1024
+  })
+  const memSizeRef = useRef(memSize)
   const [regBase, setRegBase]       = useState('hex')    // 'hex'|'dec'|'bin'
   const [statusLog, setStatusLog]   = useState([])
   const [histLen, setHistLen]       = useState(0)        // for disabling Step Back button
@@ -2005,6 +2020,7 @@ export default function App() {
       setOutputPorts([])
       setKeyQueue([])
       prevMemRef.current = null
+      sim.simSetMemorySize(memSizeRef.current)
       sim.simInit()
       const res = sim.simAssemble(code)
       setBuildId(id => id + 1)
@@ -2246,6 +2262,13 @@ export default function App() {
     setKeyQueue([])
   }
 
+  function changeMemSize(n) {
+    memSizeRef.current = n
+    _setMemSize(n)
+    localStorage.setItem('sim8085_memsize', n)
+    doAssemble(srcRef.current)
+  }
+
   function assertInterrupt(type, vec) {
     sim.simAssertInterrupt(type, vec)
     setIntState(sim.simGetIntState())
@@ -2267,7 +2290,8 @@ export default function App() {
             onImport={() => fileInputRef.current.click()}
             onExport={exportFile}
             onShare={shareURL}
-            onCalc={() => setShowCalc(c => !c)} />
+            onCalc={() => setShowCalc(c => !c)}
+            memSize={memSize} onMemSize={changeMemSize} />
         </div>
 
         <div className="toolbar">

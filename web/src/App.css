@@ -158,6 +158,17 @@ body {
 }
 .bmenu-item:hover { background: var(--bg3); color: var(--accent) }
 .bmenu-sep { height: 1px; background: var(--border); margin: 2px 0 }
+.bmenu-setting {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 14px; font-size: 13px; color: var(--text); font-family: var(--sans);
+}
+.bmenu-setting-label { opacity: .8 }
+.bmenu-setting-sel {
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 3px; color: var(--text); font-family: var(--mono);
+  font-size: 12px; padding: 2px 4px; cursor: pointer; outline: none;
+}
+.bmenu-setting-sel:focus { border-color: var(--accent) }
 .bmenu-credits {
   padding: 8px 14px 10px;
   font-size: 11px;
