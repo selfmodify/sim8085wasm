@@ -1975,9 +1975,10 @@ export default function App() {
     timerRef.current = setInterval(() => {
       const n = sim.simRun(SPEEDS[speedRef.current].steps)
       setSteps(s => s + n)
+      const isTurbo = speedRef.current === SPEEDS.length - 1
       refresh()
-      updateMemDiff()
       refreshOutputPorts()
+      if (!isTurbo) updateMemDiff()
       if (!sim.simIsRunning()) {
         const r = sim.simGetRegisters()
         const cond = bpsRef.current.get(r.pc)
@@ -1993,6 +1994,7 @@ export default function App() {
           oneShotBpsRef.current.clear()
           syncBps(next)
         }
+        updateMemDiff()
         stopRun()
         setAppState(sim.simIsHalted() ? 'halted' : 'error')
         setMsg(sim.simIsHalted() ? '■ Program halted.' : `✗ ${sim.simGetError()}`)
