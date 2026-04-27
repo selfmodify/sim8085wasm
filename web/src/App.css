@@ -486,6 +486,63 @@ body {
 .flag.flag-on .flag-lbl { color: var(--accent) }
 .flag.flag-on .flag-val { color: var(--accent) }
 
+/* ── Interrupts ──────────────────────────────────────────────────── */
+.int-panel { padding: 6px 8px 8px }
+.int-iff {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.int-iff-val { color: var(--text3); font-weight: 700 }
+.int-iff-val.int-iff-on { color: var(--accent) }
+.int-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+.int-btn { min-width: 36px; text-align: center }
+.int-btn.int-btn-on  { border-color: var(--accent2); color: var(--accent) }
+.int-btn.int-pending { border-color: var(--amber);   color: var(--amber) }
+.int-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text2);
+  width: 52px;
+  flex-shrink: 0;
+}
+.int-label.int-masked { color: var(--text3); text-decoration: line-through }
+.int-vec {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.int-mask-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--amber);
+  opacity: .7;
+  margin-left: auto;
+}
+.int-rst-sel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  font-family: var(--mono);
+  font-size: 11px;
+  border-radius: 3px;
+  padding: 1px 2px;
+  cursor: pointer;
+}
+.int-rst-sel:focus { outline: none; border-color: var(--border2) }
+
 /* ── Disassembly ──────────────────────────────────────────────────── */
 .disasm-panel { flex: 1 1 0; min-height: 80px }
 .disasm-list {

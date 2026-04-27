@@ -164,6 +164,15 @@ const PANEL_HELP_TEXT = {
 • Populated after a successful Build
 • Shows label name and resolved hex address
 • Click any row to jump the memory view to that address`,
+
+  'INTERRUPTS': `• Controls the 8085 interrupt lines in real time
+• IFF — Interrupt Flip-Flop: set by EI, cleared by DI or when an interrupt is taken
+• TRAP — non-maskable, fires once per click regardless of IFF or mask
+• RST 7.5 — edge-triggered latch: FIRE sets the latch; it clears when serviced or via SIM b4=1
+• RST 6.5 / RST 5.5 — level-triggered: ON holds the line high until you click OFF
+• INTR — level-triggered; select which RST n vector (0–7) appears on the data bus
+• Mask badges appear when the program has masked a line via SIM
+• Write ISRs at the vector addresses (e.g. ORG 003CH for RST 7.5) and end them with EI + RET`,
 }
 
 function PanelHelp({ panel, wide }) {
@@ -1526,6 +1535,65 @@ function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput }) {
   )
 }
 
+// ── Interrupt panel ──────────────────────────────────────────────────────
+function IntPanel({ intState, onAssert, onDeassert }) {
+  const { iff, intMask, rst75ff, rst65, rst55, intr } = intState
+  const [intrRst, setIntrRst] = useState(7)
+
+  const masked = bit => (intMask >> bit) & 1
+
+  const rows = [
+    { type:'TRAP',  label:'TRAP',    vec:'0024H', pulse:true,  bit:-1 },
+    { type:'RST75', label:'RST 7.5', vec:'003CH', pulse:true,  bit:2  },
+    { type:'RST65', label:'RST 6.5', vec:'0034H', pulse:false, bit:1  },
+    { type:'RST55', label:'RST 5.5', vec:'002CH', pulse:false, bit:0  },
+  ]
+  const lineOn = { TRAP: false, RST75: rst75ff, RST65: rst65, RST55: rst55, INTR: intr }
+
+  return (
+    <div className="panel int-panel">
+      <div className="panel-hd">
+        <span className="panel-icon">⚡</span>INTERRUPTS
+        <PanelHelp panel="INTERRUPTS" />
+      </div>
+      <div className="int-iff">
+        IFF <span className={`int-iff-val${iff ? ' int-iff-on' : ''}`}>{iff ? 'ENABLED' : 'DISABLED'}</span>
+      </div>
+      {rows.map(({ type, label, vec, pulse, bit }) => (
+        <div key={type} className="int-row">
+          {pulse
+            ? <button className={`btn btn-xs int-btn${lineOn[type] ? ' int-pending' : ''}`}
+                onClick={() => onAssert(type)}>
+                {lineOn[type] ? 'PEND' : 'FIRE'}
+              </button>
+            : <button className={`btn btn-xs int-btn${lineOn[type] ? ' int-btn-on' : ''}`}
+                onClick={() => lineOn[type] ? onDeassert(type) : onAssert(type)}>
+                {lineOn[type] ? 'ON' : 'OFF'}
+              </button>
+          }
+          <span className={`int-label${bit >= 0 && masked(bit) ? ' int-masked' : ''}`}>{label}</span>
+          <span className="int-vec">{vec}</span>
+          {bit >= 0 && masked(bit) && <span className="int-mask-tag">masked</span>}
+        </div>
+      ))}
+      <div className="int-row">
+        <button className={`btn btn-xs int-btn${intr ? ' int-btn-on' : ''}`}
+          onClick={() => intr ? onDeassert('INTR') : onAssert('INTR', 0xC7 | (intrRst << 3))}>
+          {intr ? 'ON' : 'OFF'}
+        </button>
+        <span className="int-label">INTR</span>
+        <span className="int-vec">RST&nbsp;
+          <select className="int-rst-sel" value={intrRst}
+            onChange={e => setIntrRst(+e.target.value)}>
+            {[0,1,2,3,4,5,6,7].map(n =>
+              <option key={n} value={n}>{n} ({hex4(n*8)}H)</option>)}
+          </select>
+        </span>
+      </div>
+    </div>
+  )
+}
+
 // ── Example submenu ──────────────────────────────────────────────────────
 function ExampleMenu({ onLoad }) {
   const [open, setOpen]         = useState(false)
@@ -1769,6 +1837,7 @@ export default function App() {
   const [watches, setWatches]   = useState([])
   const [outputPorts, setOutputPorts] = useState([])      // [{port,val}] written by OUT
   const [inputPresets, setInputPresets] = useState([])    // [{port,val}] preset for IN
+  const [intState, setIntState] = useState(() => sim.simGetIntState())
   const [memStart, setMemStart] = useState(0x100)
   const [appState, setAppState] = useState('idle')  // idle | running | halted | error
   const [msg, setMsg]           = useState('Load an example or write code, then click Build.')
@@ -1884,6 +1953,7 @@ export default function App() {
     setRegs(old => { setPrev(old); return r })
     setLeds(sim.simGetAllLeds())
     setCycles(sim.simGetCycles())
+    setIntState(sim.simGetIntState())
   }
 
   function refreshOutputPorts() {
@@ -2122,6 +2192,15 @@ export default function App() {
     setInputPresets(ps => ps.filter(p => p.port !== port))
   }
 
+  function assertInterrupt(type, vec) {
+    sim.simAssertInterrupt(type, vec)
+    setIntState(sim.simGetIntState())
+  }
+  function deassertInterrupt(type) {
+    sim.simDeassertInterrupt(type)
+    setIntState(sim.simGetIntState())
+  }
+
   const running = appState === 'running'
 
   return (
@@ -2228,6 +2307,7 @@ export default function App() {
           <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh}
             regBase={regBase} onRegBase={setRegBase} />
           <FlagPanel  regs={regs} />
+          <IntPanel intState={intState} onAssert={assertInterrupt} onDeassert={deassertInterrupt} />
           <IOPortPanel outputPorts={outputPorts} inputPresets={inputPresets}
             onSetInput={setInputPort} onRemoveInput={removeInputPort} />
           <StackPanel regs={regs} regBase={regBase} onRegBase={setRegBase} />

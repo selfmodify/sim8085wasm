@@ -36,6 +36,14 @@ let lastProgStart   = DEFAULT_IP
 let lastProgEnd     = DEFAULT_IP
 let lastPresetAddrs = new Set()
 
+// ── Interrupt state ────────────────────────────────────────────────────
+let iff      = false   // interrupt enable flip-flop
+let iffNext  = false   // EI delay: iff enables after next instruction
+let intMask  = 0       // bit0=RST5.5 masked, bit1=RST6.5 masked, bit2=RST7.5 masked
+let rst75ff  = false   // RST 7.5 edge latch (set by assert, cleared by SIM b4 or service)
+let trapPend = false   // TRAP pending (non-maskable, fires once per assertion)
+let intLines = { rst65: false, rst55: false, intr: false, intrVec: 0xFF }
+
 // ── T-state table (approximate; conditionals use "taken" cost) ─────────
 const TSTATES = (() => {
   const t = new Uint8Array(256).fill(4)
@@ -442,7 +450,21 @@ function stepOne() {
     case 0xFF: push16(pc+1); regs.pc=0x38; return true;
 
     // ── EI/DI/RIM/SIM/IN/OUT ─────────────────────────────────────────
-    case 0xFB: case 0xF3: case 0x20: case 0x30: break; // stubs
+    case 0xFB: iffNext = true; break;                         // EI
+    case 0xF3: iff = false; iffNext = false; break;           // DI
+    case 0x30: {                                              // SIM
+      if (regs.a & 0x08) intMask = regs.a & 0x07             // set masks if MSE bit set
+      if (regs.a & 0x10) rst75ff = false                     // reset RST 7.5 latch
+      break
+    }
+    case 0x20: {                                              // RIM
+      regs.a = (intMask & 0x07)           |
+               (iff            ? 0x08 : 0) |
+               (intLines.rst55 ? 0x10 : 0) |
+               (intLines.rst65 ? 0x20 : 0) |
+               (rst75ff        ? 0x40 : 0)
+      break
+    }
     case 0xDB: { const port = memR(pc+1); regs.a = ioIn[port]; inc=2; break; } // IN port
     case 0xD3: { const port = memR(pc+1); ioOut[port] = regs.a; ioOutTouched.add(port); inc=2; break; } // OUT port
 
@@ -782,6 +804,48 @@ function assemble(source) {
   return { ok: true, entryPoint: entryIP, bytesEmitted: ptr - entryIP, errors: [] };
 }
 
+// ── Interrupt check (called after every instruction) ───────────────────
+function checkInterrupts() {
+  if (status & (HALTED | QUIT | SEVERE_ERROR)) return
+
+  // TRAP — non-maskable, highest priority, fires once per assertion
+  if (trapPend) {
+    trapPend = false
+    push16(regs.pc); iff = false; iffNext = false
+    regs.pc = 0x0024; return
+  }
+
+  // EI delay — iff becomes true but don't service until next check
+  if (iffNext) { iff = true; iffNext = false; return }
+
+  if (!iff) return
+
+  // RST 7.5 — edge latch, maskable (mask bit 2)
+  if (rst75ff && !(intMask & 0x04)) {
+    rst75ff = false
+    push16(regs.pc); iff = false
+    regs.pc = 0x003C; return
+  }
+  // RST 6.5 — level, maskable (mask bit 1)
+  if (intLines.rst65 && !(intMask & 0x02)) {
+    push16(regs.pc); iff = false
+    regs.pc = 0x0034; return
+  }
+  // RST 5.5 — level, maskable (mask bit 0)
+  if (intLines.rst55 && !(intMask & 0x01)) {
+    push16(regs.pc); iff = false
+    regs.pc = 0x002C; return
+  }
+  // INTR — level, maskable, RST n vector on data bus
+  if (intLines.intr) {
+    const vec = intLines.intrVec
+    if ((vec & 0xC7) === 0xC7) {   // valid RST n opcode
+      push16(regs.pc); iff = false
+      regs.pc = vec & 0x38
+    }
+  }
+}
+
 // ── Public API ─────────────────────────────────────────────────────────
 export function simInit() {
   ram = new Uint8Array(MAIN_MEMORY);
@@ -793,6 +857,9 @@ export function simInit() {
   ioOut.fill(0); ioOutTouched.clear();
   lastSymbols = {}; cycles = 0
   lastProgStart = DEFAULT_IP; lastProgEnd = DEFAULT_IP; lastPresetAddrs = new Set()
+  iff = false; iffNext = false; intMask = 0
+  rst75ff = false; trapPend = false
+  intLines = { rst65: false, rst55: false, intr: false, intrVec: 0xFF }
   // ioIn is intentionally NOT reset here — user presets survive a build
 }
 
@@ -807,6 +874,8 @@ export function simReset() {
   regs = { a:0, b:0, c:0, d:0, e:0, h:0, l:0, flags:0, pc:DEFAULT_IP, sp:0 };
   status = 0;
   leds.fill(0);
+  iff = false; iffNext = false; rst75ff = false; trapPend = false;
+  // intMask and intLines preserved across reset (like ioIn presets)
 }
 
 export function simAssemble(source) {
@@ -814,7 +883,9 @@ export function simAssemble(source) {
 }
 
 export function simStep() {
-  return stepOne();
+  const r = stepOne()
+  checkInterrupts()
+  return r
 }
 
 export function simRun(maxSteps = 100000) {
@@ -822,6 +893,7 @@ export function simRun(maxSteps = 100000) {
   while (steps < maxSteps) {
     if (!stepOne()) return steps;
     steps++;
+    checkInterrupts()
     if (breakpoints.has(regs.pc)) return steps;
   }
   return steps;
@@ -867,6 +939,30 @@ export function simGetSymbols()       { return {...lastSymbols} }
 export function simGetCycles()        { return cycles }
 export function simGetProgramRegion() { return { start: lastProgStart, end: lastProgEnd } }
 export function simGetPresetAddrs()   { return new Set(lastPresetAddrs) }
+
+export function simAssertInterrupt(type, vec) {
+  switch (type) {
+    case 'TRAP':  trapPend = true; break
+    case 'RST75': rst75ff  = true; break
+    case 'RST65': intLines.rst65 = true; break
+    case 'RST55': intLines.rst55 = true; break
+    case 'INTR':  intLines.intr  = true
+                  if (vec !== undefined) intLines.intrVec = vec & 0xFF
+                  break
+  }
+}
+export function simDeassertInterrupt(type) {
+  switch (type) {
+    case 'RST65': intLines.rst65 = false; break
+    case 'RST55': intLines.rst55 = false; break
+    case 'INTR':  intLines.intr  = false; break
+  }
+}
+export function simGetIntState() {
+  return { iff, intMask, rst75ff, trapPend,
+           rst65: intLines.rst65, rst55: intLines.rst55,
+           intr: intLines.intr,   intrVec: intLines.intrVec }
+}
 
 export function simSetRegisters(r) {
   const c8  = v => Math.max(0, Math.min(255,   v | 0))
