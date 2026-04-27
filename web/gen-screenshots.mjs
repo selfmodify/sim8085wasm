@@ -77,7 +77,7 @@ const ANN_STYLE = `
   padding: 7px 12px;
   box-shadow: 0 3px 14px rgba(0,0,0,0.55);
   white-space: pre;
-  max-width: 260px;
+  max-width: 360px;
   pointer-events: none;
 `
 
@@ -249,6 +249,162 @@ async function shot04_right(page) {
   console.log('  Saved: 04-right-panel.png')
 }
 
+// ── Shot 05: Breakpoint hit ───────────────────────────────────────────────────
+async function shot05_breakpoint(page) {
+  console.log('  Shot 05 — Breakpoint hit…')
+  await loadExample(page, 'I/O', 'LED Count')
+  await build(page)
+  await sleep(300)
+
+  // Set a breakpoint on the 5th disasm row (should land in the loop body)
+  const rows = await page.$$('.disasm-row')
+  const target = rows[5] ?? rows[Math.floor(rows.length / 2)]
+  if (target) {
+    const bp = await target.$('.disasm-bp')
+    if (bp) await bp.click()
+    else await target.click()
+    await sleep(200)
+  }
+
+  await setSpeed(page, 3)  // Fast — hit breakpoint quickly
+  await run(page)
+  try {
+    await page.waitForFunction(
+      () => !!document.querySelector('.btn-run'),
+      { timeout: 5000 }
+    )
+  } catch { await stop(page) }
+  await sleep(400)
+
+  const toolbar = await getRect(page, '.toolbar')
+  const col     = await getRect(page, '.col-center')
+  const disasm  = await getRect(page, '.disasm-panel')
+  const ty = toolbar ? toolbar.y : 0
+  const th = toolbar ? toolbar.h : 40
+
+  const labels = [
+    {
+      text: '🔴  Paused at breakpoint\nClick any disasm row to toggle one',
+      x: col.x + 12,
+      y: (disasm ? disasm.y : col.y) + 46,
+    },
+  ]
+  await injectAnnotations(page, labels)
+  await page.screenshot({
+    path: path.join(OUT, '05-breakpoint.png'),
+    clip: { x: col.x, y: ty, width: col.w, height: th + col.h },
+  })
+  await removeAnnotations(page)
+  console.log('  Saved: 05-breakpoint.png')
+}
+
+// ── Shot 06: TRAP interrupt fired ─────────────────────────────────────────────
+async function shot06_interrupt(page) {
+  console.log('  Shot 06 — TRAP interrupt…')
+  await loadExample(page, 'Interrupts', 'TRAP (NMI)')
+  await build(page)
+  await setSpeed(page, 0)  // Crawl — gives time to screenshot PEND state
+  await run(page)
+  await sleep(600)
+
+  // Fire TRAP — first int-btn is TRAP
+  const fireBtns = await page.$$('.int-btn')
+  if (fireBtns[0]) { await fireBtns[0].click(); await sleep(300) }
+  await stop(page)
+
+  const toolbar = await getRect(page, '.toolbar')
+  const col     = await getRect(page, '.col-right')
+  const intp    = await getRect(page, '.int-panel')
+  const iop     = await getRect(page, '.ioport-panel')
+  const ty = toolbar ? toolbar.y : 0
+  const th = toolbar ? toolbar.h : 40
+
+  const labels = [
+    {
+      text: '🔔  TRAP fired mid-program\nNon-maskable · ignores IFF and masks',
+      x: col.x + 8,
+      y: (intp ? intp.y : col.y + 380) - 52,
+    },
+    {
+      text: '📊  ISR updated output port 02H\nPort values visible in I/O panel',
+      x: col.x + 8,
+      y: (iop ? iop.y : col.y + 560) + 10,
+    },
+  ]
+  await injectAnnotations(page, labels)
+  await page.screenshot({
+    path: path.join(OUT, '06-interrupt.png'),
+    clip: { x: col.x, y: ty, width: col.w, height: th + col.h },
+  })
+  await removeAnnotations(page)
+  console.log('  Saved: 06-interrupt.png')
+}
+
+// ── Shot 07: Keyboard queue ───────────────────────────────────────────────────
+async function shot07_keyboard(page) {
+  console.log('  Shot 07 — Keyboard queue…')
+  await loadExample(page, 'I/O', 'Keyboard Read')
+  await build(page)
+
+  // Type into the keyboard input and submit via JS (more reliable than ElementHandle click)
+  await page.evaluate(() => {
+    const inp = document.querySelector('.ioport-kbd-input')
+    if (!inp) return
+    const nativeInputSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype, 'value'
+    ).set
+    nativeInputSetter.call(inp, 'Hello 8085')
+    inp.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await sleep(150)
+  await page.evaluate(() => {
+    const btn = document.querySelector('.ioport-kbd-input + button')
+    if (btn) btn.click()
+  })
+  await sleep(400)
+
+  // Scroll col-right to bottom so the keyboard chips are visible
+  await page.evaluate(() => {
+    const col = document.querySelector('.col-right')
+    if (col) { col.style.overflow = 'auto'; col.scrollTop = col.scrollHeight }
+  })
+  await sleep(200)
+
+  const toolbar = await getRect(page, '.toolbar')
+  const col     = await getRect(page, '.col-right')
+  const ty = toolbar ? toolbar.y : 0
+  const th = toolbar ? toolbar.h : 40
+
+  // Measure keyboard section position now that column is scrolled
+  const kbdY = await page.evaluate(() => {
+    const chips = document.querySelector('.ioport-kbd-chips')
+    if (!chips) return null
+    return chips.getBoundingClientRect().y
+  })
+
+  const labelY = kbdY != null ? kbdY - 52 : col.y + 200
+  const labels = [
+    {
+      text: '⌨️  Keyboard queue\nDequeued one-by-one via CALL 5 C=01H',
+      x: col.x + 8,
+      y: labelY,
+    },
+  ]
+  await injectAnnotations(page, labels)
+  await page.screenshot({
+    path: path.join(OUT, '07-keyboard.png'),
+    clip: { x: col.x, y: ty, width: col.w, height: th + col.h },
+  })
+  await removeAnnotations(page)
+
+  // Restore col-right overflow
+  await page.evaluate(() => {
+    const col = document.querySelector('.col-right')
+    if (col) { col.style.overflow = 'hidden'; col.scrollTop = 0 }
+  })
+  console.log('  Saved: 07-keyboard.png')
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
   if (!existsSync(OUT)) await mkdir(OUT, { recursive: true })
@@ -282,6 +438,9 @@ async function main() {
     await shot02_editor(page)
     await shot03_center(page)
     await shot04_right(page)
+    await shot05_breakpoint(page)
+    await shot06_interrupt(page)
+    await shot07_keyboard(page)
 
     await browser.close()
   } finally {
