@@ -1537,7 +1537,7 @@ function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput }) {
 
 // ── Interrupt panel ──────────────────────────────────────────────────────
 function IntPanel({ intState, onAssert, onDeassert }) {
-  const { iff, intMask, rst75ff, rst65, rst55, intr } = intState
+  const { iff, intMask, rst75ff, trapPend, rst65, rst55, intr } = intState
   const [intrRst, setIntrRst] = useState(7)
 
   const masked = bit => (intMask >> bit) & 1
@@ -1548,7 +1548,7 @@ function IntPanel({ intState, onAssert, onDeassert }) {
     { type:'RST65', label:'RST 6.5', vec:'0034H', pulse:false, bit:1  },
     { type:'RST55', label:'RST 5.5', vec:'002CH', pulse:false, bit:0  },
   ]
-  const lineOn = { TRAP: false, RST75: rst75ff, RST65: rst65, RST55: rst55, INTR: intr }
+  const lineOn = { TRAP: trapPend, RST75: rst75ff, RST65: rst65, RST55: rst55, INTR: intr }
 
   return (
     <div className="panel int-panel">
