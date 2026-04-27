@@ -2022,9 +2022,14 @@ export default function App() {
     addTraceEntry(prevR)
     updateMemDiff()
     refreshOutputPorts()
-    if (!ok) {
-      setAppState(sim.simIsHalted() ? 'halted' : 'error')
-      setMsg(sim.simIsHalted() ? '■ Program halted.' : `✗ ${sim.simGetError()}`)
+    if (sim.simIsHaltWaiting()) {
+      setAppState('halted')
+      setMsg('⏸ HLT — awaiting interrupt…')
+    } else if (!sim.simIsRunning()) {
+      setAppState(sim.simGetError() ? 'error' : 'halted')
+      setMsg(sim.simGetError() ? `✗ ${sim.simGetError()}` : '■ Program halted.')
+    } else if (!ok) {
+      setAppState('idle')  // interrupt fired from HLT wait, ISR starting
     }
   }
 
@@ -2051,6 +2056,10 @@ export default function App() {
       refresh()
       refreshOutputPorts()
       if (!isTurbo) updateMemDiff()
+      if (sim.simIsHaltWaiting()) {
+        setMsg('⏸ HLT — awaiting interrupt…')
+        return
+      }
       if (!sim.simIsRunning()) {
         const r = sim.simGetRegisters()
         const cond = bpsRef.current.get(r.pc)

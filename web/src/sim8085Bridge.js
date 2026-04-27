@@ -162,7 +162,7 @@ function stepOne() {
 
   switch(op) {
     case 0x00: inc=1; break; // NOP
-    case 0x76: status |= (HALTED|QUIT); return false; // HLT
+    case 0x76: regs.pc = (pc + 1) & 0xFFFF; cycles += TSTATES[0x76]; status |= HALTED; return false; // HLT — halt-wait; resumes on interrupt
 
     // ── MOV r,r ──────────────────────────────────────────────────────
     case 0x40: case 0x49: case 0x52: case 0x5B: case 0x64: case 0x6D: case 0x7F:
@@ -804,35 +804,43 @@ function assemble(source) {
   return { ok: true, entryPoint: entryIP, bytesEmitted: ptr - entryIP, errors: [] };
 }
 
-// ── Interrupt check (called after every instruction) ───────────────────
+// ── Interrupt check (called after every instruction, and during HLT wait) ─
 function checkInterrupts() {
-  if (status & (HALTED | QUIT | SEVERE_ERROR)) return
+  if (status & (QUIT | SEVERE_ERROR)) return
 
   // TRAP — non-maskable, highest priority, fires once per assertion
   if (trapPend) {
     trapPend = false
+    status &= ~HALTED
     push16(regs.pc); iff = false; iffNext = false
     regs.pc = 0x0024; return
   }
 
-  // EI delay — iff becomes true but don't service until next check
-  if (iffNext) { iff = true; iffNext = false; return }
-
-  if (!iff) return
+  if (status & HALTED) {
+    // While halted, only TRAP (above) or maskable interrupts (if IFF=true) can resume
+    if (!iff) return
+  } else {
+    // EI delay — iff becomes true but don't service until next check
+    if (iffNext) { iff = true; iffNext = false; return }
+    if (!iff) return
+  }
 
   // RST 7.5 — edge latch, maskable (mask bit 2)
   if (rst75ff && !(intMask & 0x04)) {
     rst75ff = false
+    status &= ~HALTED
     push16(regs.pc); iff = false
     regs.pc = 0x003C; return
   }
   // RST 6.5 — level, maskable (mask bit 1)
   if (intLines.rst65 && !(intMask & 0x02)) {
+    status &= ~HALTED
     push16(regs.pc); iff = false
     regs.pc = 0x0034; return
   }
   // RST 5.5 — level, maskable (mask bit 0)
   if (intLines.rst55 && !(intMask & 0x01)) {
+    status &= ~HALTED
     push16(regs.pc); iff = false
     regs.pc = 0x002C; return
   }
@@ -840,6 +848,7 @@ function checkInterrupts() {
   if (intLines.intr) {
     const vec = intLines.intrVec
     if ((vec & 0xC7) === 0xC7) {   // valid RST n opcode
+      status &= ~HALTED
       push16(regs.pc); iff = false
       regs.pc = vec & 0x38
     }
@@ -891,6 +900,8 @@ export function simStep() {
 export function simRun(maxSteps = 100000) {
   let steps = 0;
   while (steps < maxSteps) {
+    if (status & (QUIT | SEVERE_ERROR)) return steps;
+    if (status & HALTED) { checkInterrupts(); return steps; }
     if (!stepOne()) return steps;
     steps++;
     checkInterrupts()
@@ -933,6 +944,7 @@ export function simGetBreakpoints()      { return [...breakpoints]; }
 
 export function simGetAllLeds()       { return [...leds]; }
 export function simIsHalted()         { return !!(status & (HALTED|QUIT)); }
+export function simIsHaltWaiting()    { return !!(status & HALTED) && !(status & (QUIT|SEVERE_ERROR)); }
 export function simIsRunning()        { return !(status & (HALTED|QUIT|SEVERE_ERROR)); }
 export function simGetError()         { return lastError; }
 export function simGetSymbols()       { return {...lastSymbols} }
