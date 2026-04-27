@@ -1706,6 +1706,7 @@ function BrandMenu({ onShowWelcome, onImport, onExport, onShare, onCalc, memSize
           <div className="bmenu-sep" />
           {item('🖩  Calculator', onCalc)}
           {item('📖  Welcome guide', onShowWelcome)}
+          <div className="bmenu-sep" />
           {item('⭐  View on GitHub',  () => window.open('https://github.com/selfmodify/sim8085wasm', '_blank'))}
           {item('🐛  Report a Bug',    () => window.open('https://github.com/selfmodify/sim8085wasm/issues/new', '_blank'))}
           {item('💬  Ask a Question',  () => window.open('https://github.com/selfmodify/sim8085wasm/discussions', '_blank'))}
