@@ -2060,7 +2060,7 @@ export default function App() {
 
   function pushHistory() {
     const snap = { regs: sim.simGetRegisters(), ram: sim.simGetFullMemory() }
-    const next = [...historyRef.current.slice(-9), snap]
+    const next = [...historyRef.current.slice(-19), snap]
     historyRef.current = next
     setHistLen(next.length)
   }
@@ -2095,6 +2095,7 @@ export default function App() {
     sim.simRestoreSnapshot(snap)
     setSteps(s => Math.max(0, s - 1))
     setAppState('idle')
+    setMsg(`⟲ Stepped back — ${next.length} step${next.length !== 1 ? 's' : ''} remaining in history`)
     refresh()
   }
 
@@ -2302,7 +2303,7 @@ export default function App() {
           <input type="file" ref={fileInputRef} style={{display:'none'}} accept=".asm,.85,.s,.txt" onChange={importFile} />
           <button className="btn btn-asm"   onClick={() => doAssemble(srcRef.current)}>⚙ Build  <kbd>F5</kbd></button>
           <button className="btn btn-step"  onClick={doStep}  disabled={running || appState==='error'}>↓ Step  <kbd>F7</kbd></button>
-          <button className="btn btn-back"  onClick={doStepBack} disabled={running || appState==='error' || histLen === 0} title="Undo last step">⟲ Back</button>
+          <button className="btn btn-back"  onClick={doStepBack} disabled={running || appState==='error' || histLen === 0} title={`Undo last step (${histLen} available)`}>⟲ Back{histLen > 0 ? ` (${histLen})` : ''}</button>
           <button className={`btn ${running ? 'btn-stop':'btn-run'}`} onClick={handleRun}
             disabled={!running && appState==='error'}>
             {running ? '■ Stop' : '▶ Run'}  <kbd>{running?'F9':'F9'}</kbd>
