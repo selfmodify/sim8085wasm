@@ -1324,29 +1324,56 @@ loop:
     jnz  loop           ; stop when A wraps to 0
     hlt`,
 
-    'LED Count': `; Count 0 → 7 on the LED display, one digit at a time.
-; Run at Slow or Med speed to see each digit scroll in.
+    'LED Count': `; Count 0000 → FFFF on the 4 LED address digits.
+; Run at Fast or Turbo speed to watch it count up.
     org     100H
     kickoff 100H
     lxi     sp, 200H
-    mvi     e, 00H      ; E = digit counter (0..7)
-again:
-    mov     d, e        ; D = digit to show (NumTo7Seg converts it)
-    mvi     c, 09H      ; CALL 5 fn 09H: scroll left, insert D
-    call    5
-    ; Software delay (~500 iterations)
-    lxi     h, 01F4H
-dly:
-    dcx     h
-    mov     a, h
-    ora     l
-    jnz     dly
-    inr     e           ; advance digit
+    lxi     d, 0000H    ; DE = 16-bit counter
+
+show:
+    ; Extract the 4 hex nibbles of DE into scratch RAM 300H-303H
+    mov     a, d
+    rrc
+    rrc
+    rrc
+    rrc
+    ani     0FH
+    sta     300H        ; high nibble of D (leftmost digit)
+    mov     a, d
+    ani     0FH
+    sta     301H        ; low  nibble of D
     mov     a, e
-    cpi     08H         ; past 7?
-    jnz     again
-    mvi     e, 00H      ; wrap back to 0
-    jmp     again
+    rrc
+    rrc
+    rrc
+    rrc
+    ani     0FH
+    sta     302H        ; high nibble of E
+    mov     a, e
+    ani     0FH
+    sta     303H        ; low  nibble of E (rightmost digit)
+
+    ; Write each nibble to a display field (field 5 = leftmost address digit)
+    mvi     b, 05H
+    lxi     h, 300H
+    mvi     c, 02H
+    call    5
+    mvi     b, 04H
+    lxi     h, 301H
+    mvi     c, 02H
+    call    5
+    mvi     b, 03H
+    lxi     h, 302H
+    mvi     c, 02H
+    call    5
+    mvi     b, 02H
+    lxi     h, 303H
+    mvi     c, 02H
+    call    5
+
+    inx     d           ; increment (FFFF wraps to 0000 naturally)
+    jmp     show
     hlt`,
   },
 }
