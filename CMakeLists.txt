@@ -63,6 +63,10 @@ if(EMSCRIPTEN)
         "_sim_get_output_port"
         "_sim_set_input_port"
         "_sim_clear_input_port"
+        "_sim_get_console_output"
+        "_sim_clear_console_output"
+        "_sim_set_console_port"
+        "_sim_get_console_port"
         # WASM glue — flat-primitive wrappers for struct-returning functions
         "_wasm_assemble"
         "_wasm_asm_error_line"

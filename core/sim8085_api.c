@@ -31,6 +31,22 @@ static void led_callback(int field_type, int index, int value) {
 }
 
 /* -----------------------------------------------------------------------
+ * Console output buffer (accumulates bytes sent to g_console_port)
+ * --------------------------------------------------------------------- */
+#define CONSOLE_BUF_MAX 8192
+static uint8_t g_console_port = 0x01;
+static char    g_console_buf[CONSOLE_BUF_MAX + 1];
+static int     g_console_len  = 0;
+
+static void out_callback(uint8_t port, uint8_t val) {
+    if (port != g_console_port) return;
+    if (g_console_len < CONSOLE_BUF_MAX) {
+        g_console_buf[g_console_len++] = (char)val;
+        g_console_buf[g_console_len]   = '\0';
+    }
+}
+
+/* -----------------------------------------------------------------------
  * Lifecycle
  * --------------------------------------------------------------------- */
 
@@ -42,7 +58,10 @@ EXPORT void sim_init(void) {
     _8085 = m;
     InitMachine(m);
     sim_set_led_callback(led_callback);
+    sim_set_out_callback(out_callback);
     memset(g_leds, 0, sizeof(g_leds));
+    g_console_len = 0;
+    g_console_buf[0] = '\0';
 }
 
 EXPORT void sim_reset(void) {
@@ -58,6 +77,8 @@ EXPORT void sim_reset(void) {
         InitMachine(m);
     }
     memset(g_leds, 0, sizeof(g_leds));
+    g_console_len = 0;
+    g_console_buf[0] = '\0';
 }
 
 /* -----------------------------------------------------------------------
@@ -408,6 +429,15 @@ EXPORT void sim_restore_snapshot(const uint8_t *regs_buf, int regs_len,
 EXPORT int sim_get_output_port(uint8_t port) {
     return KIT ? KIT->cpu.output_ports[port] : 0;
 }
+
+/* -----------------------------------------------------------------------
+ * Console output
+ * --------------------------------------------------------------------- */
+
+EXPORT const char *sim_get_console_output(void) { return g_console_buf; }
+EXPORT void        sim_clear_console_output(void) { g_console_len = 0; g_console_buf[0] = '\0'; }
+EXPORT void        sim_set_console_port(uint8_t port) { g_console_port = port; }
+EXPORT uint8_t     sim_get_console_port(void) { return g_console_port; }
 
 EXPORT void sim_set_input_port(uint8_t port, uint8_t val) {
     if (KIT) KIT->cpu.input_ports[port] = val;

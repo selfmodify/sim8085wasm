@@ -46,6 +46,13 @@ void sim_set_led_callback(void (*cb)(int, int, int)) {
     g_led_callback = cb;
 }
 
+/* OUT callback - called whenever an OUT instruction executes */
+static void (*g_out_callback)(uint8_t port, uint8_t val) = NULL;
+
+void sim_set_out_callback(void (*cb)(uint8_t port, uint8_t val)) {
+    g_out_callback = cb;
+}
+
 /* -----------------------------------------------------------------------
  * Error message strings (from original MYERROR.H)
  * --------------------------------------------------------------------- */
@@ -618,7 +625,9 @@ static int _In(void) {
 }
 static int _Out(void) {
     uchar port = GetMemByte(GetIP() + 1);
-    KIT->cpu.output_ports[port] = GetA();
+    uchar val  = GetA();
+    KIT->cpu.output_ports[port] = val;
+    if (g_out_callback) g_out_callback(port, val);
     return OUT_LEN;
 }
 

@@ -272,13 +272,15 @@ export function simGetOutputPorts() {
   return result;
 }
 
-// ── Stubs — JS-only features not exposed by C core ────────────────────────
+// ── Console output ────────────────────────────────────────────────────────
+export function simGetConsoleOutput()  { return cstr(M._sim_get_console_output()); }
+export function simClearConsoleOutput(){ M._sim_clear_console_output(); }
+export function simSetConsolePort(n)   { M._sim_set_console_port(n & 0xFF); }
+export function simGetConsolePort()    { return M._sim_get_console_port(); }
+
+// ── Stubs — JS-only features not yet in C core ────────────────────────────
 export function simGetSymbols()       { return {}; }
 export function simGetCycles()        { return 0; }
 export function simSetCycles(_n)      { }
-export function simGetConsoleOutput() { return ''; }
-export function simClearConsoleOutput() { }
-export function simSetConsolePort(_n) { }
-export function simGetConsolePort()   { return 0x01; }
 export function simGetProgramRegion() { return { start: 0x100, end: 0x100 }; }
 export function simGetPresetAddrs()   { return new Set(); }

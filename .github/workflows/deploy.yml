@@ -20,6 +20,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.74
+          actions-cache-folder: .emsdk-cache
+
+      - name: Build WASM
+        run: |
+          mkdir -p build-wasm
+          cd build-wasm
+          emcmake cmake ..
+          cmake --build .
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'

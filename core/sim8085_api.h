@@ -139,6 +139,12 @@ int  sim_get_output_port(uint8_t port);   /* last value written by OUT port,A */
 void sim_set_input_port(uint8_t port, uint8_t val);
 void sim_clear_input_port(uint8_t port);
 
+/* Console output (OUT-port accumulation buffer) */
+const char *sim_get_console_output(void);
+void        sim_clear_console_output(void);
+void        sim_set_console_port(uint8_t port);
+uint8_t     sim_get_console_port(void);
+
 #ifdef __cplusplus
 }
 #endif
