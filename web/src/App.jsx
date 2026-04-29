@@ -1331,7 +1331,12 @@ function StackPanel({ regs, regBase, onRegBase }) {
   function onResizeDown(e) {
     e.preventDefault()
     const startY = e.clientY, startH = panelRef.current.getBoundingClientRect().height
-    const onMove = ev => { panelRef.current.style.height = Math.max(72, startH + (ev.clientY - startY)) + 'px' }
+    const onMove = ev => {
+      const colBottom = panelRef.current.parentElement.getBoundingClientRect().bottom
+      const panelTop = panelRef.current.getBoundingClientRect().top
+      const maxH = Math.max(72, colBottom - panelTop - 32)
+      panelRef.current.style.height = Math.max(72, Math.min(maxH, startH + (ev.clientY - startY))) + 'px'
+    }
     const onUp   = ()  => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
     document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
