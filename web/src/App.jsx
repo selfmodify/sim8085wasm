@@ -164,6 +164,13 @@ const PANEL_HELP_TEXT = {
   · Each CALL 5 with C=01H dequeues the next char (returns 00H when empty)
   · ✕ clears the entire queue`,
 
+  'CONSOLE': `• Treats bytes written by OUT to the configured port as ASCII text
+• Default port is 01H — change it in the header field
+• Printable characters (20H–7EH) are appended as-is
+• 0AH (\\n) starts a new line; 0DH (\\r) is ignored; 08H (BS) deletes the last char
+• ✕ button clears the display — also cleared on every Build
+• Example: OUT 01H with A=48H prints 'H'`,
+
   'SYMBOLS': `• All labels defined in your source code
 • Populated after a successful Build
 • Shows label name and resolved hex address
@@ -1483,6 +1490,52 @@ function WatchPanel({ watches, regs, onAdd, onRemove, regBase, onRegBase }) {
   )
 }
 
+// ── Console output panel ─────────────────────────────────────────────────
+function ConsolePanel({ output, port, onSetPort, onClear }) {
+  const bodyRef  = useRef(null)
+  const [portBuf, setPortBuf] = useState(() => port.toString(16).toUpperCase().padStart(2,'0'))
+
+  useEffect(() => { setPortBuf(port.toString(16).toUpperCase().padStart(2,'0')) }, [port])
+
+  useEffect(() => {
+    if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight
+  }, [output])
+
+  function commitPort() {
+    const n = parseInt(portBuf.replace(/h$/i,''), 16)
+    if (!isNaN(n) && n >= 0 && n <= 255) onSetPort(n & 0xFF)
+  }
+
+  const lines = output.split('\n')
+
+  return (
+    <div className="panel console-panel">
+      <div className="panel-hd">
+        <span className="panel-icon">🖥</span>CONSOLE
+        <div className="panel-hd-right">
+          <span className="console-port-label">OUT</span>
+          <input className="console-port-input" value={portBuf} maxLength={2}
+            onChange={e => setPortBuf(e.target.value.toUpperCase())}
+            onBlur={commitPort}
+            onKeyDown={e => { if (e.key === 'Enter') { commitPort(); e.target.blur() } }}
+            title="Port number (hex) — bytes written here appear as ASCII text" />
+          <span className="console-port-label">H</span>
+          <button className="reg-base-btn" onClick={onClear} title="Clear console output">✕</button>
+          <PanelHelp panel="CONSOLE" />
+        </div>
+      </div>
+      <div className="console-body" ref={bodyRef}>
+        {output === ''
+          ? <span className="console-empty">No output yet — use OUT {portBuf}H to print ASCII characters</span>
+          : lines.map((line, i) => (
+              <div key={i} className="console-line">{line || ' '}</div>
+            ))
+        }
+      </div>
+    </div>
+  )
+}
+
 // ── I/O port panel ───────────────────────────────────────────────────────
 function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput, keyQueue, onEnqueueKeys, onClearKeyQueue }) {
   const [portBuf, setPortBuf] = useState('')
@@ -1971,6 +2024,8 @@ export default function App() {
   const [cursorInst, setCursorInst] = useState(null)
   const [helpInst, setHelpInst]     = useState(null)
   const [errorLine, setErrorLine]   = useState(null)
+  const [consoleOutput, setConsoleOutput] = useState('')
+  const [consolePort,   setConsolePort]   = useState(() => sim.simGetConsolePort())
   const [showWelcome,    setShowWelcome]    = useState(() => !localStorage.getItem('sim8085_welcomed'))
   const [showCalc,       setShowCalc]       = useState(false)
   const [showShortcuts,  setShowShortcuts]  = useState(false)
@@ -2086,6 +2141,12 @@ export default function App() {
     setCycles(sim.simGetCycles())
     setIntState(sim.simGetIntState())
     setKeyQueue(sim.simGetKeyQueue())
+    setConsoleOutput(sim.simGetConsoleOutput())
+  }
+
+  function changeConsolePort(n) {
+    sim.simSetConsolePort(n)
+    setConsolePort(n)
   }
 
   function refreshOutputPorts() {
@@ -2101,6 +2162,7 @@ export default function App() {
       setChangedAddrs(new Set())
       setOutputPorts([])
       setKeyQueue([])
+      setConsoleOutput('')
       prevMemRef.current = null
       sim.simSetMemorySize(memSizeRef.current)
       sim.simInit()
@@ -2483,6 +2545,9 @@ function addTraceEntry(prevR) {
           <IOPortPanel outputPorts={outputPorts} inputPresets={inputPresets}
             onSetInput={setInputPort} onRemoveInput={removeInputPort}
             keyQueue={keyQueue} onEnqueueKeys={enqueueKeys} onClearKeyQueue={clearKeyQueue} />
+          <ConsolePanel output={consoleOutput} port={consolePort}
+            onSetPort={changeConsolePort}
+            onClear={() => { sim.simClearConsoleOutput(); setConsoleOutput('') }} />
           <StackPanel regs={regs} regBase={regBase} onRegBase={setRegBase} />
           <TracePanel trace={trace} onClear={() => setTrace([])} />
         </div>

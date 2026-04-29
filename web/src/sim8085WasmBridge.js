@@ -276,5 +276,9 @@ export function simGetOutputPorts() {
 export function simGetSymbols()       { return {}; }
 export function simGetCycles()        { return 0; }
 export function simSetCycles(_n)      { }
+export function simGetConsoleOutput() { return ''; }
+export function simClearConsoleOutput() { }
+export function simSetConsolePort(_n) { }
+export function simGetConsolePort()   { return 0x01; }
 export function simGetProgramRegion() { return { start: 0x100, end: 0x100 }; }
 export function simGetPresetAddrs()   { return new Set(); }

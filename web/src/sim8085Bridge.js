@@ -36,6 +36,11 @@ let lastProgStart   = DEFAULT_IP
 let lastProgEnd     = DEFAULT_IP
 let lastPresetAddrs = new Set()
 
+// ── Console output (bytes written to consolePort treated as ASCII stream) ─
+let consolePort   = 0x01
+let consoleBuf    = ''
+const CONSOLE_MAX = 8192
+
 // ── Keyboard input queue (fed by simEnqueueKeys, consumed by syscall C=01H) ─
 let keyQueue = []      // array of char codes (0-255)
 
@@ -469,7 +474,16 @@ function stepOne() {
       break
     }
     case 0xDB: { const port = memR(pc+1); regs.a = ioIn[port]; inc=2; break; } // IN port
-    case 0xD3: { const port = memR(pc+1); ioOut[port] = regs.a; ioOutTouched.add(port); inc=2; break; } // OUT port
+    case 0xD3: { const port = memR(pc+1); ioOut[port] = regs.a; ioOutTouched.add(port); inc=2;
+      if (port === consolePort) {
+        const b = regs.a
+        if (b === 0x0A) consoleBuf += '\n'
+        else if (b === 0x0D) { /* ignore CR */ }
+        else if (b === 0x08 && consoleBuf.length) consoleBuf = consoleBuf.slice(0, -1)
+        else if (b >= 0x20 && b <= 0x7E) consoleBuf += String.fromCharCode(b)
+        if (consoleBuf.length > CONSOLE_MAX) consoleBuf = consoleBuf.slice(-CONSOLE_MAX)
+      }
+      break; } // OUT port
 
     // ── ASSERT (0xDD — undefined opcode repurposed for testing) ──────
     case 0xDD: {
@@ -867,6 +881,7 @@ export function simInit() {
   leds.fill(0);
   lastError = '';
   ioOut.fill(0); ioOutTouched.clear();
+  consoleBuf = '';
   lastSymbols = {}; cycles = 0
   lastProgStart = DEFAULT_IP; lastProgEnd = DEFAULT_IP; lastPresetAddrs = new Set()
   iff = false; iffNext = false; intMask = 0
@@ -954,6 +969,10 @@ export function simGetError()         { return lastError; }
 export function simGetSymbols()       { return {...lastSymbols} }
 export function simGetCycles()        { return cycles }
 export function simSetCycles(n)       { cycles = n }
+export function simGetConsoleOutput() { return consoleBuf }
+export function simClearConsoleOutput() { consoleBuf = '' }
+export function simSetConsolePort(n)  { consolePort = n & 0xFF }
+export function simGetConsolePort()   { return consolePort }
 export function simGetProgramRegion() { return { start: lastProgStart, end: lastProgEnd } }
 export function simGetPresetAddrs()   { return new Set(lastPresetAddrs) }
 

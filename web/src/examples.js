@@ -1403,6 +1403,38 @@ loop:
     jnz  loop           ; stop when A wraps to 0
     hlt`,
 
+    'Console Hello': `; Print "Hello, 8085!" to the Console panel via OUT 01H.
+; Each byte written to port 01H appears as an ASCII character.
+; 0AH (\\n) starts a new line.  String stored at 120H.
+    org     100H
+    kickoff 100H
+    lxi  h, 120H       ; HL → start of string in RAM
+loop:
+    mov  a, m          ; A = next character byte
+    ora  a             ; zero = end of string
+    jz   done
+    out  01H           ; write to Console port 01H
+    inx  h
+    jmp  loop
+done:
+    hlt
+
+; String data placed directly in RAM via SETBYTE
+    setbyte 120H, 48H  ; H
+    setbyte 121H, 65H  ; e
+    setbyte 122H, 6CH  ; l
+    setbyte 123H, 6CH  ; l
+    setbyte 124H, 6FH  ; o
+    setbyte 125H, 2CH  ; ,
+    setbyte 126H, 20H  ; (space)
+    setbyte 127H, 38H  ; 8
+    setbyte 128H, 30H  ; 0
+    setbyte 129H, 38H  ; 8
+    setbyte 12AH, 35H  ; 5
+    setbyte 12BH, 21H  ; !
+    setbyte 12CH, 0AH  ; newline
+    setbyte 12DH, 00H  ; null terminator`,
+
     'Keyboard Read': `; Read characters queued in the Keyboard panel (syscall C=01H).
 ; Type some text in the I/O PORTS → KEYBOARD section, then Run.
 ; Characters are stored at 200H onwards, null-terminated.
