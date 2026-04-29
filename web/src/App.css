@@ -307,6 +307,19 @@ body {
 .btn-reset  { color: var(--amber) }
 .btn-back   { color: var(--text2) }
 
+/* Topbar filename chip */
+.topbar-filename {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+  flex-shrink: 0;
+}
+
 /* Speed slider */
 .speed-label { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 12px; color: var(--text3); white-space: nowrap }
 .speed-slider { width: 70px; accent-color: var(--accent); cursor: pointer }
