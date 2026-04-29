@@ -2405,7 +2405,7 @@ function addTraceEntry(prevR) {
     srcRef.current = code
     setSrc(code)
     doAssemble(code)
-    setFileName('')
+    setFileName(key.slice(sep + 2))
   }
 
   function setInputPort(port, val) {
