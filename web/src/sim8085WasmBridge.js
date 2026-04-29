@@ -5,9 +5,6 @@
  * Loads the Emscripten-compiled C core (sim8085.js must be
  * included as a <script> tag in index.html before ES modules run).
  *
- * To switch the app to the C core, change App.jsx:
- *   import * as sim from './sim8085WasmBridge.js'
- *
  * API is intentionally identical to sim8085Bridge.js so the swap
  * is a one-line change.  The only difference: simInit() returns a
  * Promise that resolves when the WASM module is ready.  App.jsx
@@ -31,11 +28,11 @@ const jsInputPorts = new Uint8Array(256); // mirrors KIT->cpu.input_ports[]
 const jsBP = new Set();                   // mirrors C breakpoint table
 
 // ── Heap helpers ──────────────────────────────────────────────────────────
-function alloc(n)       { return M._malloc(n); }
-function free(ptr)      { M._free(ptr); }
-function heapRead(ptr, n)  { return new Uint8Array(M.HEAPU8.buffer, ptr, n).slice(); }
+function alloc(n)            { return M._malloc(n); }
+function free(ptr)           { M._free(ptr); }
+function heapRead(ptr, n)    { return new Uint8Array(M.HEAPU8.buffer, ptr, n).slice(); }
 function heapWrite(ptr, src) { M.HEAPU8.set(src, ptr); }
-function cstr(ptr)      { return M.UTF8ToString(ptr); }
+function cstr(ptr)           { return M.UTF8ToString(ptr); }
 function writeStr(s) {
   const ptr = alloc(s.length * 2 + 1);
   M.stringToUTF8(s, ptr, s.length * 2 + 1);
@@ -45,14 +42,11 @@ function writeStr(s) {
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 export function simInit() {
   if (M) {
-    // Module already loaded — run synchronously so callers (doAssemble) that
-    // don't await can safely call simAssemble() immediately after.
     M._sim_init();
     jsInputPorts.fill(0);
     jsBP.clear();
     return;
   }
-  // First call before WASM is ready — return a Promise (caller must await).
   return simReady.then(() => {
     M._sim_init();
     jsInputPorts.fill(0);
@@ -61,15 +55,16 @@ export function simInit() {
 }
 
 export function simReset() {
+  if (!M) return;
   M._sim_reset();
 }
 
 // ── Assembly ──────────────────────────────────────────────────────────────
 export function simAssemble(source) {
+  if (!M) return { ok: false, errorMsg: 'WASM not ready', errors: ['WASM not ready'] };
   const ptr = writeStr(source);
   const ok  = M._wasm_assemble(ptr);
   free(ptr);
-
   if (ok) {
     return {
       ok: true,
@@ -85,11 +80,16 @@ export function simAssemble(source) {
 }
 
 // ── Execution ─────────────────────────────────────────────────────────────
-export function simStep()               { return !!M._sim_step(); }
-export function simRun(maxSteps = 1e5)  { return M._sim_run(maxSteps); }
+export function simStep()              { return M ? !!M._sim_step() : false; }
+export function simRun(maxSteps = 1e5) { return M ? M._sim_run(maxSteps) : 0; }
 
 // ── Registers ─────────────────────────────────────────────────────────────
+const ZERO_REGS = { a:0, b:0, c:0, d:0, e:0, h:0, l:0, flags:0, pc:0x100, sp:0,
+  flagS:false, flagZ:false, flagAC:false, flagP:false, flagCY:false,
+  status:0, halted:false, hasError:false };
+
 export function simGetRegisters() {
+  if (!M) return { ...ZERO_REGS };
   M._wasm_snap_regs();
   return {
     a:  M._wasm_reg_a(),     b:  M._wasm_reg_b(),
@@ -109,6 +109,7 @@ export function simGetRegisters() {
 }
 
 export function simSetRegisters(r) {
+  if (!M) return;
   M._wasm_snap_regs();
   M._wasm_restore_regs(
     r.a     !== undefined ? r.a     : M._wasm_reg_a(),
@@ -126,6 +127,7 @@ export function simSetRegisters(r) {
 
 // ── Memory ────────────────────────────────────────────────────────────────
 export function simGetMemory(start, length) {
+  if (!M) return new Uint8Array(length);
   const ptr = alloc(length);
   M._sim_get_memory(start, length, ptr);
   const out = heapRead(ptr, length);
@@ -133,24 +135,26 @@ export function simGetMemory(start, length) {
   return out;
 }
 
-export function simReadByte(addr)      { return M._sim_read_byte(addr); }
-export function simWriteByte(addr, v)  { M._sim_write_byte(addr, v); }
-export function simGetPC()             { return M._sim_get_pc(); }
-export function simGetSP()             { return M._sim_get_sp(); }
+export function simReadByte(addr)      { return M ? M._sim_read_byte(addr) : 0; }
+export function simWriteByte(addr, v)  { if (M) M._sim_write_byte(addr, v); }
+export function simGetPC()             { return M ? M._sim_get_pc() : 0x100; }
+export function simGetSP()             { return M ? M._sim_get_sp() : 0; }
 
 // ── Breakpoints ───────────────────────────────────────────────────────────
 export function simSetBreakpoint(addr) {
+  if (!M) return 0;
   const r = M._sim_set_breakpoint(addr);
   if (r === 1) jsBP.add(addr);
   else if (r === 2) jsBP.delete(addr);
   return r;
 }
 export function simClearBreakpoint(addr) {
+  if (!M) return;
   M._sim_clear_breakpoint(addr);
   jsBP.delete(addr);
 }
 export function simClearAllBreakpoints() {
-  M._sim_clear_all_breakpoints();
+  if (M) M._sim_clear_all_breakpoints();
   jsBP.clear();
 }
 export function simIsBreakpoint(addr) { return jsBP.has(addr); }
@@ -158,12 +162,14 @@ export function simGetBreakpoints()   { return [...jsBP]; }
 
 // ── LED display ───────────────────────────────────────────────────────────
 export function simGetAllLeds() {
+  if (!M) return Array(8).fill(0);
   M._wasm_snap_leds();
   return Array.from({ length: 8 }, (_, i) => M._wasm_led(i));
 }
 
 // ── Disassembly ───────────────────────────────────────────────────────────
 export function simDisassemble(addr) {
+  if (!M) return { text: '', len: 1, addr, mnem: '', cycles: 0 };
   M._wasm_disassemble(addr);
   const text = cstr(M._wasm_disasm_text());
   const len  = M._wasm_disasm_len();
@@ -177,23 +183,28 @@ export function simDisassemble(addr) {
 }
 
 // ── Error / status ────────────────────────────────────────────────────────
-export function simGetError()      { return cstr(M._sim_get_error()); }
-export function simIsHalted()      { return !!M._sim_is_halted(); }
-export function simIsRunning()     { return !!M._sim_is_running(); }
-export function simIsHaltWaiting() { return !!M._sim_is_halt_waiting(); }
+export function simGetError()      { return M ? cstr(M._sim_get_error()) : ''; }
+export function simIsHalted()      { return M ? !!M._sim_is_halted() : false; }
+export function simIsRunning()     { return M ? !!M._sim_is_running() : false; }
+export function simIsHaltWaiting() { return M ? !!M._sim_is_halt_waiting() : false; }
 
 // ── Interrupts ────────────────────────────────────────────────────────────
 const INT_TYPE = { TRAP: 0, RST75: 1, RST65: 2, RST55: 3 };
+const ZERO_INTS = { iff: false, intMask: 0, rst75ff: false, trapPend: false,
+                    rst65: false, rst55: false, intr: false, intrVec: 0xFF };
 
 export function simAssertInterrupt(type, _vec) {
+  if (!M) return;
   const t = INT_TYPE[type];
   if (t !== undefined) M._sim_assert_interrupt(t);
 }
 export function simDeassertInterrupt(type) {
+  if (!M) return;
   const t = INT_TYPE[type];
   if (t !== undefined) M._sim_deassert_interrupt(t);
 }
 export function simGetIntState() {
+  if (!M) return { ...ZERO_INTS };
   M._wasm_snap_ints();
   return {
     iff:      !!M._wasm_int_iff(),
@@ -209,12 +220,14 @@ export function simGetIntState() {
 
 // ── Keyboard queue ────────────────────────────────────────────────────────
 export function simEnqueueKeys(str) {
+  if (!M) return;
   const ptr = writeStr(str);
   M._sim_enqueue_keys(ptr);
   free(ptr);
 }
-export function simClearKeyQueue() { M._sim_clear_key_queue(); }
+export function simClearKeyQueue() { if (M) M._sim_clear_key_queue(); }
 export function simGetKeyQueue() {
+  if (!M) return [];
   const ptr = alloc(256);
   const n   = M._sim_get_key_queue(ptr, 256);
   const out = [];
@@ -224,11 +237,12 @@ export function simGetKeyQueue() {
 }
 
 // ── Memory size ───────────────────────────────────────────────────────────
-export function simSetMemorySize(n) { M._sim_set_memory_size(n); }
-export function simGetMemorySize()  { return M._sim_get_memory_size(); }
+export function simSetMemorySize(n) { if (M) M._sim_set_memory_size(n); }
+export function simGetMemorySize()  { return M ? M._sim_get_memory_size() : 64 * 1024; }
 
 // ── Full memory / step-back snapshots ─────────────────────────────────────
 export function simGetFullMemory() {
+  if (!M) return new Uint8Array(64 * 1024);
   const size = 64 * 1024;
   const ptr  = alloc(size);
   M._sim_get_full_memory(ptr);
@@ -238,12 +252,11 @@ export function simGetFullMemory() {
 }
 
 export function simRestoreSnapshot(snap) {
-  // Restore RAM
+  if (!M) return;
   const ramPtr = alloc(snap.ram.length);
   heapWrite(ramPtr, snap.ram);
   M._sim_restore_snapshot(0, 0, ramPtr, snap.ram.length);
   free(ramPtr);
-  // Restore registers (wasm_restore_regs also resets status)
   const r = snap.regs;
   M._wasm_restore_regs(r.a, r.b, r.c, r.d, r.e, r.h, r.l, r.flags, r.pc, r.sp);
 }
@@ -252,15 +265,16 @@ export function simRestoreSnapshot(snap) {
 export function simSetInputPort(port, val) {
   const p = port & 0xFF, v = val & 0xFF;
   jsInputPorts[p] = v;
-  M._sim_set_input_port(p, v);
+  if (M) M._sim_set_input_port(p, v);
 }
 export function simClearInputPort(port) {
   const p = port & 0xFF;
   jsInputPorts[p] = 0;
-  M._sim_clear_input_port(p);
+  if (M) M._sim_clear_input_port(p);
 }
 export function simGetInputPort(port) { return jsInputPorts[port & 0xFF]; }
 export function simGetOutputPorts() {
+  if (!M) return [];
   const ptr = alloc(256);
   M._wasm_get_all_output_ports(ptr);
   const result = [];
@@ -273,10 +287,10 @@ export function simGetOutputPorts() {
 }
 
 // ── Console output ────────────────────────────────────────────────────────
-export function simGetConsoleOutput()  { return cstr(M._sim_get_console_output()); }
-export function simClearConsoleOutput(){ M._sim_clear_console_output(); }
-export function simSetConsolePort(n)   { M._sim_set_console_port(n & 0xFF); }
-export function simGetConsolePort()    { return M._sim_get_console_port(); }
+export function simGetConsoleOutput()  { return M ? cstr(M._sim_get_console_output()) : ''; }
+export function simClearConsoleOutput(){ if (M) M._sim_clear_console_output(); }
+export function simSetConsolePort(n)   { if (M) M._sim_set_console_port(n & 0xFF); }
+export function simGetConsolePort()    { return M ? M._sim_get_console_port() : 0x01; }
 
 // ── Stubs — JS-only features not yet in C core ────────────────────────────
 export function simGetSymbols()       { return {}; }
