@@ -766,7 +766,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
           const cond  = breakpoints.get(row.addr) ?? null
           const label = addrToLabel.get(row.addr)
           return (
-            <div key={row.addr}>
+            <div key={cur ? `cur-${regs.pc}` : row.addr}>
             {label && (
               <div className="disasm-label"
                 onClick={() => { onJumpMem?.(row.addr & 0xFFF0); onGotoLine?.(row.addr, label) }}

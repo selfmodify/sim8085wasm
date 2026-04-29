@@ -573,9 +573,14 @@ body {
   transition: background .08s;
 }
 .disasm-row:hover { background: var(--bg2) }
+@keyframes pc-flash {
+  0%   { background: rgba(74,240,160,.28) }
+  100% { background: rgba(74,240,160,.08) }
+}
 .disasm-row.cur {
   background: rgba(74,240,160,.08);
   border-left-color: var(--accent);
+  animation: pc-flash .35s ease-out;
 }
 .disasm-row.bp .disasm-bp { color: var(--red) }
 .disasm-row.cur.bp { border-left-color: var(--red) }
