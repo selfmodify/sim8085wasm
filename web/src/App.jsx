@@ -1756,7 +1756,7 @@ function WelcomeModal({ onClose }) {
       <div className="welcome-modal" onClick={e => e.stopPropagation()}>
         <div className="welcome-hd">
           <div className="welcome-logo">
-            <div className="brand-chip" style={{fontSize:'18px',width:'44px',height:'44px'}}>8085</div>
+            <div className="brand-chip" style={{fontSize:'22px',padding:'10px 14px',lineHeight:'1'}}>8085</div>
             <div>
               <div className="welcome-title">8085 Simulator</div>
               <div className="welcome-sub">Intel 8085 microprocessor simulator — running in your browser</div>
