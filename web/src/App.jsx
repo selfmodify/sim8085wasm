@@ -366,7 +366,11 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
     const view = viewRef.current
     if (view.state.doc.toString() === value) return
     syncing.current = true
-    view.dispatch({ changes: { from:0, to:view.state.doc.length, insert:value } })
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: value },
+      selection: { anchor: 0 },
+      effects: EditorView.scrollIntoView(0),
+    })
     syncing.current = false
   }, [value])
 
