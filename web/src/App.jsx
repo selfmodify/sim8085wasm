@@ -2542,6 +2542,9 @@ function addTraceEntry(prevR) {
                 regBase={regBase} onRegBase={setRegBase} />
             </div>
           </div>
+          <ConsolePanel output={consoleOutput} port={consolePort}
+            onSetPort={changeConsolePort}
+            onClear={() => { sim.simClearConsoleOutput(); setConsoleOutput('') }} />
           <div className="jump-row">
             <button className="btn btn-xs" onClick={()=>setMemStart(regs.pc & 0xFFF0)}>→ PC</button>
             <button className="btn btn-xs" onClick={()=>setMemStart(regs.sp & 0xFFF0)}>→ SP</button>
@@ -2562,9 +2565,6 @@ function addTraceEntry(prevR) {
           <IOPortPanel outputPorts={outputPorts} inputPresets={inputPresets}
             onSetInput={setInputPort} onRemoveInput={removeInputPort}
             keyQueue={keyQueue} onEnqueueKeys={enqueueKeys} onClearKeyQueue={clearKeyQueue} />
-          <ConsolePanel output={consoleOutput} port={consolePort}
-            onSetPort={changeConsolePort}
-            onClear={() => { sim.simClearConsoleOutput(); setConsoleOutput('') }} />
           <StackPanel regs={regs} regBase={regBase} onRegBase={setRegBase} />
           <TracePanel trace={trace} onClear={() => setTrace([])} />
         </div>
