@@ -629,7 +629,7 @@ function FlagPanel({ regs }) {
 }
 
 // ── Disassembly panel ────────────────────────────────────────────────────
-function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondition, onGotoLine, buildId, onRunTo, jumpRef, symbols, onJumpMem }) {
+function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondition, onGotoLine, buildId, pcFlash, onRunTo, jumpRef, symbols, onJumpMem }) {
   const [viewStart, setViewStart] = useState(() => regs.pc)
   const [ctxMenu, setCtxMenu]     = useState(null)   // {addr, x, y}
   const [followPC, setFollowPC]   = useState(true)
@@ -766,7 +766,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
           const cond  = breakpoints.get(row.addr) ?? null
           const label = addrToLabel.get(row.addr)
           return (
-            <div key={cur ? `cur-${regs.pc}` : row.addr}>
+            <div key={cur ? `cur-${regs.pc}-${pcFlash}` : row.addr}>
             {label && (
               <div className="disasm-label"
                 onClick={() => { onJumpMem?.(row.addr & 0xFFF0); onGotoLine?.(row.addr, label) }}
@@ -1963,6 +1963,7 @@ export default function App() {
   const [msg, setMsg]           = useState('Load an example or write code, then click Build.')
   const [steps, setSteps]       = useState(0)
   const [cycles, setCycles]     = useState(0)
+  const [pcFlash, setPcFlash]   = useState(0)
   const [buildId, setBuildId]   = useState(0)
   const [symbols, setSymbols]   = useState({})
   const [programRegion, setProgramRegion] = useState(null)
@@ -2149,6 +2150,7 @@ export default function App() {
     const prevR = sim.simGetRegisters()
     const ok = sim.simStep()
     setSteps(s => s+1)
+    setPcFlash(f => f+1)
     refresh()
     addTraceEntry(prevR)
     updateMemDiff()
@@ -2173,6 +2175,7 @@ export default function App() {
     sim.simRestoreSnapshot(snap)
     if (snap.cycles !== undefined) sim.simSetCycles(snap.cycles)
     setSteps(s => Math.max(0, s - 1))
+    setPcFlash(f => f+1)
     setAppState('idle')
     setMsg(`⟲ Stepped back — ${next.length} step${next.length !== 1 ? 's' : ''} remaining in history`)
     refresh()
@@ -2211,6 +2214,7 @@ export default function App() {
         }
         updateMemDiff()
         stopRun()
+        setPcFlash(f => f+1)
         if (atBp) {
           setAppState('idle')
           setMsg(`⏹ Breakpoint at ${hex4(r.pc)}H`)
@@ -2431,7 +2435,7 @@ function addTraceEntry(prevR) {
 
         {/* Code + Memory column */}
         <div className="col col-center">
-          <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} onClearAllBps={clearAllBps} buildId={buildId}
+          <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} onClearAllBps={clearAllBps} buildId={buildId} pcFlash={pcFlash}
             onSetCondition={openConditionDialog}
             onRunTo={runToAddr}
             jumpRef={disasmJumpRef}
