@@ -1674,7 +1674,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onImport, onExport, onShare, onCalc, memSize, onMemSize }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onShare, onCalc, memSize, onMemSize }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
 
@@ -1706,6 +1706,7 @@ function BrandMenu({ onShowWelcome, onImport, onExport, onShare, onCalc, memSize
           <div className="bmenu-sep" />
           {item('🖩  Calculator', onCalc)}
           {item('📖  Welcome guide', onShowWelcome)}
+          {item('⌨  Keyboard shortcuts  ?', onShowShortcuts)}
           <div className="bmenu-sep" />
           {item('⭐  View on GitHub',  () => window.open('https://github.com/selfmodify/sim8085wasm', '_blank'))}
           {item('🐛  Report a Bug',    () => window.open('https://github.com/selfmodify/sim8085wasm/issues/new', '_blank'))}
@@ -1785,6 +1786,79 @@ function WelcomeModal({ onClose }) {
 }
 
 // ── Instruction help modal ───────────────────────────────────────────────
+// ── Keyboard shortcuts modal ──────────────────────────────────────────────
+const SHORTCUTS = [
+  { group: 'Toolbar',
+    rows: [
+      { keys: ['F5'],           desc: 'Assemble (Build)' },
+      { keys: ['F7'],           desc: 'Step one instruction' },
+      { keys: ['F9'],           desc: 'Run / Stop' },
+      { keys: ['F6'],           desc: 'Reset (re-assemble from source)' },
+    ]
+  },
+  { group: 'Editor',
+    rows: [
+      { keys: ['Ctrl', 'F'],    desc: 'Find / Replace' },
+      { keys: ['Ctrl', 'Z'],    desc: 'Undo' },
+      { keys: ['Ctrl', 'Y'],    desc: 'Redo' },
+      { keys: ['Ctrl', 'click'],desc: 'Open instruction reference' },
+      { keys: ['Right-click'],  desc: 'Run to this line (after assembly)' },
+    ]
+  },
+  { group: 'Memory panel',
+    rows: [
+      { keys: ['↑ ↓ ← →'],     desc: 'Move cursor' },
+      { keys: ['Enter'],        desc: 'Edit byte at cursor' },
+      { keys: ['Esc'],          desc: 'Cancel edit' },
+    ]
+  },
+  { group: 'Disassembly panel',
+    rows: [
+      { keys: ['Click gutter'], desc: 'Toggle breakpoint' },
+      { keys: ['Right-click'],  desc: 'Set conditional breakpoint / Run to' },
+    ]
+  },
+  { group: 'Global',
+    rows: [
+      { keys: ['?'],            desc: 'Show this keyboard shortcuts reference' },
+      { keys: ['Esc'],          desc: 'Close any open modal' },
+    ]
+  },
+]
+
+function ShortcutsModal({ onClose }) {
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape' || e.key === '?') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div className="help-overlay" onClick={onClose}>
+      <div className="shortcuts-modal" onClick={e => e.stopPropagation()}>
+        <div className="help-hd">
+          <span className="help-mnem">Keyboard Shortcuts</span>
+          <button className="help-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="shortcuts-body">
+          {SHORTCUTS.map(g => (
+            <div key={g.group} className="shortcuts-group">
+              <div className="shortcuts-group-hd">{g.group}</div>
+              {g.rows.map(r => (
+                <div key={r.desc} className="shortcuts-row">
+                  <span className="shortcuts-keys">
+                    {r.keys.map((k, i) => <kbd key={i} className="shortcuts-kbd">{k}</kbd>)}
+                  </span>
+                  <span className="shortcuts-desc">{r.desc}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function HelpModal({ instruction, onClose }) {
   const inst = INST_HELP[instruction]
   useEffect(() => {
@@ -1896,8 +1970,9 @@ export default function App() {
   const [cursorInst, setCursorInst] = useState(null)
   const [helpInst, setHelpInst]     = useState(null)
   const [errorLine, setErrorLine]   = useState(null)
-  const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem('sim8085_welcomed'))
-  const [showCalc,    setShowCalc]    = useState(false)
+  const [showWelcome,    setShowWelcome]    = useState(() => !localStorage.getItem('sim8085_welcomed'))
+  const [showCalc,       setShowCalc]       = useState(false)
+  const [showShortcuts,  setShowShortcuts]  = useState(false)
   function dismissWelcome() { localStorage.setItem('sim8085_welcomed', '1'); setShowWelcome(false) }
   const [runSpeed, setRunSpeed]     = useState(3)        // index into SPEEDS
   const MEM_SIZES = [16*1024, 32*1024, 64*1024]
@@ -1988,6 +2063,9 @@ export default function App() {
       if (e.key === 'F6') { e.preventDefault(); h.handleReset() }
       if (e.key === 'F7') { e.preventDefault(); if (!h.running && h.appState !== 'error') h.doStep() }
       if (e.key === 'F9') { e.preventDefault(); if (h.appState !== 'error' || h.running) h.handleRun() }
+      if (e.key === '?' && !e.ctrlKey && !e.altKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault(); setShowShortcuts(s => !s)
+      }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -2298,6 +2376,7 @@ function addTraceEntry(prevR) {
         <div className="brand">
           <BrandMenu
             onShowWelcome={() => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) }}
+            onShowShortcuts={() => setShowShortcuts(true)}
             onImport={() => fileInputRef.current.click()}
             onExport={exportFile}
             onShare={shareURL}
@@ -2428,6 +2507,7 @@ function addTraceEntry(prevR) {
       {showWelcome && <WelcomeModal onClose={dismissWelcome} />}
       {helpInst && <HelpModal instruction={helpInst} onClose={() => setHelpInst(null)} />}
       {showCalc && <CalcFloat onClose={() => setShowCalc(false)} />}
+      {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
     </div>
   )
 }

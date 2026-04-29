@@ -1040,6 +1040,39 @@ body {
 .help-desc { color: var(--text2); font-size: 12px; line-height: 1.6 }
 .help-ex { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px 12px; font-family: var(--mono); font-size: 12px; color: var(--accent2); white-space: pre }
 
+/* ── Keyboard shortcuts modal ───────────────────────────────────────── */
+.shortcuts-modal {
+  background: var(--bg1);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  width: 520px; max-width: 92vw; max-height: 80vh;
+  box-shadow: 0 8px 32px rgba(0,0,0,.6);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.shortcuts-body {
+  padding: 14px 16px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.shortcuts-group-hd {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.2px;
+  color: var(--text3); text-transform: uppercase; margin-bottom: 6px;
+}
+.shortcuts-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 3px 0;
+}
+.shortcuts-keys { display: flex; gap: 4px; flex-shrink: 0; min-width: 160px }
+.shortcuts-kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 4px; padding: 2px 7px;
+  font-family: var(--mono); font-size: 11px; color: var(--text);
+  white-space: nowrap;
+  box-shadow: 0 1px 0 var(--border2);
+}
+.shortcuts-desc { font-size: 12px; color: var(--text2) }
+
 /* ── Bottom status bar ──────────────────────────────────────────────── */
 .statusbar {
   flex-shrink: 0;
