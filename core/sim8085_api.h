@@ -103,6 +103,41 @@ int  sim_disassemble(uint16_t addr, char *out_buf, int buf_len);
 const char *sim_get_error(void);
 int  sim_is_halted(void);
 int  sim_is_running(void);
+int  sim_is_halt_waiting(void);   /* HLT executed, waiting for interrupt */
+
+/* Interrupts */
+typedef struct {
+    int iff;          /* interrupt flip-flop */
+    int int_mask;     /* SIM mask byte (bit0=RST5.5, bit1=RST6.5, bit2=RST7.5) */
+    int rst75ff;      /* RST 7.5 edge latch */
+    int trap_pend;    /* TRAP pending */
+    int rst65;        /* RST 6.5 level */
+    int rst55;        /* RST 5.5 level */
+    int intr;         /* INTR level (unused, stub) */
+} Sim8085IntState;
+
+void sim_assert_interrupt(int type);    /* 0=TRAP,1=RST75,2=RST65,3=RST55 */
+void sim_deassert_interrupt(int type);
+void sim_get_int_state(Sim8085IntState *out);
+
+/* Keyboard queue */
+void sim_enqueue_keys(const char *s);
+void sim_clear_key_queue(void);
+int  sim_get_key_queue(char *buf, int max_len); /* returns chars written */
+
+/* Memory size */
+void sim_set_memory_size(int bytes);
+int  sim_get_memory_size(void);
+
+/* Snapshot / step-back */
+void sim_get_full_memory(uint8_t *out_buf);                          /* out_buf must be MAIN_MEMORY bytes */
+void sim_restore_snapshot(const uint8_t *regs_buf, int regs_len,    /* serialised Sim8085Registers */
+                          const uint8_t *ram_buf,  int ram_len);
+
+/* I/O ports */
+int  sim_get_output_port(uint8_t port);   /* last value written by OUT port,A */
+void sim_set_input_port(uint8_t port, uint8_t val);
+void sim_clear_input_port(uint8_t port);
 
 #ifdef __cplusplus
 }

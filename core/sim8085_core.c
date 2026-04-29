@@ -232,9 +232,14 @@ static word StackPop(void) {
 
 /* NOP / HLT / EI / DI */
 static int _Nop(void) { return NOP_LEN; }
-static int _Hlt(void) { SET_STATUS(HALTED|QUIT); return HLT_LEN; }
-static int _Di(void)  { INTR().ei = 0; return DI_LEN; }
-static int _Ei(void)  { INTR().ei = 1; return EI_LEN; }
+static int _Hlt(void) {
+    /* Advance PC past HLT, then halt-wait for interrupt (matches real 8085) */
+    KIT->cpu.r.ip = (KIT->cpu.r.ip + 1) & 0xFFFF;
+    SET_STATUS(HALTED);   /* NOT QUIT — interrupt resumes execution */
+    return 0;             /* IP already advanced */
+}
+static int _Di(void)  { INTR().ei = 0; INTR().iff_next = 0; return DI_LEN; }
+static int _Ei(void)  { INTR().iff_next = 1; return EI_LEN; }
 
 /* --- Data movement: MOV --- */
 #define DEF_MOV(dst,src,get_src) \
@@ -605,13 +610,39 @@ DEF_RST(6,RST_6_ADDR) DEF_RST(7,RST_7_ADDR)
 /* PCHL */
 static int _Pchl(void) { SetIP(GetHL()); return 0; }
 
-/* IN/OUT (port I/O - stub, no hardware access) */
-static int _In(void)  { /* port read - returns 0 */ SetA(0); return IN_LEN; }
-static int _Out(void) { /* port write - ignored  */ return OUT_LEN; }
+/* IN/OUT — backed by KIT->cpu.input_ports / output_ports */
+static int _In(void) {
+    uchar port = GetMemByte(GetIP() + 1);
+    SetA(KIT->cpu.input_ports[port]);
+    return IN_LEN;
+}
+static int _Out(void) {
+    uchar port = GetMemByte(GetIP() + 1);
+    KIT->cpu.output_ports[port] = GetA();
+    return OUT_LEN;
+}
 
-/* RIM/SIM (stub) */
-static int _Rim(void) { return RIM_LEN; }
-static int _Sim(void) { return SIM_LEN; }
+/* RIM — read interrupt mask into A */
+static int _Rim(void) {
+    interrupt_struct *is = &INTR();
+    uchar a = (is->int_mask & 0x07)        /* bits 0-2: mask state */
+            | (is->rst_5_5_ff ? 0x08 : 0)  /* bit 3: RST 5.5 pending */
+            | (is->rst_6_5_ff ? 0x10 : 0)  /* bit 4: RST 6.5 pending */
+            | (is->rst_7_5_ff ? 0x20 : 0)  /* bit 5: RST 7.5 pending */
+            | (is->ei         ? 0x40 : 0); /* bit 6: IFF */
+    SetA(a);
+    return RIM_LEN;
+}
+/* SIM — set interrupt mask from A */
+static int _Sim(void) {
+    interrupt_struct *is = &INTR();
+    uchar a = GetA();
+    if (a & 0x08) {  /* MSE bit: update masks */
+        is->int_mask = (is->int_mask & ~0x07) | (a & 0x07);
+    }
+    if (a & 0x10) is->rst_7_5_ff = 0;  /* reset RST 7.5 edge latch */
+    return SIM_LEN;
+}
 
 /* Invalid opcode */
 static int _Invalid(void) { SET_STATUS(INVALID_OP|SEVERE_ERROR); return 1; }
@@ -664,9 +695,17 @@ int PerformSystemCall(void) {
     switch (c) {
         case 0x00: /* System reset */
             return 1;
-        case 0x01: /* Read hex key into A (keyboard) */
-            SetA(0); /* web layer handles real keyboard input */
+        case 0x01: { /* Read hex key into A — dequeue from keyboard queue */
+            kbd_queue_struct *kb = &KIT->kbd;
+            if (kb->len > 0) {
+                SetA(kb->buf[kb->head]);
+                kb->head = (kb->head + 1) % KBD_QUEUE_MAX;
+                kb->len--;
+            } else {
+                SetA(0);
+            }
             return 1;
+        }
         case 0x02: /* Write single hex digit to display */
         {
             int field = GetB();
@@ -1646,7 +1685,57 @@ int GetStringFromCode(unsigned a, char *s) {
  * Step / Run (the execution engine)
  * --------------------------------------------------------------------- */
 
-/* Execute one instruction. Returns 1 to continue, 0 to stop. */
+/* Check and service pending interrupts (called after each instruction and in halt-wait) */
+static void CheckInterrupts(void) {
+    if (GET_STATUS() & (QUIT | SEVERE_ERROR)) return;
+
+    interrupt_struct *is = &INTR();
+
+    if (GET_STATUS() & HALTED) {
+        /* HLT halt-wait: only TRAP resumes unconditionally; others need IFF */
+        if (!is->trap_pend && !is->ei) return;
+    } else {
+        /* EI delay: IFF becomes active one instruction after EI */
+        if (is->iff_next) { is->ei = 1; is->iff_next = 0; return; }
+        if (!is->trap_pend && !is->ei) return;
+    }
+
+    /* TRAP: non-maskable */
+    if (is->trap_pend) {
+        is->trap_pend = 0;
+        CLEAR_STATUS(HALTED);
+        is->ei = 0; is->iff_next = 0;
+        StackPush(GetIP()); SetIP(TRAP_ADDR);
+        return;
+    }
+
+    if (!is->ei) return;  /* maskable interrupts require IFF */
+
+    /* RST 7.5 — edge-triggered latch, masked by int_mask bit 2 */
+    if (is->rst_7_5_ff && !(is->int_mask & 0x04)) {
+        is->rst_7_5_ff = 0;
+        CLEAR_STATUS(HALTED);
+        is->ei = 0; is->iff_next = 0;
+        StackPush(GetIP()); SetIP(RST_7_5_ADDR);
+        return;
+    }
+    /* RST 6.5 — level, masked by int_mask bit 1 */
+    if (is->rst_6_5_ff && !(is->int_mask & 0x02)) {
+        CLEAR_STATUS(HALTED);
+        is->ei = 0; is->iff_next = 0;
+        StackPush(GetIP()); SetIP(RST_6_5_ADDR);
+        return;
+    }
+    /* RST 5.5 — level, masked by int_mask bit 0 */
+    if (is->rst_5_5_ff && !(is->int_mask & 0x01)) {
+        CLEAR_STATUS(HALTED);
+        is->ei = 0; is->iff_next = 0;
+        StackPush(GetIP()); SetIP(RST_5_5_ADDR);
+        return;
+    }
+}
+
+/* Execute one instruction (raw — no interrupt check). Returns 1=continue, 0=stop. */
 int sim_step_one(void) {
     if (GET_STATUS() & (QUIT | SEVERE_ERROR | HALTED)) return 0;
 
@@ -1673,11 +1762,15 @@ int sim_step_one(void) {
     return !(GET_STATUS() & (QUIT | SEVERE_ERROR | HALTED));
 }
 
-/* Run up to max_steps instructions; returns steps executed */
+/* Run up to max_steps instructions with interrupt support; returns steps executed */
 int sim_run_steps(int max_steps) {
     int steps = 0;
-    while (steps < max_steps && sim_step_one()) {
+    while (steps < max_steps) {
+        if (GET_STATUS() & (QUIT | SEVERE_ERROR)) break;
+        if (GET_STATUS() & HALTED) { CheckInterrupts(); break; }
+        if (!sim_step_one()) break;
         steps++;
+        CheckInterrupts();
         if (IsABreakPoint(GetIP()) >= 0) break;
     }
     return steps;

@@ -28,7 +28,7 @@ typedef unsigned long   dword;
 /* -----------------------------------------------------------------------
  * Memory & machine constants
  * --------------------------------------------------------------------- */
-#define MAIN_MEMORY         (16 * 1024)   /* 16 KB address space */
+#define MAIN_MEMORY         (64 * 1024)   /* 64 KB address space */
 #define DEFAULT_IP          0x100
 #define DEFAULT_KICKOFF     0x100
 #define MAX_BREAK_POINTS    255
@@ -340,7 +340,9 @@ typedef struct {
     registers   r;
     uchar       ram[MAIN_MEMORY];
     unsigned    immediate;
-    unsigned    ptr;       /* assembler write pointer */
+    unsigned    ptr;           /* assembler write pointer */
+    uint8_t     input_ports[256];
+    uint8_t     output_ports[256];
 } cpu_struct;
 
 typedef struct {
@@ -379,15 +381,27 @@ typedef struct {
 typedef struct {
     int          executing;
     volatile int interrupted;
-    uchar        ei;
-    uchar        rst_5_5_ff;
-    uchar        rst_6_5_ff;
-    uchar        rst_7_5_ff;
+    uchar        ei;          /* interrupt flip-flop (IFF) */
+    uchar        iff_next;    /* EI takes effect one instruction later */
+    uchar        int_mask;    /* SIM mask: bit0=RST5.5, bit1=RST6.5, bit2=RST7.5 */
+    uchar        rst_5_5_ff;  /* RST 5.5 level pending */
+    uchar        rst_6_5_ff;  /* RST 6.5 level pending */
+    uchar        rst_7_5_ff;  /* RST 7.5 edge latch */
+    uchar        trap_pend;   /* TRAP pending */
     uchar        pending_5_5;
     uchar        pending_6_5;
     uchar        pending_7_5;
     volatile int interrupt_number;
 } interrupt_struct;
+
+/* Keyboard input queue (for CALL 5 C=01H syscall) */
+#define KBD_QUEUE_MAX 256
+typedef struct {
+    uint8_t buf[KBD_QUEUE_MAX];
+    int     head;
+    int     tail;
+    int     len;
+} kbd_queue_struct;
 
 typedef struct {
     ptr_to_simulate Simulate;
@@ -417,12 +431,13 @@ typedef struct {
  * Top-level machine structure
  * --------------------------------------------------------------------- */
 typedef struct {
-    cpu_struct      cpu;
-    unsigned        status;
-    led_data_struct led;
-    debug_info      i;
-    misc_state      m;
+    cpu_struct       cpu;
+    unsigned         status;
+    led_data_struct  led;
+    debug_info       i;
+    misc_state       m;
     interrupt_struct intr_info;
+    kbd_queue_struct kbd;
 } machine;
 
 typedef machine *machine_ptr;
