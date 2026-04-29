@@ -2540,11 +2540,11 @@ function addTraceEntry(prevR) {
                 onAdd={w => setWatches(ws => [...ws, w])}
                 onRemove={i => setWatches(ws => ws.filter((_,j) => j !== i))}
                 regBase={regBase} onRegBase={setRegBase} />
+              <ConsolePanel output={consoleOutput} port={consolePort}
+                onSetPort={changeConsolePort}
+                onClear={() => { sim.simClearConsoleOutput(); setConsoleOutput('') }} />
             </div>
           </div>
-          <ConsolePanel output={consoleOutput} port={consolePort}
-            onSetPort={changeConsolePort}
-            onClear={() => { sim.simClearConsoleOutput(); setConsoleOutput('') }} />
           <div className="jump-row">
             <button className="btn btn-xs" onClick={()=>setMemStart(regs.pc & 0xFFF0)}>→ PC</button>
             <button className="btn btn-xs" onClick={()=>setMemStart(regs.sp & 0xFFF0)}>→ SP</button>
