@@ -13,7 +13,7 @@ const wslRoot = winRoot
 function runWasmBuild() {
   return new Promise((resolve, reject) => {
     const cmd = [
-      'source ~/emsdk/emsdk_env.sh',
+      'source /opt/emsdk/emsdk_env.sh',
       `mkdir -p "${wslRoot}/build-wasm"`,
       `cd "${wslRoot}/build-wasm"`,
       '[ -f CMakeCache.txt ] || emcmake cmake ..',

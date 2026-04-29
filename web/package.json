@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "gen:favicon": "node gen-favicon.mjs",
     "screenshots": "node gen-screenshots.mjs",
-    "build:wasm": "wsl -e bash -c \"source ~/emsdk/emsdk_env.sh && D=$(wslpath -am .)/.. && mkdir -p \\\"$D/build-wasm\\\" && cd \\\"$D/build-wasm\\\" && ([ -f CMakeCache.txt ] || emcmake cmake ..) && cmake --build .\"",
+    "build:wasm": "wsl -e bash -c \"source /opt/emsdk/emsdk_env.sh && D=$(wslpath -am .)/.. && mkdir -p \\\"$D/build-wasm\\\" && cd \\\"$D/build-wasm\\\" && ([ -f CMakeCache.txt ] || emcmake cmake ..) && cmake --build .\"",
     "dev:full": "npm run build:wasm && vite",
     "build:full": "npm run build:wasm && vite build"
   },

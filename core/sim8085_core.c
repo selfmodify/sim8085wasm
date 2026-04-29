@@ -1754,7 +1754,6 @@ int sim_step_one(void) {
         word target = GetMemWord(GetIP() + 1);
         if (target == 0x0005) {
             word ret_addr = GetIP() + CALL_LEN;
-            StackPush(ret_addr);
             PerformSystemCall();
             SetIP(ret_addr);
             return !(GET_STATUS() & (QUIT | SEVERE_ERROR));
