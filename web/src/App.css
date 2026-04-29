@@ -1272,22 +1272,24 @@ body {
   }
   .mobile-tab:hover:not(.active) { color: var(--text2) }
 
-  /* Workspace: stack columns, full width */
-  .workspace { overflow-x: hidden }
+  /* Workspace: stack columns, full width, allow vertical scroll */
+  .workspace { overflow-x: hidden; overflow-y: hidden }
   .col-editor,
   .col-center,
   .col-right  {
     flex: none !important;
     width: 100% !important;
     min-width: 0 !important;
+    max-height: 100%;
+    overflow-y: auto !important;
+    overflow-x: hidden;
   }
-  .col-center { overflow-y: auto }
   /* Hide inactive tab columns */
   .mobile-hidden { display: none !important }
   /* Hide drag handles */
   .col-resize-handle { display: none }
 
   /* Editor should fill its column on mobile */
-  .editor-panel { flex: 1; min-height: 0 }
-  .editor-inner { min-height: 300px }
+  .editor-panel { flex: 0 0 auto; min-height: 320px }
+  .editor-inner { height: 320px; min-height: 0 }
 }
