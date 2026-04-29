@@ -7,7 +7,7 @@ import { oneDarkTheme } from '@codemirror/theme-one-dark'
 import * as sim from './sim8085Bridge.js'
 import { EXAMPLES } from './examples.js'
 import { INST_HELP } from './instHelp.js'
-import { hex2, hex4, b64encode, b64decode, BASE_CYCLE, SPEEDS, fmtByte, fmtWord, TRACE_REG16, fmtTraceVal, evalCondition } from './utils.js'
+import { hex2, hex4, b64encode, b64decode, BASE_CYCLE, SPEEDS, fmtByte, fmtWord, TRACE_REG16, fmtTraceVal, evalCondition, fmtCount } from './utils.js'
 import { asm8085Lang, asm8085Highlighting } from './lang.js'
 import './App.css'
 
@@ -2059,7 +2059,7 @@ export default function App() {
   }
 
   function pushHistory() {
-    const snap = { regs: sim.simGetRegisters(), ram: sim.simGetFullMemory() }
+    const snap = { regs: sim.simGetRegisters(), ram: sim.simGetFullMemory(), cycles: sim.simGetCycles() }
     const next = [...historyRef.current.slice(-19), snap]
     historyRef.current = next
     setHistLen(next.length)
@@ -2093,6 +2093,7 @@ export default function App() {
     historyRef.current = next
     setHistLen(next.length)
     sim.simRestoreSnapshot(snap)
+    if (snap.cycles !== undefined) sim.simSetCycles(snap.cycles)
     setSteps(s => Math.max(0, s - 1))
     setAppState('idle')
     setMsg(`⟲ Stepped back — ${next.length} step${next.length !== 1 ? 's' : ''} remaining in history`)
@@ -2405,15 +2406,24 @@ function addTraceEntry(prevR) {
       </div>
       <div className="statusbar">
         <span className="statusbar-label">LAST EVENT</span>
-        {statusLog.length === 0
-          ? <span className="statusbar-empty">—</span>
-          : (() => { const e = statusLog[statusLog.length - 1]; return (
-            <div className={`statusbar-entry sbar-${e.kind}`}>
-              <span className="statusbar-time">{e.t}</span>
-              <span className="statusbar-text">{e.text}</span>
-            </div>
-          )})()
-        }
+        <div className="statusbar-events">
+          {statusLog.length === 0
+            ? <span className="statusbar-empty">—</span>
+            : (() => { const e = statusLog[statusLog.length - 1]; return (
+              <div className={`statusbar-entry sbar-${e.kind}`}>
+                <span className="statusbar-time">{e.t}</span>
+                <span className="statusbar-text">{e.text}</span>
+              </div>
+            )})()
+          }
+        </div>
+        {(steps > 0 || cycles > 0) && (
+          <div className="statusbar-counters">
+            <span className="sbar-counter" title={`${steps.toLocaleString()} instructions executed`}>{fmtCount(steps)} steps</span>
+            <span className="sbar-sep">·</span>
+            <span className="sbar-counter" title={`${cycles.toLocaleString()} T-states elapsed`}>{fmtCount(cycles)} T</span>
+          </div>
+        )}
       </div>
       {showWelcome && <WelcomeModal onClose={dismissWelcome} />}
       {helpInst && <HelpModal instruction={helpInst} onClose={() => setHelpInst(null)} />}

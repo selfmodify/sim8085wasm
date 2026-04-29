@@ -29,6 +29,12 @@ export function fmtWord(v, base) {
 export const TRACE_REG16 = new Set(['pc','sp'])
 export const fmtTraceVal = (k, v) => TRACE_REG16.has(k) ? hex4(v) : hex2(v)
 
+export function fmtCount(n) {
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M'
+  if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'k'
+  return String(n)
+}
+
 export function evalCondition(expr, r) {
   try {
     const BC = (r.b<<8)|r.c, DE = (r.d<<8)|r.e, HL = (r.h<<8)|r.l

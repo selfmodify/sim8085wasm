@@ -275,5 +275,6 @@ export function simGetOutputPorts() {
 // ── Stubs — JS-only features not exposed by C core ────────────────────────
 export function simGetSymbols()       { return {}; }
 export function simGetCycles()        { return 0; }
+export function simSetCycles(_n)      { }
 export function simGetProgramRegion() { return { start: 0x100, end: 0x100 }; }
 export function simGetPresetAddrs()   { return new Set(); }

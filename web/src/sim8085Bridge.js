@@ -953,6 +953,7 @@ export function simIsRunning()        { return !(status & (HALTED|QUIT|SEVERE_ER
 export function simGetError()         { return lastError; }
 export function simGetSymbols()       { return {...lastSymbols} }
 export function simGetCycles()        { return cycles }
+export function simSetCycles(n)       { cycles = n }
 export function simGetProgramRegion() { return { start: lastProgStart, end: lastProgEnd } }
 export function simGetPresetAddrs()   { return new Set(lastPresetAddrs) }
 
