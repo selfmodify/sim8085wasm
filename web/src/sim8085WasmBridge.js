@@ -28,7 +28,7 @@ function loadScript(src) {
 // Lazy-loads /sim8085.js if not already on the page, then instantiates WASM.
 export const simReady = (async () => {
   if (typeof globalThis.Sim8085Module !== 'function') {
-    await loadScript('/sim8085.js');
+    await loadScript(import.meta.env.BASE_URL + 'sim8085.js');
   }
   if (typeof globalThis.Sim8085Module !== 'function') {
     throw new Error('sim8085.js loaded but Sim8085Module is not defined');
