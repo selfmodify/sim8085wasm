@@ -44,6 +44,15 @@ function writeStr(s) {
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 export function simInit() {
+  if (M) {
+    // Module already loaded — run synchronously so callers (doAssemble) that
+    // don't await can safely call simAssemble() immediately after.
+    M._sim_init();
+    jsInputPorts.fill(0);
+    jsBP.clear();
+    return;
+  }
+  // First call before WASM is ready — return a Promise (caller must await).
   return simReady.then(() => {
     M._sim_init();
     jsInputPorts.fill(0);

@@ -2152,10 +2152,15 @@ export default function App() {
     if (name === coreBackend) return
     stopRun()
     setMsg(`Switching to ${name === 'wasm' ? 'C/WASM' : 'JS'} core…`)
-    await setBackend(name)
-    setCoreBackend(name)
-    await Promise.resolve(sim.simInit())
-    doAssemble(srcRef.current)
+    try {
+      await setBackend(name)
+      setCoreBackend(name)
+      await Promise.resolve(sim.simInit())
+      doAssemble(srcRef.current)
+    } catch (err) {
+      setMsg(`✗ Core switch failed: ${err.message}`)
+      console.error('switchCore error:', err)
+    }
   }
 
   function addTraceEntry(prevR) {
