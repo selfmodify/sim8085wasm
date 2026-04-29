@@ -1272,16 +1272,17 @@ body {
   }
   .mobile-tab:hover:not(.active) { color: var(--text2) }
 
-  /* Workspace: stack columns, full width, allow vertical scroll */
-  .workspace { overflow-x: hidden; overflow-y: hidden }
+  /* Workspace: positioning context; absolute columns fill it exactly */
+  .workspace { position: relative; overflow: hidden }
   .col-editor,
   .col-center,
-  .col-right  {
+  .col-right {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: auto !important;
     flex: none !important;
-    width: 100% !important;
     min-width: 0 !important;
-    max-height: 100%;
-    overflow-y: auto !important;
+    overflow-y: auto;
     overflow-x: hidden;
   }
   /* Hide inactive tab columns */
@@ -1289,7 +1290,7 @@ body {
   /* Hide drag handles */
   .col-resize-handle { display: none }
 
-  /* Editor should fill its column on mobile */
-  .editor-panel { flex: 0 0 auto; min-height: 320px }
-  .editor-inner { height: 320px; min-height: 0 }
+  /* Editor: fixed height so LED/help panels below it are reachable */
+  .editor-panel { flex: 0 0 auto; min-height: 300px }
+  .editor-inner { height: 300px; min-height: 0 }
 }
