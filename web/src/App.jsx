@@ -4,7 +4,8 @@ import { EditorState, StateEffect, StateField } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { search, searchKeymap } from '@codemirror/search'
 import { oneDarkTheme } from '@codemirror/theme-one-dark'
-import * as sim from './sim8085Bridge.js'
+import * as sim from './sim.js'
+import { setBackend, getBackend } from './sim.js'
 import { EXAMPLES } from './examples.js'
 import { INST_HELP } from './instHelp.js'
 import { hex2, hex4, b64encode, b64decode, BASE_CYCLE, SPEEDS, fmtByte, fmtWord, TRACE_REG16, fmtTraceVal, evalCondition } from './utils.js'
@@ -1885,6 +1886,7 @@ export default function App() {
   const [keyQueue, setKeyQueue]   = useState([])          // chars queued for C=01H syscall
   const [intState, setIntState] = useState(() => sim.simGetIntState())
   const [memStart, setMemStart] = useState(0x100)
+  const [coreBackend, setCoreBackend] = useState('js')  // 'js' | 'wasm'
   const [appState, setAppState] = useState('idle')  // idle | running | halted | error
   const [msg, setMsg]           = useState('Load an example or write code, then click Build.')
   const [steps, setSteps]       = useState(0)
@@ -1977,7 +1979,7 @@ export default function App() {
     document.addEventListener('mouseup', onUp)
   }
 
-  useEffect(() => { sim.simInit(); doAssemble(src); }, [])
+  useEffect(() => { Promise.resolve(sim.simInit()).then(() => doAssemble(src)) }, [])
 
   const hotkeysRef = useRef(null)
   useEffect(() => { hotkeysRef.current = { doAssemble, handleReset, doStep, handleRun, running, appState } })
@@ -2145,6 +2147,16 @@ export default function App() {
   function handleRun() { appState === 'running' ? stopRun() : startRun() }
 
   function handleReset() { doAssemble(srcRef.current) }
+
+  async function switchCore(name) {
+    if (name === coreBackend) return
+    stopRun()
+    setMsg(`Switching to ${name === 'wasm' ? 'C/WASM' : 'JS'} core…`)
+    await setBackend(name)
+    setCoreBackend(name)
+    await Promise.resolve(sim.simInit())
+    doAssemble(srcRef.current)
+  }
 
   function addTraceEntry(prevR) {
     const r = sim.simGetRegisters()
@@ -2315,6 +2327,11 @@ export default function App() {
             <span className="speed-val">{SPEEDS[runSpeed].label}</span>
           </label>
           <button className="btn btn-reset" onClick={handleReset}>↺ Reset  <kbd>F6</kbd></button>
+          <div className="core-toggle" title="Switch simulator core">
+            <span className="core-toggle-lbl">Core</span>
+            <button className={`core-toggle-btn ${coreBackend === 'js'   ? 'active' : ''}`} onClick={() => switchCore('js')}>JS</button>
+            <button className={`core-toggle-btn ${coreBackend === 'wasm' ? 'active' : ''}`} onClick={() => switchCore('wasm')}>C</button>
+          </div>
         </div>
 
       </div>
