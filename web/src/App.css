@@ -320,6 +320,15 @@ body {
   flex-shrink: 0;
 }
 
+/* Engine chip */
+.engine-chip {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  padding: 2px 6px; border-radius: var(--radius-sm); border: 1px solid;
+  flex-shrink: 0; letter-spacing: .5px;
+}
+.engine-chip-js   { border-color: var(--border2); color: var(--text3) }
+.engine-chip-wasm { border-color: var(--blue);    color: var(--blue) }
+
 /* Speed slider */
 .speed-label { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 12px; color: var(--text3); white-space: nowrap }
 .speed-slider { width: 70px; accent-color: var(--accent); cursor: pointer }

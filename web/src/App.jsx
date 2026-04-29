@@ -4,7 +4,8 @@ import { EditorState, StateEffect, StateField } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { search, searchKeymap } from '@codemirror/search'
 import { oneDarkTheme } from '@codemirror/theme-one-dark'
-import * as sim from './sim8085Bridge.js'
+import * as sim from './simProxy.js'
+import { getEngineMode, switchEngine } from './simProxy.js'
 import { EXAMPLES } from './examples.js'
 import { INST_HELP } from './instHelp.js'
 import { hex2, hex4, b64encode, b64decode, BASE_CYCLE, SPEEDS, fmtByte, fmtWord, TRACE_REG16, fmtTraceVal, evalCondition, fmtCount } from './utils.js'
@@ -1736,7 +1737,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onShare, onCalc, memSize, onMemSize }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
 
@@ -1782,6 +1783,24 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onShare
               <option value={32*1024}>32 KB</option>
               <option value={64*1024}>64 KB</option>
             </select>
+          </div>
+          <div className="bmenu-setting">
+            <span className="bmenu-setting-label">Engine</span>
+            <span style={{display:'flex',gap:3}}>
+              {['js','wasm'].map(m => (
+                <button key={m} disabled={engineSwitching}
+                  className={`bmenu-setting-sel`}
+                  style={{
+                    cursor: engineSwitching ? 'wait' : 'pointer',
+                    borderColor: engineMode === m ? 'var(--accent)' : undefined,
+                    color: engineMode === m ? 'var(--accent)' : undefined,
+                    fontWeight: engineMode === m ? 700 : 400,
+                  }}
+                  onClick={() => { onEngineSwitch(m); setOpen(false) }}>
+                  {m.toUpperCase()}
+                </button>
+              ))}
+            </span>
           </div>
           <div className="bmenu-credits">
             <div>8085 Simulator</div>
@@ -2023,6 +2042,8 @@ export default function App() {
   const [intState, setIntState] = useState(() => sim.simGetIntState())
   const [memStart, setMemStart] = useState(0x100)
   const [appState, setAppState] = useState('idle')  // idle | running | halted | error
+  const [engineMode, setEngineMode]   = useState('js')    // 'js' | 'wasm'
+  const [engineSwitching, setEngineSwitching] = useState(false)
   const [msg, setMsg]           = useState('Load an example or write code, then click Build.')
   const [steps, setSteps]       = useState(0)
   const [cycles, setCycles]     = useState(0)
@@ -2430,6 +2451,23 @@ function addTraceEntry(prevR) {
     setKeyQueue([])
   }
 
+  async function handleEngineSwitch(mode) {
+    if (mode === engineMode || engineSwitching) return
+    stopRun()
+    setEngineSwitching(true)
+    setMsg(`Switching to ${mode.toUpperCase()} engine…`)
+    const result = await switchEngine(mode)
+    setEngineSwitching(false)
+    if (!result.ok) {
+      setMsg(`✗ WASM unavailable: ${result.error}`)
+      setEngineMode('js')
+      return
+    }
+    setEngineMode(mode)
+    sim.simInit()
+    doAssemble(srcRef.current)
+  }
+
   function changeMemSize(n) {
     memSizeRef.current = n
     _setMemSize(n)
@@ -2460,7 +2498,9 @@ function addTraceEntry(prevR) {
             onExport={exportFile}
             onShare={shareURL}
             onCalc={() => setShowCalc(c => !c)}
-            memSize={memSize} onMemSize={changeMemSize} />
+            memSize={memSize} onMemSize={changeMemSize}
+            engineMode={engineMode} onEngineSwitch={handleEngineSwitch}
+            engineSwitching={engineSwitching} />
         </div>
 
         <div className="toolbar">
@@ -2483,6 +2523,9 @@ function addTraceEntry(prevR) {
         </div>
 
         {fileName && <span className="topbar-filename" title={fileName}>{fileName}</span>}
+        <span className={`engine-chip engine-chip-${engineMode}`} title={engineSwitching ? 'Switching engine…' : `Engine: ${engineMode.toUpperCase()}`}>
+          {engineSwitching ? '…' : engineMode.toUpperCase()}
+        </span>
       </div>
 
       {/* ── Mobile tab bar ── */}

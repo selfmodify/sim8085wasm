@@ -15,10 +15,23 @@
 
 let M = null;   // resolved Emscripten module
 
-// Start loading immediately; resolves when WASM is instantiated
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload  = resolve;
+    s.onerror = () => reject(new Error(`Failed to load ${src} — run the Emscripten build first`));
+    document.head.appendChild(s);
+  });
+}
+
+// Lazy-loads /sim8085.js if not already on the page, then instantiates WASM.
 export const simReady = (async () => {
   if (typeof globalThis.Sim8085Module !== 'function') {
-    throw new Error('sim8085.js must be included as a <script> in index.html');
+    await loadScript('/sim8085.js');
+  }
+  if (typeof globalThis.Sim8085Module !== 'function') {
+    throw new Error('sim8085.js loaded but Sim8085Module is not defined');
   }
   M = await globalThis.Sim8085Module();
 })();
