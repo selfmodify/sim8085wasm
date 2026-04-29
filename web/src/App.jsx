@@ -1646,7 +1646,7 @@ function IntPanel({ intState, onAssert, onDeassert }) {
   return (
     <div className="panel int-panel">
       <div className="panel-hd">
-        <span className="panel-icon">⚡</span>INTERRUPTS
+        <span className="panel-icon">🔔</span>INTERRUPTS
         <PanelHelp panel="INTERRUPTS" />
       </div>
       <div className="int-iff">
