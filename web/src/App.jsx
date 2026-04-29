@@ -2030,6 +2030,7 @@ export default function App() {
   const [errorLine, setErrorLine]   = useState(null)
   const [consoleOutput, setConsoleOutput] = useState('')
   const [consolePort,   setConsolePort]   = useState(() => sim.simGetConsolePort())
+  const [mobileTab,      setMobileTab]      = useState('editor')
   const [showWelcome,    setShowWelcome]    = useState(() => !localStorage.getItem('sim8085_welcomed'))
   const [showCalc,       setShowCalc]       = useState(false)
   const [showShortcuts,  setShowShortcuts]  = useState(false)
@@ -2475,10 +2476,17 @@ function addTraceEntry(prevR) {
 
       </div>
 
+      {/* ── Mobile tab bar ── */}
+      <div className="mobile-tabs">
+        {[['editor','✏ Editor'],['code','📋 Code'],['regs','🧠 Regs']].map(([id, label]) => (
+          <button key={id} className={`mobile-tab${mobileTab===id?' active':''}`} onClick={() => setMobileTab(id)}>{label}</button>
+        ))}
+      </div>
+
       {/* ── Workspace ── */}
       <div className="workspace">
         {/* Editor column */}
-        <div className="col col-editor" ref={editorColRef}>
+        <div className={`col col-editor${mobileTab!=='editor' ? ' mobile-hidden' : ''}`} ref={editorColRef}>
           <div className="panel editor-panel">
             <div className="panel-hd">
             <span className="panel-icon">✏️</span>EDITOR
@@ -2500,7 +2508,7 @@ function addTraceEntry(prevR) {
         <div className="col-resize-handle" onMouseDown={onEditorResizeDown} />
 
         {/* Code + Memory column */}
-        <div className="col col-center">
+        <div className={`col col-center${mobileTab!=='code' ? ' mobile-hidden' : ''}`}>
           <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} onClearAllBps={clearAllBps} buildId={buildId} pcFlash={pcFlash}
             onSetCondition={openConditionDialog}
             onRunTo={runToAddr}
@@ -2539,7 +2547,7 @@ function addTraceEntry(prevR) {
         <div className="col-resize-handle" onMouseDown={onRightResizeDown} />
 
         {/* Registers column */}
-        <div className="col col-right" ref={rightColRef}>
+        <div className={`col col-right${mobileTab!=='regs' ? ' mobile-hidden' : ''}`} ref={rightColRef}>
           <RegPanel   regs={regs} prev={prevRegs} onJump={setMemStart}
             regBase={regBase} onRegBase={setRegBase} onEdit={refresh} />
           <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh}

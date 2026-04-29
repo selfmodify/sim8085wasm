@@ -1232,3 +1232,62 @@ body {
   .col-editor { flex-basis: 280px }
   .col-right  { flex-basis: 240px }
 }
+
+/* ── Mobile tab bar (hidden on desktop) ────────────────────────────── */
+.mobile-tabs { display: none }
+
+/* ── Responsive / mobile layout ────────────────────────────────────── */
+@media (max-width: 700px) {
+  /* Topbar: let toolbar wrap so buttons don't clip */
+  .topbar { height: auto; min-height: 48px; padding: 6px 10px; flex-wrap: wrap; gap: 6px }
+  .toolbar { flex-wrap: wrap; gap: 4px }
+  /* Hide keyboard shortcut hints and speed label text to save space */
+  .btn kbd { display: none }
+  .speed-val { display: none }
+  .speed-label { gap: 4px }
+  .editor-hint { display: none }
+
+  /* Mobile tab bar */
+  .mobile-tabs {
+    display: flex;
+    flex-shrink: 0;
+    background: var(--bg1);
+    border-bottom: 1px solid var(--border);
+  }
+  .mobile-tab {
+    flex: 1;
+    padding: 8px 4px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: color .12s, border-color .12s;
+  }
+  .mobile-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .mobile-tab:hover:not(.active) { color: var(--text2) }
+
+  /* Workspace: stack columns, full width */
+  .workspace { overflow-x: hidden }
+  .col-editor,
+  .col-center,
+  .col-right  {
+    flex: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .col-center { overflow-y: auto }
+  /* Hide inactive tab columns */
+  .mobile-hidden { display: none !important }
+  /* Hide drag handles */
+  .col-resize-handle { display: none }
+
+  /* Editor should fill its column on mobile */
+  .editor-panel { flex: 1; min-height: 0 }
+  .editor-inner { min-height: 300px }
+}
