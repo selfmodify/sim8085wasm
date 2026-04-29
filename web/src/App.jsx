@@ -2114,11 +2114,12 @@ export default function App() {
         setMsg('⏸ HLT — awaiting interrupt…')
         return
       }
-      if (!sim.simIsRunning()) {
-        const r = sim.simGetRegisters()
+      const r = sim.simGetRegisters()
+      const atBp = bpsRef.current.has(r.pc)
+      if (!sim.simIsRunning() || atBp) {
         const cond = bpsRef.current.get(r.pc)
         // Conditional BP whose condition is not met — skip and continue
-        if (cond != null && !evalCondition(cond, r)) {
+        if (atBp && cond != null && !evalCondition(cond, r)) {
           sim.simStep()
           return
         }
@@ -2131,8 +2132,13 @@ export default function App() {
         }
         updateMemDiff()
         stopRun()
-        setAppState(sim.simIsHalted() ? 'halted' : 'error')
-        setMsg(sim.simIsHalted() ? '■ Program halted.' : `✗ ${sim.simGetError()}`)
+        if (atBp) {
+          setAppState('idle')
+          setMsg(`⏹ Breakpoint at ${hex4(r.pc)}H`)
+        } else {
+          setAppState(sim.simIsHalted() ? 'halted' : 'error')
+          setMsg(sim.simIsHalted() ? '■ Program halted.' : `✗ ${sim.simGetError()}`)
+        }
       }
     }, 16)
   }
