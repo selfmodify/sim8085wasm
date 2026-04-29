@@ -4,7 +4,7 @@ import { EditorState, StateEffect, StateField } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { search, searchKeymap } from '@codemirror/search'
 import { oneDarkTheme } from '@codemirror/theme-one-dark'
-import * as sim from './sim8085WasmBridge.js'
+import * as sim from './sim8085Bridge.js'
 import { EXAMPLES } from './examples.js'
 import { INST_HELP } from './instHelp.js'
 import { hex2, hex4, b64encode, b64decode, BASE_CYCLE, SPEEDS, fmtByte, fmtWord, TRACE_REG16, fmtTraceVal, evalCondition, fmtCount } from './utils.js'
@@ -2118,7 +2118,7 @@ export default function App() {
     document.addEventListener('mouseup', onUp)
   }
 
-  useEffect(() => { Promise.resolve(sim.simInit()).then(() => doAssemble(src)) }, [])
+  useEffect(() => { sim.simInit(); doAssemble(src) }, [])
 
   const hotkeysRef = useRef(null)
   useEffect(() => { hotkeysRef.current = { doAssemble, handleReset, doStep, handleRun, running, appState } })
