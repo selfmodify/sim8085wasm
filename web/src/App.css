@@ -269,7 +269,7 @@ body {
 
 .col-editor { flex: 0 0 340px; min-width: 180px }
 .col-center { flex: 1 0 280px; overflow-y: auto }
-.col-right  { flex: 0 0 300px; min-width: 200px; overflow: hidden }
+.col-right  { flex: 0 0 300px; min-width: 200px; overflow-y: auto; overflow-x: hidden }
 
 .col-resize-handle {
   flex: 0 0 4px;
@@ -1282,9 +1282,13 @@ body {
     width: auto !important;
     flex: none !important;
     min-width: 0 !important;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
   }
+  /* Prevent panels from shrinking to fit — forces column to overflow and scroll */
+  .col-editor > *,
+  .col-center > *,
+  .col-right > * { flex-shrink: 0 }
   /* Hide inactive tab columns */
   .mobile-hidden { display: none !important }
   /* Hide drag handles */
