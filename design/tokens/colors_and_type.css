@@ -1,0 +1,213 @@
+/* ─────────────────────────────────────────────────────────────────
+   sim8085 — Design Tokens
+   Lifted directly from web/src/App.css. Use these tokens for any
+   sim8085-branded surface (slides, mocks, prototypes, production).
+   ───────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Surfaces (dark stack — lowest = deepest) ───────────────── */
+  --bg:       #0d0f14;   /* page / outermost */
+  --bg1:      #141720;   /* panel body */
+  --bg2:      #1a1e2b;   /* panel header / button rest */
+  --bg3:      #20253a;   /* panel header hover / chip / input */
+
+  /* ── Borders ────────────────────────────────────────────────── */
+  --border:   #2a3050;   /* default 1px panel/cell border */
+  --border2:  #3a4568;   /* hover / focused border */
+
+  /* ── Brand + signal colors ──────────────────────────────────── */
+  --accent:   #4af0a0;   /* terminal green — primary action / "live" / on */
+  --accent2:  #2ac878;   /* darker green — hover, edge accents */
+  --amber:    #f0a840;   /* warning / SP / help / amber labels */
+  --red:      #ff4040;   /* errors, breakpoints, stop, destructive */
+  --blue:     #4090ff;   /* secondary action — Build / assembler */
+  --led-on:   #FF2200;   /* 7-seg LED illuminated segment */
+  --led-off:  rgba(255, 34, 0, 0.15);
+
+  /* ── Foreground text ramp ───────────────────────────────────── */
+  --text:     #c8d4e8;   /* primary body */
+  --text2:    #7888a8;   /* secondary / labels */
+  --text3:    #4a5470;   /* tertiary / disabled / hints */
+
+  /* ── CodeMirror syntax (assembly) ───────────────────────────── */
+  --syn-keyword:   #4090ff;   /* MOV, JNZ, CALL — mnemonics */
+  --syn-register:  #f0a840;   /* A, B, HL, SP — register atoms */
+  --syn-number:    #4af0a0;   /* 100H, 42, 00101010B */
+  --syn-string:    #a8e86a;   /* 'literal' */
+  --syn-comment:   #4a5470;   /* ; comment (italic) */
+  --syn-label:     #82aaff;   /* loop:  start: */
+  --syn-directive: #c792ea;   /* ORG, DB, EQU */
+  --syn-pseudo:    #ff6b6b;   /* KICKOFF, ASSERT, SETBYTE (bold) */
+
+  /* ── Tinted state backgrounds (overlay on dark surface) ────── */
+  --tint-accent:   rgba(74, 240, 160, .06);   /* "changed" row */
+  --tint-accent-hi:rgba(74, 240, 160, .12);   /* flag-on / chip */
+  --tint-accent-pc:rgba(74, 240, 160, .20);   /* PC byte in memory */
+  --tint-accent-flash:rgba(74, 240, 160, .28);
+  --tint-amber:    rgba(240, 168, 64, .12);
+  --tint-amber-sp: rgba(240, 168, 64, .15);   /* SP byte in memory */
+  --tint-red:      rgba(255,  64,  64, .10);
+  --tint-blue-code:rgba( 80, 120, 255, .18);  /* code byte in memory */
+  --tint-green-pre:rgba( 80, 200,  80, .18);  /* preset byte in memory */
+
+  /* ── Type families ──────────────────────────────────────────── */
+  --mono: "JetBrains Mono", "Fira Code", "Cascadia Code",
+          ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+
+  /* ── Shadows + radii (small, restrained) ────────────────────── */
+  --radius-sm: 3px;     /* inputs, chips, mem cells */
+  --radius:    4px;     /* buttons, brand chip */
+  --radius-md: 6px;     /* floating windows, popups */
+  --radius-lg: 7px;     /* dropdown menus */
+  --radius-xl: 10px;    /* welcome modal */
+
+  --shadow-pop:   0 4px 16px rgba(0,0,0,.5);
+  --shadow-menu:  0 8px 24px rgba(0,0,0,.6);
+  --shadow-modal: 0 12px 40px rgba(0,0,0,.7);
+  --shadow-led:   drop-shadow(0 0 5px rgba(255, 40, 0, 0.8));
+
+  /* ── Spacing rhythm (the app stays tight; few large gaps) ──── */
+  --space-1:  2px;
+  --space-2:  4px;
+  --space-3:  6px;
+  --space-4:  8px;
+  --space-5:  10px;
+  --space-6:  14px;
+  --space-7:  16px;
+  --space-8:  24px;
+
+  /* ── Component sizes ────────────────────────────────────────── */
+  --topbar-h:    60px;
+  --panel-hd-h:  24px;     /* compact, mono caps headers */
+  --btn-h:       28px;     /* default toolbar btn */
+  --btn-h-xs:    22px;     /* dense in-panel btn */
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Base type
+   ─────────────────────────────────────────────────────────────────
+   The product is intentionally dense, mono-forward, and small.
+   Sans is for prose only (chips, modal copy, help). Mono is the
+   default everywhere CPU state, code, addresses, or labels live.
+   ───────────────────────────────────────────────────────────────── */
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;            /* base for prose */
+  line-height: 1.4;
+}
+
+/* Panel headers — short, mono, ALL CAPS, wide-tracked */
+.t-panel-hd {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text2);
+  text-transform: uppercase;
+}
+
+/* Section headers inside a panel (e.g. "INPUT  RETURNED BY IN") */
+.t-section-hd {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text3);
+  text-transform: uppercase;
+}
+
+/* Standard mono row (registers, memory cells, disasm rows) */
+.t-mono-row {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text2);
+}
+
+/* Larger mono — register values, register pairs */
+.t-mono-val {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* Small mono — flag labels, bit-view labels, memory column headers */
+.t-mono-tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+}
+
+/* Brand chip — the "8085" badge, top-left of the topbar */
+.t-brand {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 1px;
+  color: #050a14;
+  background: var(--accent);
+  padding: 3px 10px;
+  border-radius: var(--radius);
+}
+
+/* Buttons — mono, 13px, kbd hint slightly smaller */
+.t-btn {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.t-kbd {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+}
+
+/* Body prose (welcome modal, help popups, chat bubbles for copy) */
+.t-body {
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text2);
+}
+
+/* Help popup body — slightly smaller, soft */
+.t-help {
+  font-family: var(--sans);
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--text2);
+}
+
+/* Status messages — mono, 13px */
+.t-status {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text2);
+}
+
+/* LED digit hex value below the segment */
+.t-led-val {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--amber);
+  letter-spacing: 0.05em;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Semantic helpers — drop-in classes for state coloring
+   ───────────────────────────────────────────────────────────────── */
+.fg-1 { color: var(--text)  }
+.fg-2 { color: var(--text2) }
+.fg-3 { color: var(--text3) }
+.fg-accent { color: var(--accent) }
+.fg-amber  { color: var(--amber)  }
+.fg-red    { color: var(--red)    }
+.fg-blue   { color: var(--blue)   }
+
+.bg-0 { background: var(--bg)  }
+.bg-1 { background: var(--bg1) }
+.bg-2 { background: var(--bg2) }
+.bg-3 { background: var(--bg3) }

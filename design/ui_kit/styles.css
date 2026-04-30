@@ -1,0 +1,206 @@
+/* ── sim8085 UI kit — workspace styles, lifted from web/src/App.css ── */
+
+* { box-sizing: border-box; margin: 0; padding: 0 }
+html, body, #root { height: 100%; overflow: hidden }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.app { display: flex; flex-direction: column; height: 100vh; overflow: hidden }
+
+/* Topbar */
+.topbar { display: flex; align-items: center; gap: 16px; padding: 0 14px; height: 60px;
+  background: var(--bg1); border-bottom: 1px solid var(--border); flex-shrink: 0 }
+.brand-chip { background: var(--accent); color: #050a14; font-family: var(--mono);
+  font-weight: 700; font-size: 16px; padding: 3px 10px; border-radius: 4px; letter-spacing: 1px }
+.brand-trigger { border: none; cursor: pointer; display: flex; align-items: center; gap: 4px }
+.brand-trigger:hover { opacity: .85 }
+.brand-chevron { font-size: 14px; opacity: .85; color: #050a14 }
+
+.toolbar { display: flex; align-items: center; gap: 6px; flex: 1 }
+
+.btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px;
+  border-radius: 4px; border: 1px solid var(--border); background: var(--bg2);
+  color: var(--text); font-family: var(--mono); font-size: 13px; cursor: pointer;
+  white-space: nowrap; transition: all .12s }
+.btn:hover:not(:disabled) { border-color: var(--border2); background: var(--bg3) }
+.btn:disabled { opacity: .4; cursor: default }
+.btn kbd { background: var(--bg3); border: 1px solid var(--border); border-radius: 3px;
+  padding: 0 4px; font-size: 11px; color: var(--text3) }
+.btn-asm { border-color: #3a5080; color: #80b0ff }
+.btn-asm:hover:not(:disabled) { background: #1a2540; border-color: var(--blue) }
+.btn-step { border-color: #3a5040; color: var(--accent) }
+.btn-step:hover:not(:disabled) { background: #1a2520 }
+.btn-run { border-color: #3a6040; color: var(--accent); font-weight: 600 }
+.btn-run:hover:not(:disabled) { background: #1a3020; border-color: var(--accent2) }
+.btn-stop { border-color: #6a2020; color: var(--red); font-weight: 600 }
+.btn-reset { color: var(--amber) }
+.btn-back { color: var(--text2) }
+
+.speed-label { display: flex; align-items: center; gap: 5px; font-family: var(--mono);
+  font-size: 12px; color: var(--text3); white-space: nowrap }
+.speed-slider { width: 70px; accent-color: var(--accent); cursor: pointer }
+.speed-val { color: var(--text2); min-width: 36px; font-family: var(--mono); font-size: 12px }
+
+/* Status bar (bottom) */
+.statusbar { display: flex; align-items: center; gap: 10px; padding: 4px 12px;
+  background: var(--bg1); border-top: 1px solid var(--border); flex-shrink: 0;
+  font-family: var(--mono); font-size: 12px; height: 28px }
+.status-time { color: var(--text3) }
+.status-msg { font-weight: 600 }
+.status-running .status-msg { color: var(--accent); animation: blink 1s infinite }
+.status-halted .status-msg { color: var(--amber) }
+.status-error .status-msg { color: var(--red) }
+.status-idle .status-msg { color: var(--text2) }
+.status-meta { color: var(--text3); margin-left: auto; font-size: 11px }
+@keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .5 } }
+
+/* Workspace columns */
+.workspace { display: flex; flex: 1; overflow: hidden; gap: 1px; background: var(--border) }
+.col { display: flex; flex-direction: column; gap: 1px; overflow: hidden; background: var(--border) }
+.col-editor { flex: 0 0 340px }
+.col-center { flex: 1 0 280px; overflow-y: auto }
+.col-right  { flex: 0 0 300px }
+
+/* Panel base */
+.panel { background: var(--bg1); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0 }
+.panel-grow { flex: 1 1 0; min-height: 0 }
+.panel-hd { display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 8px; background: var(--bg2); border-bottom: 1px solid var(--border);
+  font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 2px;
+  color: var(--text2); flex-shrink: 0; text-transform: uppercase }
+.panel-icon { letter-spacing: 0; margin-right: 5px; font-size: 13px; text-transform: none }
+.panel-hd-right { display: flex; align-items: center; gap: 4px }
+.help-btn { background: none; border: 1px solid var(--amber); border-radius: 3px;
+  color: var(--amber); font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0; padding: 1px 5px; cursor: pointer; opacity: .75; text-transform: none }
+.help-btn:hover { opacity: 1; background: rgba(240,168,64,.12) }
+
+/* Editor */
+.editor-panel { flex: 1 1 0; min-height: 0; overflow: hidden }
+.editor-body { flex: 1; overflow: auto; padding: 6px 0 8px; font-family: var(--mono);
+  font-size: 13px; line-height: 1.55; min-height: 0 }
+.editor-line { display: flex; padding: 0 12px; gap: 14px; white-space: pre }
+.editor-ln { color: var(--text3); width: 24px; text-align: right; user-select: none; flex-shrink: 0 }
+.editor-text { color: var(--text); flex: 1 }
+.tok-key { color: #4090ff; font-weight: 600 }
+.tok-reg { color: #f0a840 }
+.tok-num { color: #4af0a0 }
+.tok-str { color: #a8e86a }
+.tok-cm  { color: #4a5470; font-style: italic }
+.tok-lbl { color: #82aaff }
+.tok-meta { color: #c792ea }
+.tok-pseudo { color: #ff6b6b; font-weight: 600 }
+
+/* Registers */
+.reg-row { display: flex; align-items: baseline; gap: 6px; padding: 2px 10px;
+  font-family: var(--mono); font-size: 14px; border-left: 2px solid transparent;
+  transition: background .1s }
+.reg-row.changed { border-left-color: var(--accent); background: rgba(74,240,160,.06) }
+.reg-name { color: var(--text3); width: 28px; font-size: 12px }
+.reg-hex { color: var(--accent); font-weight: 600; min-width: 40px }
+.reg-dec { color: var(--text3); font-size: 12px; flex: 1; text-align: right }
+
+.reg-pair-row { display: flex; border-left: 2px solid transparent }
+.reg-pair-cell { display: flex; align-items: baseline; gap: 6px; padding: 2px 8px 2px 10px;
+  font-family: var(--mono); font-size: 14px; flex: 1; border-left: 2px solid transparent;
+  transition: background .1s; min-width: 0 }
+.reg-pair-cell.changed { border-left-color: var(--accent); background: rgba(74,240,160,.06) }
+.reg-pair-cell + .reg-pair-cell { border-left: 1px solid var(--border) }
+.reg-pair-cell .reg-hex { font-size: 12px; min-width: 0 }
+
+/* Pair panel */
+.pair-col-hdr { display: flex; gap: 6px; padding: 1px 10px 3px;
+  font-family: var(--mono); font-size: 9px; color: var(--text3); letter-spacing: 1px }
+.pair-col-hdr > span:first-child { width: 28px }
+.pair-col-hdr > span:nth-child(2) { flex: 2 }
+.pair-col-hdr > span:nth-child(3) { flex: 1 }
+.pair-row { display: flex; align-items: baseline; gap: 6px; padding: 2px 10px;
+  font-family: var(--mono); font-size: 14px; border-left: 2px solid transparent }
+.pair-name { color: var(--text3); width: 28px; font-size: 12px }
+.pair-addr { flex: 2; color: var(--accent); font-weight: 600 }
+.pair-content { flex: 1; color: var(--text2) }
+
+/* Flags */
+.flag-panel { padding: 8px }
+.flags-row { display: flex; gap: 4px }
+.flag { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 5px 2px; border: 1px solid var(--border); border-radius: 4px; transition: all .12s }
+.flag.flag-on { border-color: var(--accent2); background: rgba(74,240,160,.12) }
+.flag-lbl { font-family: var(--mono); font-size: 11px; color: var(--text3); font-weight: 700 }
+.flag-val { font-family: var(--mono); font-size: 17px; font-weight: 700; color: var(--text2) }
+.flag.flag-on .flag-lbl, .flag.flag-on .flag-val { color: var(--accent) }
+
+/* Interrupts */
+.int-panel { padding: 6px 8px 8px }
+.int-iff { font-family: var(--mono); font-size: 11px; color: var(--text3); margin-bottom: 5px;
+  display: flex; align-items: center; gap: 6px }
+.int-row { display: flex; align-items: center; gap: 6px; padding: 2px 0 }
+.int-btn { min-width: 36px; text-align: center; padding: 3px 7px; font-size: 12px }
+.int-btn.int-btn-on { border-color: var(--accent2); color: var(--accent) }
+.int-btn.int-pending { border-color: var(--amber); color: var(--amber) }
+.int-label { font-family: var(--mono); font-size: 12px; color: var(--text2);
+  width: 52px; flex-shrink: 0 }
+.int-label.int-masked { color: var(--text3); text-decoration: line-through }
+.int-vec { font-family: var(--mono); font-size: 11px; color: var(--text3) }
+
+/* Disassembly */
+.disasm-panel { flex: 1 1 0; min-height: 80px }
+.disasm-list { flex: 1; overflow-y: auto; font-family: var(--mono); font-size: 13px; min-height: 0 }
+.disasm-row { display: flex; align-items: center; gap: 6px; padding: 2px 6px;
+  border-left: 2px solid transparent; transition: background .08s }
+.disasm-row:hover { background: var(--bg2) }
+.disasm-row.cur { background: rgba(74,240,160,.08); border-left-color: var(--accent) }
+.disasm-row.bp .disasm-bp { color: var(--red) }
+.disasm-bp { color: var(--text3); width: 14px; text-align: center; cursor: pointer }
+.disasm-bp:hover { color: var(--red) }
+.disasm-text { color: var(--text2); flex: 1; white-space: pre }
+.disasm-pc-arrow { color: var(--accent); font-size: 12px }
+.disasm-cycles { color: var(--text3); font-size: 11px }
+.disasm-label { font-family: var(--mono); font-size: 11px; color: var(--amber);
+  padding: 3px 8px 0 26px; opacity: .85 }
+
+/* Memory */
+.mem-panel { flex: 0 0 auto }
+.mem-ctrl { display: flex; align-items: center; gap: 6px }
+.mem-btn { background: none; border: 1px solid var(--border); color: var(--text2);
+  padding: 1px 5px; cursor: pointer; border-radius: 3px; font-size: 12px;
+  font-family: var(--mono) }
+.mem-btn:hover { border-color: var(--border2); background: var(--bg3) }
+.mem-cur-addr { color: var(--amber); font-family: var(--mono); font-size: 12px;
+  background: none; border: none; width: 44px; text-align: center }
+.mem-scroll { overflow: auto; flex: 1; min-height: 60px; max-height: 280px }
+.mem-tbl { border-collapse: collapse; font-family: var(--mono); font-size: 13px; width: 100% }
+.mem-th { padding: 2px 3px; color: var(--text3); font-weight: 400; text-align: center;
+  font-size: 12px; border-bottom: 1px solid var(--border) }
+.mem-th-addr { padding: 2px 3px; text-align: left; width: 40px;
+  border-bottom: 1px solid var(--border); color: var(--text3); font-weight: 400; font-size: 12px }
+.mem-row-addr { color: var(--text3); padding: 1px 6px 1px 4px; font-size: 12px; white-space: nowrap }
+.mem-cell { padding: 1px 2px; text-align: center; color: var(--text3); min-width: 20px;
+  transition: background .08s }
+.mem-cell:hover { background: var(--bg2); color: var(--text) }
+.mem-cell.mem-nz { color: var(--text2) }
+.mem-cell.mem-code { background: rgba(80,120,255,.18) }
+.mem-cell.mem-preset { background: rgba(80,200,80,.18) }
+.mem-cell.mem-pc { background: rgba(74,240,160,.20); color: var(--accent); font-weight: 700 }
+.mem-cell.mem-sp { background: rgba(240,168,64,.15); color: var(--amber); font-weight: 700 }
+.mem-legend { padding: 4px 8px; font-size: 12px; color: var(--text3);
+  border-top: 1px solid var(--border); font-family: var(--mono); display: flex; gap: 8px }
+.legend-pc { color: var(--accent) }
+.legend-sp { color: var(--amber) }
+.legend-code { color: rgba(120,140,255,.9) }
+.legend-preset { color: rgba(80,200,80,.9) }
+
+/* LED */
+.led-panel { flex-shrink: 0 }
+.led-digits { display: flex; justify-content: center; gap: 6px; padding: 10px 8px;
+  background: #080a10 }
+.led-digit { display: flex; flex-direction: column; align-items: center; gap: 2px }
+.led-digit svg { filter: drop-shadow(0 0 5px rgba(255, 40, 0, 0.8)) }
+.led-digit-st { opacity: .45 }
+.led-val { font-family: var(--mono); font-size: 11px; color: var(--amber); letter-spacing: .05em }
+.led-lbl { font-family: var(--mono); font-size: 9px; color: var(--text3) }
