@@ -548,6 +548,12 @@ function assemble(source) {
       if (/\s/.test(line[i])) { i++; continue; }
       if (line[i] === ',') { tokens.push({type:'comma'}); i++; continue; }
       if (line[i] === ':') { tokens.push({type:'colon'}); i++; continue; }
+      if (line[i] === '"' || line[i] === "'") {
+        const q = line[i++]; let s = '';
+        while (i < line.length && line[i] !== q) s += line[i++];
+        if (line[i] === q) i++;
+        tokens.push({type:'str', val:s}); continue;
+      }
       let j = i;
       while (j < line.length && !/[\s,;:]/.test(line[j])) j++;
       const tok = line.slice(i,j);
@@ -647,6 +653,24 @@ function assemble(source) {
       const a = typeof parseNum(adrTok)!=='number' ? parseInt(adrTok.val,16) : parseNum(adrTok);
       const v = parseNum(valTok, lineNo);
       if (typeof v==='number') { ram[a]=v&0xFF; ram[a+1]=(v>>8)&0xFF; presetAddrs.add(a&0xFFFF); presetAddrs.add((a+1)&0xFFFF); }
+      continue;
+    }
+    if (mnem==='DB') {
+      // DB val [, val ...]  — val may be number, hex, char literal '?', or "string"
+      const emitDbVal = (tok) => {
+        if (!tok) { errors.push(`Line ${lineNo+1}: DB missing value`); return; }
+        if (tok.type === 'str') { for (const ch of tok.val) { ram[ptr++] = ch.charCodeAt(0) & 0xFF; } }
+        else { const n = parseNum(tok, lineNo); ram[ptr++] = (typeof n==='number' ? n : 0) & 0xFF; }
+      };
+      emitDbVal(next());
+      while (toks[ti]?.type === 'comma') { ti++; emitDbVal(next()); }
+      continue;
+    }
+    if (mnem==='DS') {
+      // DS count — reserve count bytes (fill with 0)
+      const n = parseNum(next(), lineNo);
+      const count = typeof n==='number' ? n : 0;
+      for (let i = 0; i < count; i++) ram[ptr++] = 0;
       continue;
     }
 

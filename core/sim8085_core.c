@@ -1453,6 +1453,34 @@ static int ParseDirective(void) {
         SetMemWord(addr16, (word)val);
         return CORRECT_DIRECTIVE;
     }
+    if (strcmp(TOKEN(), "DB") == 0) {
+        for (;;) {
+            SkipWhite();
+            char *p = STRING();
+            if (!p || IsEnd(*p) || *p == (char)SEMI) break;
+            if (*p == '"' || *p == '\'') {
+                char q = *p++;
+                STRING() = p;
+                while (*STRING() && *STRING() != q && !IsEnd(*STRING()))
+                    { SetMemByte(PTR(), (uchar)*STRING()); PTR()++; STRING()++; }
+                if (*STRING() == q) STRING()++;
+            } else {
+                if (NumOrIdTok() < 0) return -1;
+                SetMemByte(PTR(), (uchar)(StrToNum() & 0xFF)); PTR()++;
+            }
+            SkipWhite();
+            if (!STRING() || *STRING() != ',') break;
+            STRING()++;
+        }
+        return CORRECT_DIRECTIVE;
+    }
+    if (strcmp(TOKEN(), "DS") == 0) {
+        if (NumOrIdTok() < 0) return -1;
+        long n = StrToNum();
+        if (n < 0 || n > 65536) return -1;
+        for (long i = 0; i < n; i++) { SetMemByte(PTR(), 0); PTR()++; }
+        return CORRECT_DIRECTIVE;
+    }
     if (strcmp(TOKEN(), "ASSERT") == 0) {
         char subj[TOKEN_SIZE + 2];
         uint8_t sub; int is_pair = 0, is_mem = 0;
