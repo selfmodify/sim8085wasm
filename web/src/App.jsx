@@ -1737,7 +1737,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExportHex, onExportBin, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExportHex, onExportBin, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
 
@@ -1773,6 +1773,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExpor
           {item('📖  Welcome guide', onShowWelcome)}
           {item('⌨  Keyboard shortcuts  ?', onShowShortcuts)}
           <div className="bmenu-sep" />
+          {item(theme === 'light' ? '🌙  Dark theme' : '☀  Light theme', onTheme)}
           {item('⭐  View on GitHub',  () => window.open('https://github.com/selfmodify/sim8085wasm', '_blank'))}
           {item('🐛  Report a Bug',    () => window.open('https://github.com/selfmodify/sim8085wasm/issues/new', '_blank'))}
           {item('💬  Ask a Question',  () => window.open('https://github.com/selfmodify/sim8085wasm/discussions', '_blank'))}
@@ -2060,6 +2061,13 @@ export default function App() {
   const [consoleOutput, setConsoleOutput] = useState('')
   const [consolePort,   setConsolePort]   = useState(() => sim.simGetConsolePort())
   const [mobileTab,      setMobileTab]      = useState('editor')
+  const [theme, setTheme] = useState(() => localStorage.getItem('sim8085_theme') || 'dark')
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('sim8085_theme', theme)
+  }, [theme])
+  function toggleTheme() { setTheme(t => t === 'dark' ? 'light' : 'dark') }
+
   const [showWelcome,    setShowWelcome]    = useState(() => !localStorage.getItem('sim8085_welcomed'))
   const [showCalc,       setShowCalc]       = useState(false)
   const [showShortcuts,  setShowShortcuts]  = useState(false)
@@ -2640,7 +2648,8 @@ function addTraceEntry(prevR) {
             onCalc={() => setShowCalc(c => !c)}
             memSize={memSize} onMemSize={changeMemSize}
             engineMode={engineMode} onEngineSwitch={handleEngineSwitch}
-            engineSwitching={engineSwitching} />
+            engineSwitching={engineSwitching}
+            theme={theme} onTheme={toggleTheme} />
         </div>
 
         <div className="toolbar">

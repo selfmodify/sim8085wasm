@@ -1,6 +1,46 @@
 /* ── Reset & base ─────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
 
+:root[data-theme="light"] {
+  --bg:       #f0f2f7;
+  --bg1:      #e4e8f0;
+  --bg2:      #d8dce8;
+  --bg3:      #ccd2e0;
+  --border:   #b0bcd0;
+  --border2:  #8898b8;
+  --accent:   #0a7a50;
+  --accent2:  #0a6040;
+  --amber:    #b07000;
+  --red:      #cc2020;
+  --blue:     #1060d0;
+  --text:     #1a2040;
+  --text2:    #3a4870;
+  --text3:    #6070a0;
+  --led-on:   #ee1100;
+  --led-off:  rgba(220, 60, 0, 0.15);
+  --syn-keyword:   #1060d0;
+  --syn-register:  #b07000;
+  --syn-number:    #0a7a50;
+  --syn-string:    #507020;
+  --syn-comment:   #8898b8;
+  --syn-label:     #4060cc;
+  --syn-directive: #7030a0;
+  --syn-pseudo:    #cc2020;
+  --tint-accent:      rgba(10, 122, 80, .06);
+  --tint-accent-hi:   rgba(10, 122, 80, .12);
+  --tint-accent-pc:   rgba(10, 122, 80, .18);
+  --tint-accent-flash:rgba(10, 122, 80, .26);
+  --tint-amber:       rgba(176, 112,  0, .10);
+  --tint-amber-sp:    rgba(176, 112,  0, .14);
+  --tint-red:         rgba(204,  32, 32, .08);
+  --tint-blue-code:   rgba( 16,  96, 208, .14);
+  --tint-green-pre:   rgba( 40, 160,  80, .14);
+  --shadow-pop:   0 4px 16px rgba(0,0,0,.12);
+  --shadow-menu:  0 8px 24px rgba(0,0,0,.15);
+  --shadow-modal: 0 12px 40px rgba(0,0,0,.18);
+  --shadow-led:   drop-shadow(0 0 5px rgba(220, 40, 0, 0.6));
+}
+
 :root {
   --bg:       #0d0f14;
   --bg1:      #141720;
