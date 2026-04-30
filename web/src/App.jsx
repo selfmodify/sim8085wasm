@@ -1658,7 +1658,7 @@ function ConsolePanel({ output, port, onSetPort, onClear }) {
 }
 
 // ── I/O port panel ───────────────────────────────────────────────────────
-function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput, keyQueue, onEnqueueKeys, onClearKeyQueue }) {
+function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput, keyQueue, onEnqueueKeys, onClearKeyQueue, sid, sod, onSetSID }) {
   const [portBuf, setPortBuf] = useState('')
   const [valBuf,  setValBuf]  = useState('')
   const [kbdBuf,  setKbdBuf]  = useState('')
@@ -1716,6 +1716,15 @@ function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput, key
           </div>
         ))
       }
+
+      <div className="ioport-section-hd" style={{marginTop:'6px'}}>SERIAL  <span className="ioport-hint">SID/SOD pins</span></div>
+      <div className="ioport-serial-row">
+        <span className="ioport-serial-lbl">SID (in):</span>
+        <button className={`btn btn-xs ioport-serial-btn${sid ? ' active' : ''}`}
+          onClick={() => onSetSID(sid ? 0 : 1)} title="Toggle Serial Input Data line">{sid ? '1' : '0'}</button>
+        <span className="ioport-serial-lbl" style={{marginLeft:'10px'}}>SOD (out):</span>
+        <span className={`ioport-serial-val${sod ? ' active' : ''}`} title="Serial Output Data line">{sod ? '1' : '0'}</span>
+      </div>
 
       <div className="ioport-section-hd" style={{marginTop:'6px'}}>KEYBOARD  <span className="ioport-hint">C=01H syscall input</span></div>
       <div className="ioport-add-row">
@@ -2159,6 +2168,8 @@ export default function App() {
   const [inputPresets, setInputPresets] = useState([])    // [{port,val}] preset for IN
   const [keyQueue, setKeyQueue]   = useState([])          // chars queued for C=01H syscall
   const [intState, setIntState] = useState(() => sim.simGetIntState())
+  const [sid, setSid] = useState(0)
+  const [sod, setSod] = useState(0)
   const [memStart, setMemStart] = useState(0x100)
   const [appState, setAppState] = useState('idle')  // idle | running | halted | error
   const [engineMode, setEngineMode]   = useState('js')    // 'js' | 'wasm'
@@ -2307,6 +2318,7 @@ export default function App() {
     setIntState(sim.simGetIntState())
     setKeyQueue(sim.simGetKeyQueue())
     setConsoleOutput(sim.simGetConsoleOutput())
+    if (sim.simGetSOD) setSod(sim.simGetSOD())
     refreshProfile()
   }
 
@@ -2944,7 +2956,9 @@ function addTraceEntry(prevR) {
           <IntPanel intState={intState} onAssert={assertInterrupt} onDeassert={deassertInterrupt} />
           <IOPortPanel outputPorts={outputPorts} inputPresets={inputPresets}
             onSetInput={setInputPort} onRemoveInput={removeInputPort}
-            keyQueue={keyQueue} onEnqueueKeys={enqueueKeys} onClearKeyQueue={clearKeyQueue} />
+            keyQueue={keyQueue} onEnqueueKeys={enqueueKeys} onClearKeyQueue={clearKeyQueue}
+            sid={sid} sod={sod}
+            onSetSID={v => { sim.simSetSID(v); setSid(v); }} />
           <StackPanel regs={regs} regBase={regBase} onRegBase={setRegBase} />
           <CallStackPanel callStack={callStack} onJump={setMemStart} />
           <DataBreakPanel dataBps={dataBps} onToggle={toggleDataBp} onClearAll={clearAllDataBps} />

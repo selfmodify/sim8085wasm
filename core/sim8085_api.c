@@ -547,4 +547,9 @@ EXPORT void     sim_get_hitcnt_range(uint16_t start, uint16_t len, uint32_t *out
 }
 EXPORT void     sim_reset_profile_api(void) { sim_reset_profile(); }
 
+/* SID/SOD serial pins */
+EXPORT uint8_t  sim_get_sid_api(void)      { return sim_get_sid(); }
+EXPORT void     sim_set_sid_api(int v)     { sim_set_sid((uint8_t)(v & 1)); }
+EXPORT uint8_t  sim_get_sod_api(void)      { return sim_get_sod(); }
+
 #endif /* __EMSCRIPTEN__ */

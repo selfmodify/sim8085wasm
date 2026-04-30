@@ -45,6 +45,10 @@ static uint64_t g_cycles = 0;
 /* Per-address execution hit counters (profiler) */
 static uint32_t g_hitcnt[65536];
 
+/* SID/SOD serial pins */
+static uint8_t g_sid = 0;   /* Serial Input Data (set externally, read by RIM bit 7) */
+static uint8_t g_sod = 0;   /* Serial Output Data (written by SIM bits 6-7) */
+
 /* T-states per opcode (8085, typical/taken path) */
 static const uint8_t g_tstates[256] = {
  /* 00-07 */ 4,10, 7, 6, 4, 4, 7, 4,
@@ -158,6 +162,9 @@ uint64_t sim_get_cycles(void)        { return g_cycles; }
 void     sim_set_cycles(uint64_t n)  { g_cycles = n; }
 uint32_t sim_get_hitcnt(uint16_t a)  { return g_hitcnt[a]; }
 void     sim_reset_profile(void)     { memset(g_hitcnt, 0, sizeof(g_hitcnt)); }
+uint8_t  sim_get_sid(void)           { return g_sid; }
+void     sim_set_sid(uint8_t v)      { g_sid = v & 1; }
+uint8_t  sim_get_sod(void)           { return g_sod; }
 
 /* -----------------------------------------------------------------------
  * Machine init
@@ -172,6 +179,7 @@ int InitMachine(machine_ptr mp) {
     mp->intr_info.ei = 1;
     g_last_error[0] = '\0';
     g_cycles = 0;
+    g_sid = 0; g_sod = 0;
     memset(g_hitcnt, 0, sizeof(g_hitcnt));
     return 1;
 }
@@ -688,7 +696,8 @@ static int _Rim(void) {
             | (is->rst_5_5_ff ? 0x08 : 0)  /* bit 3: RST 5.5 pending */
             | (is->rst_6_5_ff ? 0x10 : 0)  /* bit 4: RST 6.5 pending */
             | (is->rst_7_5_ff ? 0x20 : 0)  /* bit 5: RST 7.5 pending */
-            | (is->ei         ? 0x40 : 0); /* bit 6: IFF */
+            | (is->ei         ? 0x40 : 0)  /* bit 6: IFF */
+            | (g_sid          ? 0x80 : 0); /* bit 7: SID */
     SetA(a);
     return RIM_LEN;
 }
@@ -700,6 +709,7 @@ static int _Sim(void) {
         is->int_mask = (is->int_mask & ~0x07) | (a & 0x07);
     }
     if (a & 0x10) is->rst_7_5_ff = 0;  /* reset RST 7.5 edge latch */
+    if (a & 0x40) g_sod = (a >> 7) & 1; /* SODE bit: update SOD */
     return SIM_LEN;
 }
 

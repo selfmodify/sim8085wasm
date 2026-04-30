@@ -328,6 +328,11 @@ export function simClearConsoleOutput(){ if (M) M._sim_clear_console_output(); }
 export function simSetConsolePort(n)   { if (M) M._sim_set_console_port(n & 0xFF); }
 export function simGetConsolePort()    { return M ? M._sim_get_console_port() : 0x01; }
 
+// ── SID/SOD serial pins ───────────────────────────────────────────────────
+export function simGetSID()   { return M ? M._sim_get_sid_api() : 0; }
+export function simSetSID(v)  { if (M) M._sim_set_sid_api(v & 1); }
+export function simGetSOD()   { return M ? M._sim_get_sod_api() : 0; }
+
 // ── Profiler — execution hit counts ──────────────────────────────────────
 export function simGetHitcnt(addr) {
   return M ? M._sim_get_hitcnt_at(addr & 0xFFFF) : 0;

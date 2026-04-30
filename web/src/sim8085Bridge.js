@@ -47,6 +47,10 @@ const CONSOLE_MAX = 8192
 // ── Keyboard input queue (fed by simEnqueueKeys, consumed by syscall C=01H) ─
 let keyQueue = []      // array of char codes (0-255)
 
+// ── SID/SOD serial pins ─────────────────────────────────────────────────
+let sidValue = 0    // Serial Input Data — bit read by RIM (set externally)
+let sodValue = 0    // Serial Output Data — bit written by SIM
+
 // ── Interrupt state ────────────────────────────────────────────────────
 let iff      = false   // interrupt enable flip-flop
 let iffNext  = false   // EI delay: iff enables after next instruction
@@ -467,6 +471,7 @@ function stepOne() {
     case 0x30: {                                              // SIM
       if (regs.a & 0x08) intMask = regs.a & 0x07             // set masks if MSE bit set
       if (regs.a & 0x10) rst75ff = false                     // reset RST 7.5 latch
+      if (regs.a & 0x40) sodValue = (regs.a >> 7) & 1       // SOD bit if SODE set
       break
     }
     case 0x20: {                                              // RIM
@@ -474,7 +479,8 @@ function stepOne() {
                (iff            ? 0x08 : 0) |
                (intLines.rst55 ? 0x10 : 0) |
                (intLines.rst65 ? 0x20 : 0) |
-               (rst75ff        ? 0x40 : 0)
+               (rst75ff        ? 0x40 : 0) |
+               (sidValue       ? 0x80 : 0)
       break
     }
     case 0xDB: { const port = memR(pc+1); regs.a = ioIn[port]; inc=2; break; } // IN port
@@ -924,6 +930,7 @@ export function simInit() {
   lastProgStart = DEFAULT_IP; lastProgEnd = DEFAULT_IP; lastPresetAddrs = new Set()
   iff = false; iffNext = false; intMask = 0
   rst75ff = false; trapPend = false
+  sidValue = 0; sodValue = 0
   intLines = { rst65: false, rst55: false, intr: false, intrVec: 0xFF }
   keyQueue = []
   // ioIn is intentionally NOT reset here — user presets survive a build
@@ -1063,6 +1070,10 @@ export function simGetIntState() {
            rst65: intLines.rst65, rst55: intLines.rst55,
            intr: intLines.intr,   intrVec: intLines.intrVec }
 }
+
+export function simGetSID()       { return sidValue }
+export function simSetSID(v)      { sidValue = v & 1 }
+export function simGetSOD()       { return sodValue }
 
 export function simSetRegisters(r) {
   const c8  = v => Math.max(0, Math.min(255,   v | 0))
