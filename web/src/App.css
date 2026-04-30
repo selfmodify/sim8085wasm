@@ -1035,6 +1035,9 @@ body {
 .watch-dec   { color: var(--text3); flex: 1 }
 .watch-rm    { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 11px; padding: 1px 4px; border-radius: 2px; margin-left: auto }
 .watch-rm:hover { color: var(--red); background: var(--bg3) }
+.watch-brk   { background: none; border: 1px solid var(--border); color: var(--text3); cursor: pointer; font-size: 10px; padding: 1px 3px; border-radius: 2px; font-family: var(--mono); line-height: 1 }
+.watch-brk:hover { color: var(--amber); border-color: var(--amber) }
+.watch-brk.active { color: var(--red); border-color: var(--red); background: color-mix(in srgb, var(--red) 15%, transparent) }
 
 /* ── Stack ────────────────────────────────────────────────────────── */
 .stack-panel { padding: 4px 0 0; height: 180px; overflow: hidden; display: flex; flex-direction: column; flex-shrink: 0 }
@@ -1353,10 +1356,6 @@ body {
 .callstack-site:hover { color: var(--accent); text-decoration: underline }
 .callstack-ret { color: var(--text3); font-size: 10px; margin-left: auto; flex-shrink: 0 }
 
-.databreak-panel .bp-add-row { display: flex; gap: 4px; padding: 4px 8px }
-.databreak-panel .bp-add-input { flex: 1; background: var(--bg2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 11px; padding: 2px 5px; border-radius: 3px }
-.databreak-panel .bp-empty { padding: 4px 8px; font-size: 11px; color: var(--text3) }
-.databreak-panel .bp-list-cur { color: var(--text2); font-family: var(--mono); font-size: 11px }
 
 /* ── Memory search / fill toolbar ───────────────────────────────── */
 .mem-btn-active { background: var(--bg3); border-color: var(--accent2); color: var(--accent) }

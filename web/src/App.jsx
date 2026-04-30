@@ -1501,48 +1501,7 @@ function CallStackPanel({ callStack, onJump }) {
   )
 }
 
-function DataBreakPanel({ dataBps, onToggle, onClearAll }) {
-  const [input, setInput] = useState('')
-
-  function addDbp() {
-    const s = input.trim()
-    if (!s) return
-    const addr = parseInt(s.replace(/[hH]$/, ''), 16)
-    if (!isNaN(addr)) onToggle(addr & 0xFFFF)
-    setInput('')
-  }
-
-  return (
-    <div className="panel databreak-panel">
-      <div className="panel-hd">
-        <span className="panel-icon">🔴</span>WATCHPOINTS
-        <div className="panel-hd-right">
-          {dataBps.size > 0 && <button className="bp-list-del" title="Clear all watchpoints" onClick={onClearAll}>✕ all</button>}
-        </div>
-      </div>
-      <div className="panel-body">
-        <div className="bp-add-row">
-          <input className="bp-add-input" placeholder="addr (hex)" value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && addDbp()} />
-          <button className="btn btn-xs" onClick={addDbp}>+</button>
-        </div>
-        {dataBps.size === 0
-          ? <div className="bp-empty">No watchpoints</div>
-          : [...dataBps].sort((a,b) => a-b).map(addr => (
-            <div key={addr} className="bp-list-row">
-              <span className="bp-list-addr">{hex4(addr)}H</span>
-              <span className="bp-list-cur">={hex2(sim.simReadByte(addr))}</span>
-              <button className="bp-list-del" onClick={() => onToggle(addr)}>✕</button>
-            </div>
-          ))
-        }
-      </div>
-    </div>
-  )
-}
-
-function WatchPanel({ watches, regs, onAdd, onRemove, regBase, onRegBase }) {
+function WatchPanel({ watches, regs, onAdd, onRemove, regBase, onRegBase, dataBps, onToggleBreak }) {
   const [input, setInput] = useState('')
   const PAIR_KEYS = { bc: ['b','c'], de: ['d','e'], hl: ['h','l'] }
   const REG_NAMES = new Set(['a','b','c','d','e','h','l','pc','sp','flags','bc','de','hl'])
@@ -1596,11 +1555,17 @@ function WatchPanel({ watches, regs, onAdd, onRemove, regBase, onRegBase }) {
           : watches.map((w, i) => {
               const v = getValue(w)
               const label = w.type === 'reg' ? w.key.toUpperCase() : hex4(w.addr) + 'H'
+              const isBrk = w.type === 'mem' && dataBps?.has(w.addr)
               return (
                 <div key={i} className="watch-row">
                   <span className="watch-label">{label}</span>
                   <span className="watch-val">{is16(w) ? fmtWord(v, regBase) : fmtByte(v, regBase)}</span>
                   {(regBase||'hex') === 'hex' && <span className="watch-dec">{v}</span>}
+                  {w.type === 'mem' && (
+                    <button className={`watch-brk${isBrk ? ' active' : ''}`}
+                      title={isBrk ? 'Break on write: ON — click to disable' : 'Break on write: OFF — click to enable'}
+                      onClick={() => onToggleBreak?.(w.addr)}>W</button>
+                  )}
                   <button className="watch-rm" onClick={() => onRemove(i)}>✕</button>
                 </div>
               )
@@ -3030,8 +2995,16 @@ function addTraceEntry(prevR) {
             <div className="mem-watch-watch">
               <WatchPanel watches={watches} regs={regs}
                 onAdd={w => setWatches(ws => [...ws, w])}
-                onRemove={i => setWatches(ws => ws.filter((_,j) => j !== i))}
-                regBase={regBase} onRegBase={setRegBase} />
+                onRemove={i => {
+                  const w = watches[i]
+                  if (w.type === 'mem' && dataBps.has(w.addr)) {
+                    sim.simClearDataBreakpoint(w.addr)
+                    setDataBps(prev => { const n = new Set(prev); n.delete(w.addr); return n })
+                  }
+                  setWatches(ws => ws.filter((_,j) => j !== i))
+                }}
+                regBase={regBase} onRegBase={setRegBase}
+                dataBps={dataBps} onToggleBreak={toggleDataBp} />
               <ConsolePanel output={consoleOutput} port={consolePort}
                 onSetPort={changeConsolePort}
                 onClear={() => { sim.simClearConsoleOutput(); setConsoleOutput('') }} />
@@ -3061,7 +3034,6 @@ function addTraceEntry(prevR) {
             onSetSID={v => { sim.simSetSID(v); setSid(v); }} />
           <StackPanel regs={regs} regBase={regBase} onRegBase={setRegBase} />
           <CallStackPanel callStack={callStack} onJump={setMemStart} />
-          <DataBreakPanel dataBps={dataBps} onToggle={toggleDataBp} onClearAll={clearAllDataBps} />
           <TracePanel trace={trace} onClear={() => setTrace([])} />
         </div>
       </div>
