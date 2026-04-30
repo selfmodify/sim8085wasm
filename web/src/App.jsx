@@ -2367,6 +2367,8 @@ export default function App() {
   function stopRun() {
     warpActiveRef.current = false
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+    refresh()
+    refreshOutputPorts()
     if (appState === 'running') setAppState('idle')
   }
 
