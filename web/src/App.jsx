@@ -2072,8 +2072,9 @@ export default function App() {
   const [regBase, setRegBase]       = useState('hex')    // 'hex'|'dec'|'bin'
   const [statusLog, setStatusLog]   = useState([])
   const [histLen, setHistLen]       = useState(0)        // for disabling Step Back button
-  const timerRef    = useRef(null)
+  const timerRef      = useRef(null)
   const warpActiveRef = useRef(false)
+  const lastUiRef     = useRef(0)
   const editorColRef = useRef(null)
   const rightColRef  = useRef(null)
   const gotoLineRef  = useRef(null)
@@ -2332,24 +2333,32 @@ export default function App() {
     }
 
     setMsg('▶ Running…')
+    lastUiRef.current = 0
     timerRef.current = setInterval(() => {
       const n = sim.simRun(SPEEDS[speedRef.current].steps)
       setSteps(s => s + n)
       const isFast = SPEEDS[speedRef.current].steps >= 1000
-      refresh()
-      refreshOutputPorts()
-      if (!isFast) updateMemDiff()
+      const now = Date.now()
+      const doUi = !isFast || (now - lastUiRef.current) >= 250
+      if (doUi) {
+        refresh()
+        refreshOutputPorts()
+        if (!isFast) updateMemDiff()
+        lastUiRef.current = now
+      }
       if (sim.simIsHaltWaiting()) {
+        if (!doUi) { refresh(); refreshOutputPorts() }
         setMsg('⏸ HLT — awaiting interrupt…')
         return
       }
-      const r = sim.simGetRegisters()
-      const atBp = bpsRef.current.has(r.pc)
-      if (!sim.simIsRunning() || atBp) {
+      if (!sim.simIsRunning()) {
+        const r = sim.simGetRegisters()
+        const atBp = bpsRef.current.has(r.pc)
         const cond = bpsRef.current.get(r.pc)
         if (atBp && cond != null && !evalCondition(cond, r)) {
           sim.simStep(); return
         }
+        if (!doUi) { refresh(); refreshOutputPorts() }
         finalizeTick(atBp)
       }
     }, 16)
