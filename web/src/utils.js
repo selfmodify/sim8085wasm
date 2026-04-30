@@ -12,8 +12,9 @@ export const SPEEDS = [
   { label:'Med',     steps:     200 },
   { label:'Fast',    steps:    1000 },
   { label:'Turbo',   steps:  100000 },
-  { label:'Turbo+',  steps: 1000000 },
-  { label:'Warp',    steps:       0, warp: true },
+  { label:'Turbo+',  steps:  1000000 },
+  { label:'Turbo++', steps: 10000000 },
+  { label:'Warp',    steps:        0, warp: true },
 ]
 
 export function fmtByte(v, base) {

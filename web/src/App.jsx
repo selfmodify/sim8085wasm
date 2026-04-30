@@ -2561,7 +2561,7 @@ function addTraceEntry(prevR) {
           </button>
           <label className="speed-label" title={SPEEDS[runSpeed].warp ? 'Warp: run until HLT, no mid-run UI updates' : `${SPEEDS[runSpeed].steps.toLocaleString()} steps/tick`}>
             Speed
-            <input type="range" min={0} max={6} value={runSpeed} className="speed-slider"
+            <input type="range" min={0} max={7} value={runSpeed} className="speed-slider"
               onChange={e => { const v = +e.target.value; setRunSpeed(v); speedRef.current = v }} />
             <span className="speed-val">{SPEEDS[runSpeed].label}</span>
           </label>
