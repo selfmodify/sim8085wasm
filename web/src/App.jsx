@@ -2570,7 +2570,7 @@ function addTraceEntry(prevR) {
 
         {fileName && <span className="topbar-filename" title={fileName}>File: {fileName}</span>}
         <span className={`engine-chip engine-chip-${engineMode}`} title={engineSwitching ? 'Switching engine…' : `Engine: ${engineMode.toUpperCase()}`}>
-          {engineSwitching ? '…' : engineMode.toUpperCase()}
+          {engineSwitching ? '…' : `Engine: ${engineMode.toUpperCase()}`}
         </span>
         <span className="build-chip" title="Build timestamp">Build: {__BUILD_TIME__}</span>
       </div>
