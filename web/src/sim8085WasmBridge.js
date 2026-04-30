@@ -38,7 +38,9 @@ export const simReady = (async () => {
 
 // ── JS-side mirrors for state not directly in the C API ────────────────────
 const jsInputPorts = new Uint8Array(256); // mirrors KIT->cpu.input_ports[]
-const jsBP = new Set();                   // mirrors C breakpoint table
+const jsBP  = new Set();                  // mirrors C breakpoint table
+const jsDBP = new Set();                  // write watchpoints (JS-side)
+let   jsDataWatchHit = -1;
 
 // ── Heap helpers ──────────────────────────────────────────────────────────
 function alloc(n)            { return M._malloc(n); }
@@ -57,13 +59,13 @@ export function simInit() {
   if (M) {
     M._sim_init();
     jsInputPorts.fill(0);
-    jsBP.clear();
+    jsBP.clear(); jsDBP.clear(); jsDataWatchHit = -1;
     return;
   }
   return simReady.then(() => {
     M._sim_init();
     jsInputPorts.fill(0);
-    jsBP.clear();
+    jsBP.clear(); jsDBP.clear(); jsDataWatchHit = -1;
   });
 }
 
@@ -91,8 +93,23 @@ export function simAssemble(source) {
 }
 
 // ── Execution ─────────────────────────────────────────────────────────────
-export function simStep()              { return M ? !!M._sim_step() : false; }
-export function simRun(maxSteps = 1e5) { return M ? M._sim_run(maxSteps) : 0; }
+export function simStep() {
+  jsDataWatchHit = -1;
+  return M ? !!M._sim_step() : false;
+}
+export function simRun(maxSteps = 1e5) {
+  if (!M) return 0;
+  jsDataWatchHit = -1;
+  if (jsDBP.size === 0) return M._sim_run(maxSteps);
+  // With watchpoints: snapshot watched values, run, then check for changes
+  const addrs = [...jsDBP];
+  const before = addrs.map(a => M._sim_read_byte(a));
+  const steps  = M._sim_run(maxSteps);
+  for (let i = 0; i < addrs.length; i++) {
+    if (M._sim_read_byte(addrs[i]) !== before[i]) { jsDataWatchHit = addrs[i]; break; }
+  }
+  return steps;
+}
 
 // ── Registers ─────────────────────────────────────────────────────────────
 const ZERO_REGS = { a:0, b:0, c:0, d:0, e:0, h:0, l:0, flags:0, pc:0x100, sp:0,
@@ -170,6 +187,14 @@ export function simClearAllBreakpoints() {
 }
 export function simIsBreakpoint(addr) { return jsBP.has(addr); }
 export function simGetBreakpoints()   { return [...jsBP]; }
+
+// ── Data breakpoints (write watchpoints) ──────────────────────────────────
+export function simSetDataBreakpoint(addr)   { if (jsDBP.has(addr)) { jsDBP.delete(addr); return 2; } jsDBP.add(addr); return 1; }
+export function simClearDataBreakpoint(addr) { jsDBP.delete(addr); }
+export function simClearAllDataBreakpoints() { jsDBP.clear(); jsDataWatchHit = -1; }
+export function simIsDataBreakpoint(addr)    { return jsDBP.has(addr); }
+export function simGetDataBreakpoints()      { return [...jsDBP]; }
+export function simGetDataWatchHit()         { return jsDataWatchHit; }
 
 // ── LED display ───────────────────────────────────────────────────────────
 export function simGetAllLeds() {

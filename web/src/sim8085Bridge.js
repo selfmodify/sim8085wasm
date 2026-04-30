@@ -25,6 +25,8 @@ let ram    = new Uint8Array(MAIN_MEMORY);
 let regs   = { a:0, b:0, c:0, d:0, e:0, h:0, l:0, flags:0, pc:DEFAULT_IP, sp:0 };
 let status = 0;
 let breakpoints = new Set();
+let dataBPs     = new Set();     // write watchpoints
+let dataWatchHit = -1;           // address that triggered last watchpoint (-1 = none)
 let leds   = new Array(8).fill(0);
 let lastError = '';
 let ioIn   = new Uint8Array(256);   // values returned by IN instructions
@@ -113,7 +115,7 @@ function setBC(v) { regs.b = (v >> 8) & 0xFF; regs.c = v & 0xFF; }
 function setDE(v) { regs.d = (v >> 8) & 0xFF; regs.e = v & 0xFF; }
 function memR(a)    { return a < MAIN_MEMORY ? ram[a] : 0; }
 function memR16(a)  { return memR(a) | (memR(a+1) << 8); }
-function memW(a,v)  { if (a < MAIN_MEMORY) ram[a] = v & 0xFF; }
+function memW(a,v)  { if (a < MAIN_MEMORY) { ram[a] = v & 0xFF; if (dataBPs.has(a) && dataWatchHit < 0) dataWatchHit = a; } }
 function memW16(a,v){ memW(a, v & 0xFF); memW(a+1, (v>>8) & 0xFF); }
 function push16(v)  { regs.sp = (regs.sp - 2) & 0xFFFF; memW16(regs.sp, v); }
 function pop16()    { const v = memR16(regs.sp); regs.sp = (regs.sp + 2) & 0xFFFF; return v; }
@@ -911,6 +913,7 @@ export function simInit() {
   regs = { a:0, b:0, c:0, d:0, e:0, h:0, l:0, flags:0, pc:DEFAULT_IP, sp:0 };
   status = 0;
   breakpoints = new Set();
+  dataBPs.clear(); dataWatchHit = -1;
   leds.fill(0);
   lastError = '';
   ioOut.fill(0); ioOutTouched.clear();
@@ -944,6 +947,7 @@ export function simAssemble(source) {
 }
 
 export function simStep() {
+  dataWatchHit = -1;
   const r = stepOne()
   checkInterrupts()
   return r
@@ -951,6 +955,7 @@ export function simStep() {
 
 export function simRun(maxSteps = 100000) {
   let steps = 0;
+  dataWatchHit = -1;
   while (steps < maxSteps) {
     if (status & (QUIT | SEVERE_ERROR)) return steps;
     if (status & HALTED) { checkInterrupts(); return steps; }
@@ -958,6 +963,7 @@ export function simRun(maxSteps = 100000) {
     steps++;
     checkInterrupts()
     if (breakpoints.has(regs.pc)) return steps;
+    if (dataWatchHit >= 0) return steps;
   }
   return steps;
 }
@@ -990,9 +996,17 @@ export function simSetBreakpoint(addr) {
   if (breakpoints.has(addr)) { breakpoints.delete(addr); return 2; }
   breakpoints.add(addr); return 1;
 }
+export function simClearBreakpoint(addr)  { breakpoints.delete(addr); }
 export function simClearAllBreakpoints() { breakpoints.clear(); }
 export function simIsBreakpoint(addr)    { return breakpoints.has(addr); }
 export function simGetBreakpoints()      { return [...breakpoints]; }
+
+export function simSetDataBreakpoint(addr)   { if (dataBPs.has(addr)) { dataBPs.delete(addr); return 2; } dataBPs.add(addr); return 1; }
+export function simClearDataBreakpoint(addr) { dataBPs.delete(addr); }
+export function simClearAllDataBreakpoints() { dataBPs.clear(); dataWatchHit = -1; }
+export function simIsDataBreakpoint(addr)    { return dataBPs.has(addr); }
+export function simGetDataBreakpoints()      { return [...dataBPs]; }
+export function simGetDataWatchHit()         { return dataWatchHit; }
 
 export function simGetAllLeds()       { return [...leds]; }
 export function simIsHalted()         { return !!(status & (HALTED|QUIT)); }

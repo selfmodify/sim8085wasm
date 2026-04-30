@@ -1468,6 +1468,47 @@ function TracePanel({ trace, onClear }) {
 }
 
 // ── Watch panel ──────────────────────────────────────────────────────────
+function DataBreakPanel({ dataBps, onToggle, onClearAll }) {
+  const [input, setInput] = useState('')
+
+  function addDbp() {
+    const s = input.trim()
+    if (!s) return
+    const addr = parseInt(s.replace(/[hH]$/, ''), 16)
+    if (!isNaN(addr)) onToggle(addr & 0xFFFF)
+    setInput('')
+  }
+
+  return (
+    <div className="panel databreak-panel">
+      <div className="panel-hd">
+        <span className="panel-icon">🔴</span>WATCHPOINTS
+        <div className="panel-hd-right">
+          {dataBps.size > 0 && <button className="bp-list-del" title="Clear all watchpoints" onClick={onClearAll}>✕ all</button>}
+        </div>
+      </div>
+      <div className="panel-body">
+        <div className="bp-add-row">
+          <input className="bp-add-input" placeholder="addr (hex)" value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addDbp()} />
+          <button className="btn btn-xs" onClick={addDbp}>+</button>
+        </div>
+        {dataBps.size === 0
+          ? <div className="bp-empty">No watchpoints</div>
+          : [...dataBps].sort((a,b) => a-b).map(addr => (
+            <div key={addr} className="bp-list-row">
+              <span className="bp-list-addr">{hex4(addr)}H</span>
+              <span className="bp-list-cur">={hex2(sim.simReadByte(addr))}</span>
+              <button className="bp-list-del" onClick={() => onToggle(addr)}>✕</button>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  )
+}
+
 function WatchPanel({ watches, regs, onAdd, onRemove, regBase, onRegBase }) {
   const [input, setInput] = useState('')
   const PAIR_KEYS = { bc: ['b','c'], de: ['d','e'], hl: ['h','l'] }
@@ -2073,6 +2114,7 @@ export default function App() {
   const [prevRegs, setPrev]     = useState(null)
   const [leds, setLeds]         = useState(Array(8).fill(0))
   const [bps, setBps]           = useState(new Map())   // Map<addr, string|null>
+  const [dataBps, setDataBps]   = useState(new Set())   // Set<addr> write watchpoints
   const [trace, setTrace]       = useState([])
   const [changedAddrs, setChangedAddrs] = useState(new Set())
   const [watches, setWatches]   = useState([])
@@ -2252,6 +2294,7 @@ export default function App() {
       prevMemRef.current = null
       sim.simSetMemorySize(memSizeRef.current)
       sim.simInit()
+      for (const addr of dataBps) sim.simSetDataBreakpoint(addr)
       const res = sim.simAssemble(code)
       setBuildId(id => id + 1)
       setSteps(0); setMhz(0); throughputRef.current = { steps: 0, ms: 0, mhz: 0 }
@@ -2335,6 +2378,7 @@ export default function App() {
 
     function finalizeTick(atBp) {
       const r = sim.simGetRegisters()
+      const watchHit = sim.simGetDataWatchHit ? sim.simGetDataWatchHit() : -1
       if (oneShotBpsRef.current.size > 0) {
         const next = new Map(bpsRef.current)
         for (const addr of oneShotBpsRef.current) next.delete(addr)
@@ -2344,7 +2388,10 @@ export default function App() {
       updateMemDiff()
       stopRun()
       setPcFlash(f => f + 1)
-      if (atBp) {
+      if (watchHit >= 0) {
+        setAppState('idle')
+        setMsg(`⏹ Watchpoint: write to ${hex4(watchHit)}H at PC=${hex4(r.pc)}H`)
+      } else if (atBp) {
         setAppState('idle')
         setMsg(`⏹ Breakpoint at ${hex4(r.pc)}H`)
       } else {
@@ -2373,9 +2420,10 @@ export default function App() {
         }
         const r = sim.simGetRegisters()
         const atBp = bpsRef.current.has(r.pc)
-        if (!sim.simIsRunning() || atBp) {
+        const watchHit = sim.simGetDataWatchHit ? sim.simGetDataWatchHit() : -1
+        if (!sim.simIsRunning() || atBp || watchHit >= 0) {
           const cond = bpsRef.current.get(r.pc)
-          if (atBp && cond != null && !evalCondition(cond, r)) {
+          if (atBp && watchHit < 0 && cond != null && !evalCondition(cond, r)) {
             sim.simStep(); timerRef.current = setTimeout(tick, 0); return
           }
           refresh(); refreshOutputPorts()
@@ -2414,11 +2462,12 @@ export default function App() {
         setMsg('⏸ HLT — awaiting interrupt…')
         return
       }
-      if (!sim.simIsRunning()) {
+      const watchHit2 = sim.simGetDataWatchHit ? sim.simGetDataWatchHit() : -1
+      if (!sim.simIsRunning() || watchHit2 >= 0) {
         const r = sim.simGetRegisters()
         const atBp = bpsRef.current.has(r.pc)
         const cond = bpsRef.current.get(r.pc)
-        if (atBp && cond != null && !evalCondition(cond, r)) {
+        if (atBp && watchHit2 < 0 && cond != null && !evalCondition(cond, r)) {
           sim.simStep(); return
         }
         if (!doUi) { refresh(); refreshOutputPorts() }
@@ -2473,6 +2522,15 @@ function addTraceEntry(prevR) {
     syncBps(next)
   }
   function clearAllBps() { syncBps(new Map()) }
+
+  function toggleDataBp(addr) {
+    sim.simSetDataBreakpoint(addr)
+    setDataBps(new Set(sim.simGetDataBreakpoints()))
+  }
+  function clearAllDataBps() {
+    sim.simClearAllDataBreakpoints()
+    setDataBps(new Set())
+  }
 
   function openConditionDialog(addr) {
     if (!bps.has(addr)) return
@@ -2813,6 +2871,7 @@ function addTraceEntry(prevR) {
             onSetInput={setInputPort} onRemoveInput={removeInputPort}
             keyQueue={keyQueue} onEnqueueKeys={enqueueKeys} onClearKeyQueue={clearKeyQueue} />
           <StackPanel regs={regs} regBase={regBase} onRegBase={setRegBase} />
+          <DataBreakPanel dataBps={dataBps} onToggle={toggleDataBp} onClearAll={clearAllDataBps} />
           <TracePanel trace={trace} onClear={() => setTrace([])} />
         </div>
       </div>
