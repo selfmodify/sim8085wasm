@@ -2049,6 +2049,7 @@ export default function App() {
   const [engineSwitching, setEngineSwitching] = useState(false)
   const [msg, setMsg]           = useState('Load an example or write code, then click Build.')
   const [steps, setSteps]       = useState(0)
+  const [mhz,   setMhz]         = useState(0)
   const [cycles, setCycles]     = useState(0)
   const [pcFlash, setPcFlash]   = useState(0)
   const [buildId, setBuildId]   = useState(0)
@@ -2088,6 +2089,7 @@ export default function App() {
   const timerRef      = useRef(null)
   const warpActiveRef = useRef(false)
   const lastUiRef     = useRef(0)
+  const throughputRef = useRef({ steps: 0, ms: 0, mhz: 0 })
   const editorColRef = useRef(null)
   const rightColRef  = useRef(null)
   const gotoLineRef  = useRef(null)
@@ -2215,7 +2217,7 @@ export default function App() {
       sim.simInit()
       const res = sim.simAssemble(code)
       setBuildId(id => id + 1)
-      setSteps(0)
+      setSteps(0); setMhz(0); throughputRef.current = { steps: 0, ms: 0, mhz: 0 }
       refresh()
       if (!res.ok) {
         const m = res.errorMsg?.match(/^Line (\d+)/)
@@ -2319,7 +2321,12 @@ export default function App() {
       warpActiveRef.current = true
       const tick = () => {
         if (!warpActiveRef.current) return
+        const t0 = performance.now()
         const n = sim.simRun(500000)
+        const dt = performance.now() - t0
+        const tp = throughputRef.current
+        tp.steps += n; tp.ms += dt
+        if (tp.ms >= 500) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; setMhz(tp.mhz) }
         setSteps(s => s + n)
         if (sim.simIsHaltWaiting()) {
           refresh(); refreshOutputPorts()
@@ -2347,8 +2354,14 @@ export default function App() {
 
     setMsg('▶ Running…')
     lastUiRef.current = 0
+    throughputRef.current = { steps: 0, ms: 0, mhz: 0 }
     timerRef.current = setInterval(() => {
+      const t0 = performance.now()
       const n = sim.simRun(SPEEDS[speedRef.current].steps)
+      const dt = performance.now() - t0
+      const tp = throughputRef.current
+      tp.steps += n; tp.ms += dt
+      if (tp.ms >= 500) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; setMhz(tp.mhz) }
       setSteps(s => s + n)
       const isFast = SPEEDS[speedRef.current].steps >= 1000
       const now = Date.now()
@@ -2784,6 +2797,7 @@ function addTraceEntry(prevR) {
             <span className="sbar-counter" title={`${steps.toLocaleString()} instructions executed`}>{fmtCount(steps)} steps</span>
             <span className="sbar-sep">·</span>
             <span className="sbar-counter" title={`${cycles.toLocaleString()} T-states elapsed`}>{fmtCount(cycles)} T</span>
+            {mhz > 0 && <><span className="sbar-sep">·</span><span className="sbar-counter" title="Simulated throughput">{mhz >= 1000 ? `${(mhz/1000).toFixed(1)} GHz` : mhz >= 1 ? `${mhz.toFixed(1)} MHz` : `${(mhz*1000).toFixed(0)} kHz`}</span></>}
           </div>
         )}
       </div>
