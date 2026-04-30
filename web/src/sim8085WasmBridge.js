@@ -303,9 +303,16 @@ export function simClearConsoleOutput(){ if (M) M._sim_clear_console_output(); }
 export function simSetConsolePort(n)   { if (M) M._sim_set_console_port(n & 0xFF); }
 export function simGetConsolePort()    { return M ? M._sim_get_console_port() : 0x01; }
 
+// ── T-state cycle counter ─────────────────────────────────────────────────
+export function simGetCycles() {
+  if (!M) return 0;
+  const lo = M._sim_get_cycles_lo() >>> 0;
+  const hi = M._sim_get_cycles_hi() >>> 0;
+  return hi * 0x100000000 + lo;
+}
+export function simSetCycles(_n) { if (M) M._sim_reset_cycles(); }
+
 // ── Stubs — JS-only features not yet in C core ────────────────────────────
 export function simGetSymbols()       { return {}; }
-export function simGetCycles()        { return 0; }
-export function simSetCycles(_n)      { }
 export function simGetProgramRegion() { return { start: 0x100, end: 0x100 }; }
 export function simGetPresetAddrs()   { return new Set(); }

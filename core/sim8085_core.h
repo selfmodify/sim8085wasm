@@ -575,6 +575,8 @@ int   BlankAllLeds(void);
 void  sim_set_led_callback(void (*cb)(int, int, int));
 void  sim_set_out_callback(void (*cb)(uint8_t port, uint8_t val));
 const char *sim_get_last_error(void);
+uint64_t    sim_get_cycles(void);
+void        sim_set_cycles(uint64_t n);
 int   sim_step_one(void);
 int   sim_run_steps(int max_steps);
 void  InitSymbolTable(void);

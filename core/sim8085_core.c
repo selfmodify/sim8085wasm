@@ -39,6 +39,47 @@ int           GERROR_COUNT = MAX_ERRORS;
 /* Last assembler error message (for the web API) */
 static char   g_last_error[512] = "";
 
+/* Cumulative T-state cycle counter */
+static uint64_t g_cycles = 0;
+
+/* T-states per opcode (8085, typical/taken path) */
+static const uint8_t g_tstates[256] = {
+ /* 00-07 */ 4,10, 7, 6, 4, 4, 7, 4,
+ /* 08-0F */ 4,10, 7, 6, 4, 4, 7, 4,
+ /* 10-17 */ 4,10, 7, 6, 4, 4, 7, 4,
+ /* 18-1F */ 4,10, 7, 6, 4, 4, 7, 4,
+ /* 20-27 */ 4,10,16, 6, 4, 4, 7, 4,
+ /* 28-2F */ 4,10,16, 6, 4, 4, 7, 4,
+ /* 30-37 */ 4,10,13, 6,10,10,10, 4,
+ /* 38-3F */ 4,10,13, 6, 4, 4, 7, 4,
+ /* 40-7F (MOV; 0x76=HLT) */
+    5, 5, 5, 5, 5, 5, 7, 5,
+    5, 5, 5, 5, 5, 5, 7, 5,
+    5, 5, 5, 5, 5, 5, 7, 5,
+    5, 5, 5, 5, 5, 5, 7, 5,
+    5, 5, 5, 5, 5, 5, 7, 5,
+    5, 5, 5, 5, 5, 5, 7, 5,
+    7, 7, 7, 7, 7, 7, 5, 7,
+    5, 5, 5, 5, 5, 5, 7, 5,
+ /* 80-BF (ALU reg/mem) */
+    4, 4, 4, 4, 4, 4, 7, 4,
+    4, 4, 4, 4, 4, 4, 7, 4,
+    4, 4, 4, 4, 4, 4, 7, 4,
+    4, 4, 4, 4, 4, 4, 7, 4,
+    4, 4, 4, 4, 4, 4, 7, 4,
+    4, 4, 4, 4, 4, 4, 7, 4,
+    4, 4, 4, 4, 4, 4, 7, 4,
+    4, 4, 4, 4, 4, 4, 7, 4,
+ /* C0-C7 */ 12,10,10,10,18,12,7,12,
+ /* C8-CF */ 12,10,10,10,18,18,7,12,
+ /* D0-D7 */ 12,10,10,10,18,12,7,12,
+ /* D8-DF */ 12,10,10,10,18,18,7,12,
+ /* E0-E7 */ 12,10,10,16,18,12,7,12,
+ /* E8-EF */ 12, 6,10, 4,18,18,7,12,
+ /* F0-F7 */ 12,10,10, 4,18,12,7,12,
+ /* F8-FF */ 12, 6,10, 4,18,18,7,12,
+};
+
 /* LED callback - set by the web layer */
 static void (*g_led_callback)(int field_type, int index, int value) = NULL;
 
@@ -110,6 +151,8 @@ int BadSystemCall(void) {
 }
 
 const char *sim_get_last_error(void) { return g_last_error; }
+uint64_t sim_get_cycles(void)        { return g_cycles; }
+void     sim_set_cycles(uint64_t n)  { g_cycles = n; }
 
 /* -----------------------------------------------------------------------
  * Machine init
@@ -123,6 +166,7 @@ int InitMachine(machine_ptr mp) {
     mp->i.bk_ctr  = 0;
     mp->intr_info.ei = 1;
     g_last_error[0] = '\0';
+    g_cycles = 0;
     return 1;
 }
 
@@ -1888,6 +1932,7 @@ int sim_step_one(void) {
     /* Dispatch */
     int incr = mot[op].Simulate();
     CLEAR_STATUS(JUST_CALLED | JUST_RETURNED);
+    g_cycles += g_tstates[op];
 
     if (incr > 0) SetIP(GetIP() + incr);
     /* incr == 0 means IP was set by the instruction (JMP, CALL, RET) */

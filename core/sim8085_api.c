@@ -534,4 +534,9 @@ EXPORT void wasm_get_all_input_ports(uint8_t *buf) {
     memcpy(buf, KIT->cpu.input_ports, 256);
 }
 
+/* T-state cycle counter */
+EXPORT uint32_t sim_get_cycles_lo(void) { return (uint32_t)(sim_get_cycles() & 0xFFFFFFFFu); }
+EXPORT uint32_t sim_get_cycles_hi(void) { return (uint32_t)(sim_get_cycles() >> 32); }
+EXPORT void     sim_reset_cycles(void)  { sim_set_cycles(0); }
+
 #endif /* __EMSCRIPTEN__ */
