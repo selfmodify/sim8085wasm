@@ -2476,6 +2476,40 @@ function addTraceEntry(prevR) {
   function importFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
+    const ext = file.name.split('.').pop().toLowerCase()
+
+    if (ext === 'hex') {
+      const reader = new FileReader()
+      reader.onload = ev => {
+        try {
+          const bytes = parseIntelHex(ev.target.result)
+          sim.simInit()
+          for (const [addr, val] of bytes) sim.simWriteByte(addr, val)
+          setMsg(`✓ Loaded ${bytes.size} bytes from ${file.name}`)
+          setAppState('idle'); setBuildId(id => id + 1)
+          setFileName(file.name); localStorage.setItem('sim8085_filename', file.name)
+        } catch(err) { setMsg(`✗ HEX parse error: ${err.message}`) }
+        e.target.value = ''
+      }
+      reader.readAsText(file)
+      return
+    }
+
+    if (ext === 'bin') {
+      const reader = new FileReader()
+      reader.onload = ev => {
+        const bytes = new Uint8Array(ev.target.result)
+        sim.simInit()
+        bytes.forEach((b, i) => sim.simWriteByte(0x100 + i, b))
+        setMsg(`✓ Loaded ${bytes.length} bytes from ${file.name} at 0100H`)
+        setAppState('idle'); setBuildId(id => id + 1)
+        setFileName(file.name); localStorage.setItem('sim8085_filename', file.name)
+        e.target.value = ''
+      }
+      reader.readAsArrayBuffer(file)
+      return
+    }
+
     const reader = new FileReader()
     reader.onload = ev => {
       const code = ev.target.result
@@ -2484,6 +2518,22 @@ function addTraceEntry(prevR) {
       e.target.value = ''
     }
     reader.readAsText(file)
+  }
+
+  function parseIntelHex(text) {
+    const bytes = new Map()
+    for (const line of text.split(/\r?\n/)) {
+      if (!line.startsWith(':')) continue
+      const rec = line.slice(1)
+      const count  = parseInt(rec.slice(0,2), 16)
+      const addr   = parseInt(rec.slice(2,6), 16)
+      const type   = parseInt(rec.slice(6,8), 16)
+      if (type === 1) break
+      if (type !== 0) continue
+      for (let i = 0; i < count; i++)
+        bytes.set(addr + i, parseInt(rec.slice(8 + i*2, 10 + i*2), 16))
+    }
+    return bytes
   }
 
   function shareURL() {
@@ -2595,7 +2645,7 @@ function addTraceEntry(prevR) {
 
         <div className="toolbar">
           <ExampleMenu onLoad={loadExample} />
-          <input type="file" ref={fileInputRef} style={{display:'none'}} accept=".asm,.85,.s,.txt" onChange={importFile} />
+          <input type="file" ref={fileInputRef} style={{display:'none'}} accept=".asm,.85,.s,.txt,.hex,.bin" onChange={importFile} />
           <button className="btn btn-asm"   onClick={() => doAssemble(srcRef.current)}>⚙ Build  <kbd>F5</kbd></button>
           <button className="btn btn-step"  onClick={doStep}  disabled={running || appState==='error'}>↓ Step  <kbd>F7</kbd></button>
           <button className="btn btn-back"  onClick={doStepBack} disabled={running || appState==='error' || histLen === 0} title={`Undo last step (${histLen} available)`}>⟲ Back{histLen > 0 ? ` (${histLen})` : ''}</button>
