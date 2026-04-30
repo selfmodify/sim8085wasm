@@ -1330,6 +1330,20 @@ body {
 .bp-list-del { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 11px; padding: 1px 4px; border-radius: 2px; margin-left: auto; flex-shrink: 0 }
 .bp-list-del:hover { color: var(--red); background: var(--bg3) }
 
+.callstack-panel { flex-shrink: 0 }
+.callstack-empty { padding: 4px 8px; font-size: 11px; color: var(--text3); font-style: italic }
+.callstack-depth { margin-left: auto; font-size: 10px; color: var(--text3); font-weight: 400; font-family: var(--mono) }
+.callstack-list { max-height: 120px; overflow-y: auto }
+.callstack-row { display: flex; align-items: center; gap: 4px; padding: 2px 8px; font-family: var(--mono); font-size: 11px }
+.callstack-row:hover { background: var(--bg2) }
+.callstack-top { background: color-mix(in srgb, var(--accent) 8%, transparent) }
+.callstack-target { color: var(--amber); cursor: pointer; flex-shrink: 0 }
+.callstack-target:hover { color: var(--accent); text-decoration: underline }
+.callstack-arrow { color: var(--text3); flex-shrink: 0 }
+.callstack-site { color: var(--text2); cursor: pointer; flex-shrink: 0 }
+.callstack-site:hover { color: var(--accent); text-decoration: underline }
+.callstack-ret { color: var(--text3); font-size: 10px; margin-left: auto; flex-shrink: 0 }
+
 .databreak-panel .bp-add-row { display: flex; gap: 4px; padding: 4px 8px }
 .databreak-panel .bp-add-input { flex: 1; background: var(--bg2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 11px; padding: 2px 5px; border-radius: 3px }
 .databreak-panel .bp-empty { padding: 4px 8px; font-size: 11px; color: var(--text3) }

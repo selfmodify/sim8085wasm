@@ -1468,6 +1468,32 @@ function TracePanel({ trace, onClear }) {
 }
 
 // ── Watch panel ──────────────────────────────────────────────────────────
+function CallStackPanel({ callStack, onJump }) {
+  if (callStack.length === 0) return (
+    <div className="panel callstack-panel">
+      <div className="panel-hd"><span className="panel-icon">📞</span>CALL STACK</div>
+      <div className="callstack-empty">— empty (step to populate) —</div>
+    </div>
+  )
+  return (
+    <div className="panel callstack-panel">
+      <div className="panel-hd"><span className="panel-icon">📞</span>CALL STACK
+        <span className="callstack-depth">{callStack.length}</span>
+      </div>
+      <div className="callstack-list">
+        {[...callStack].reverse().map((frame, i) => (
+          <div key={i} className={`callstack-row${i === 0 ? ' callstack-top' : ''}`}>
+            <span className="callstack-target" title="Target address" onClick={() => onJump(frame.targetAddr)}>{hex4(frame.targetAddr)}H</span>
+            <span className="callstack-arrow">←</span>
+            <span className="callstack-site" title="Call site" onClick={() => onJump(frame.callAddr)}>{hex4(frame.callAddr)}H</span>
+            <span className="callstack-ret" title="Return address">ret:{hex4(frame.retAddr)}H</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function DataBreakPanel({ dataBps, onToggle, onClearAll }) {
   const [input, setInput] = useState('')
 
@@ -2115,6 +2141,8 @@ export default function App() {
   const [leds, setLeds]         = useState(Array(8).fill(0))
   const [bps, setBps]           = useState(new Map())   // Map<addr, string|null>
   const [dataBps, setDataBps]   = useState(new Set())   // Set<addr> write watchpoints
+  const [callStack, setCallStack] = useState([])          // [{callAddr, retAddr, targetAddr}]
+  const callStackRef = useRef([])
   const [trace, setTrace]       = useState([])
   const [changedAddrs, setChangedAddrs] = useState(new Set())
   const [watches, setWatches]   = useState([])
@@ -2287,6 +2315,7 @@ export default function App() {
       historyRef.current = []
       setHistLen(0)
       setTrace([])
+      setCallStack([]); callStackRef.current = []
       setChangedAddrs(new Set())
       setOutputPorts([])
       setKeyQueue([])
@@ -2335,11 +2364,29 @@ export default function App() {
     setHistLen(next.length)
   }
 
+  const CALL_OPS = new Set([0xCD,0xC4,0xCC,0xD4,0xDC,0xE4,0xEC,0xF4,0xFC])
+  const RET_OPS  = new Set([0xC9,0xC0,0xC8,0xD0,0xD8,0xE0,0xE8,0xF0,0xF8])
+  const RST_OPS  = new Set([0xC7,0xCF,0xD7,0xDF,0xE7,0xEF,0xF7,0xFF])
+
   function doStep() {
     stopRun()
     pushHistory()
     const prevR = sim.simGetRegisters()
+    const op = sim.simReadByte(prevR.pc)
     const ok = sim.simStep()
+    const afterR = sim.simGetRegisters()
+    // Update call stack
+    if (CALL_OPS.has(op) || RST_OPS.has(op)) {
+      const targetAddr = afterR.pc
+      const retAddr    = prevR.pc + (RST_OPS.has(op) ? 1 : 3)
+      const next = [...callStackRef.current, { callAddr: prevR.pc, retAddr, targetAddr }]
+      callStackRef.current = next
+      setCallStack(next)
+    } else if (RET_OPS.has(op) && callStackRef.current.length > 0) {
+      const next = callStackRef.current.slice(0, -1)
+      callStackRef.current = next
+      setCallStack(next)
+    }
     setSteps(s => s+1)
     setPcFlash(f => f+1)
     refresh()
@@ -2871,6 +2918,7 @@ function addTraceEntry(prevR) {
             onSetInput={setInputPort} onRemoveInput={removeInputPort}
             keyQueue={keyQueue} onEnqueueKeys={enqueueKeys} onClearKeyQueue={clearKeyQueue} />
           <StackPanel regs={regs} regBase={regBase} onRegBase={setRegBase} />
+          <CallStackPanel callStack={callStack} onJump={setMemStart} />
           <DataBreakPanel dataBps={dataBps} onToggle={toggleDataBp} onClearAll={clearAllDataBps} />
           <TracePanel trace={trace} onClear={() => setTrace([])} />
         </div>
