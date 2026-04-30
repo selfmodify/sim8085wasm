@@ -2062,7 +2062,10 @@ export default function App() {
   const [showCalc,       setShowCalc]       = useState(false)
   const [showShortcuts,  setShowShortcuts]  = useState(false)
   function dismissWelcome() { localStorage.setItem('sim8085_welcomed', '1'); setShowWelcome(false) }
-  const [runSpeed, setRunSpeed]     = useState(3)        // index into SPEEDS
+  const [runSpeed, setRunSpeed]     = useState(() => {
+    const s = parseInt(localStorage.getItem('sim8085_speed'), 10)
+    return s >= 0 && s < SPEEDS.length ? s : 3
+  })
   const MEM_SIZES = [16*1024, 32*1024, 64*1024]
   const [memSize, _setMemSize] = useState(() => {
     const s = parseInt(localStorage.getItem('sim8085_memsize'), 10)
@@ -2085,7 +2088,7 @@ export default function App() {
   const memWatchMemRef = useRef(null)
   const [addrLineMap, setAddrLineMap] = useState(new Map())
   const srcRef      = useRef(src)
-  const speedRef    = useRef(3)
+  const speedRef    = useRef((() => { const s = parseInt(localStorage.getItem('sim8085_speed'),10); return s>=0&&s<SPEEDS.length?s:3 })())
   const historyRef  = useRef([])
   const bpsRef      = useRef(new Map())
   const prevMemRef  = useRef(null)
@@ -2564,7 +2567,7 @@ function addTraceEntry(prevR) {
           <label className="speed-label" title={SPEEDS[runSpeed].warp ? 'Warp: run until HLT, no mid-run UI updates' : `${SPEEDS[runSpeed].steps.toLocaleString()} steps/tick`}>
             Speed
             <input type="range" min={0} max={7} value={runSpeed} className="speed-slider"
-              onChange={e => { const v = +e.target.value; setRunSpeed(v); speedRef.current = v }} />
+              onChange={e => { const v = +e.target.value; setRunSpeed(v); speedRef.current = v; localStorage.setItem('sim8085_speed', v) }} />
             <span className="speed-val">{SPEEDS[runSpeed].label}</span>
           </label>
           <button className="btn btn-reset" onClick={handleReset}>↺ Reset  <kbd>F6</kbd></button>
