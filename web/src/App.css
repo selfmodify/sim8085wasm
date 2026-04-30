@@ -330,8 +330,8 @@ body {
 .engine-chip-wasm { border-color: var(--blue);    color: var(--blue) }
 
 .build-chip {
-  font-family: var(--mono); font-size: 10px; color: var(--text3);
-  flex-shrink: 0; opacity: 0.5;
+  font-family: var(--mono); font-size: 10px; color: var(--text2);
+  flex-shrink: 0;
 }
 
 /* Speed slider */
