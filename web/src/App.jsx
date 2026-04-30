@@ -1737,7 +1737,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExportHex, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExportHex, onExportBin, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
 
@@ -1766,6 +1766,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExpor
           {item('⇡  Import .asm / .85', onImport)}
           {item('⇣  Export .asm', onExport)}
           {item('⇣  Export .hex  (Intel HEX)', onExportHex)}
+          {item('⇣  Export .bin  (raw binary)', onExportBin)}
           {item('⎘  Copy share link', onShare)}
           <div className="bmenu-sep" />
           {item('🖩  Calculator', onCalc)}
@@ -2459,6 +2460,19 @@ function addTraceEntry(prevR) {
     document.body.removeChild(a); URL.revokeObjectURL(url)
   }
 
+  function exportBin() {
+    const mem = sim.simGetFullMemory()
+    const start = sim.simGetProgramRegion?.().start ?? 0x100
+    const end   = sim.simGetProgramRegion?.().end   ?? 0x100
+    if (end <= start) { alert('Assemble the program first.'); return }
+    const blob = new Blob([mem.slice(start, end)], { type: 'application/octet-stream' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = (fileName.replace(/\.(asm|85|s|txt)$/i,'') || 'program') + '.bin'
+    document.body.appendChild(a); a.click()
+    document.body.removeChild(a); URL.revokeObjectURL(url)
+  }
+
   function importFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -2571,6 +2585,7 @@ function addTraceEntry(prevR) {
             onImport={() => fileInputRef.current.click()}
             onExport={exportFile}
             onExportHex={exportHex}
+            onExportBin={exportBin}
             onShare={shareURL}
             onCalc={() => setShowCalc(c => !c)}
             memSize={memSize} onMemSize={changeMemSize}
