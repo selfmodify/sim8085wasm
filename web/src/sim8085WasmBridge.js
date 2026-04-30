@@ -328,6 +328,20 @@ export function simClearConsoleOutput(){ if (M) M._sim_clear_console_output(); }
 export function simSetConsolePort(n)   { if (M) M._sim_set_console_port(n & 0xFF); }
 export function simGetConsolePort()    { return M ? M._sim_get_console_port() : 0x01; }
 
+// ── Profiler — execution hit counts ──────────────────────────────────────
+export function simGetHitcnt(addr) {
+  return M ? M._sim_get_hitcnt_at(addr & 0xFFFF) : 0;
+}
+export function simGetHitcntRange(start, len) {
+  if (!M) return new Uint32Array(len);
+  const ptr = alloc(len * 4);
+  M._sim_get_hitcnt_range(start, len, ptr);
+  const out = new Uint32Array(M.HEAPU8.buffer, ptr, len).slice();
+  free(ptr);
+  return out;
+}
+export function simResetProfile() { if (M) M._sim_reset_profile_api(); }
+
 // ── T-state cycle counter ─────────────────────────────────────────────────
 export function simGetCycles() {
   if (!M) return 0;

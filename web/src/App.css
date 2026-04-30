@@ -1310,6 +1310,8 @@ body {
 .disasm-addr-input:focus { border-color: var(--amber) }
 .disasm-addr-input::placeholder { color: var(--text3); opacity: .5 }
 .disasm-cycles { color: var(--text3); font-size: 10px; margin-left: auto; flex-shrink: 0 }
+.disasm-heat { display: inline-block; width: 3px; height: 14px; background: var(--amber); border-radius: 1px; flex-shrink: 0; margin-right: 2px }
+.disasm-hitcnt { color: var(--amber); font-size: 10px; font-family: var(--mono); flex-shrink: 0; margin-left: 4px }
 .reg-base-btn.active { opacity: 1; background: rgba(240,168,64,.18); border-color: var(--amber) }
 
 /* ── Breakpoint list ─────────────────────────────────────────────── */

@@ -577,6 +577,8 @@ void  sim_set_out_callback(void (*cb)(uint8_t port, uint8_t val));
 const char *sim_get_last_error(void);
 uint64_t    sim_get_cycles(void);
 void        sim_set_cycles(uint64_t n);
+uint32_t    sim_get_hitcnt(uint16_t addr);
+void        sim_reset_profile(void);
 int   sim_step_one(void);
 int   sim_run_steps(int max_steps);
 void  InitSymbolTable(void);

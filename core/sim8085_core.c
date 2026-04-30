@@ -42,6 +42,9 @@ static char   g_last_error[512] = "";
 /* Cumulative T-state cycle counter */
 static uint64_t g_cycles = 0;
 
+/* Per-address execution hit counters (profiler) */
+static uint32_t g_hitcnt[65536];
+
 /* T-states per opcode (8085, typical/taken path) */
 static const uint8_t g_tstates[256] = {
  /* 00-07 */ 4,10, 7, 6, 4, 4, 7, 4,
@@ -153,6 +156,8 @@ int BadSystemCall(void) {
 const char *sim_get_last_error(void) { return g_last_error; }
 uint64_t sim_get_cycles(void)        { return g_cycles; }
 void     sim_set_cycles(uint64_t n)  { g_cycles = n; }
+uint32_t sim_get_hitcnt(uint16_t a)  { return g_hitcnt[a]; }
+void     sim_reset_profile(void)     { memset(g_hitcnt, 0, sizeof(g_hitcnt)); }
 
 /* -----------------------------------------------------------------------
  * Machine init
@@ -167,6 +172,7 @@ int InitMachine(machine_ptr mp) {
     mp->intr_info.ei = 1;
     g_last_error[0] = '\0';
     g_cycles = 0;
+    memset(g_hitcnt, 0, sizeof(g_hitcnt));
     return 1;
 }
 
@@ -1930,6 +1936,7 @@ int sim_step_one(void) {
     }
 
     /* Dispatch */
+    g_hitcnt[GetIP()]++;
     int incr = mot[op].Simulate();
     CLEAR_STATUS(JUST_CALLED | JUST_RETURNED);
     g_cycles += g_tstates[op];

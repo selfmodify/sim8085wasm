@@ -678,7 +678,7 @@ function FlagPanel({ regs }) {
 }
 
 // ── Disassembly panel ────────────────────────────────────────────────────
-function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondition, onGotoLine, buildId, pcFlash, onRunTo, jumpRef, symbols, onJumpMem }) {
+function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondition, onGotoLine, buildId, pcFlash, onRunTo, jumpRef, symbols, onJumpMem, hitcnts, maxHit }) {
   const [viewStart, setViewStart] = useState(() => regs.pc)
   const [ctxMenu, setCtxMenu]     = useState(null)   // {addr, x, y}
   const [followPC, setFollowPC]   = useState(true)
@@ -836,9 +836,16 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
               >
                 {bp ? (cond ? '◆' : '●') : '·'}
               </span>
+              {maxHit > 0 && hitcnts && hitcnts.has(row.addr) && (
+                <span className="disasm-heat" title={`${hitcnts.get(row.addr).toLocaleString()} hits`}
+                  style={{opacity: Math.max(0.15, hitcnts.get(row.addr) / maxHit)}} />
+              )}
               <span className="disasm-text">{row.text}</span>
               {cond && bp && <span className="disasm-cond">{cond}</span>}
               {row.cycles > 0 && <span className="disasm-cycles">{row.cycles}T</span>}
+              {maxHit > 0 && hitcnts?.has(row.addr) && (
+                <span className="disasm-hitcnt" title="Execution count">{fmtCount(hitcnts.get(row.addr))}</span>
+              )}
               {cur && <span className="disasm-pc-arrow">◀</span>}
             </div>
             </div>
@@ -2143,6 +2150,8 @@ export default function App() {
   const [dataBps, setDataBps]   = useState(new Set())   // Set<addr> write watchpoints
   const [callStack, setCallStack] = useState([])          // [{callAddr, retAddr, targetAddr}]
   const callStackRef = useRef([])
+  const [hitcnts, setHitcnts]   = useState(null)          // Map<addr, count> or null
+  const [maxHit, setMaxHit]     = useState(0)
   const [trace, setTrace]       = useState([])
   const [changedAddrs, setChangedAddrs] = useState(new Set())
   const [watches, setWatches]   = useState([])
@@ -2298,6 +2307,23 @@ export default function App() {
     setIntState(sim.simGetIntState())
     setKeyQueue(sim.simGetKeyQueue())
     setConsoleOutput(sim.simGetConsoleOutput())
+    refreshProfile()
+  }
+
+  function refreshProfile() {
+    if (!sim.simGetHitcntRange) return
+    const pr = sim.simGetProgramRegion()
+    const start = pr?.start ?? 0x100
+    const end   = Math.min((pr?.end ?? 0x200) + 16, 0xFFFF)
+    const len   = end - start + 1
+    if (len <= 0) return
+    const counts = sim.simGetHitcntRange(start, len)
+    let mx = 0; const m = new Map()
+    for (let i = 0; i < len; i++) {
+      if (counts[i] > 0) { m.set(start + i, counts[i]); if (counts[i] > mx) mx = counts[i] }
+    }
+    setHitcnts(m.size > 0 ? m : null)
+    setMaxHit(mx)
   }
 
   function changeConsolePort(n) {
@@ -2316,6 +2342,7 @@ export default function App() {
       setHistLen(0)
       setTrace([])
       setCallStack([]); callStackRef.current = []
+      setHitcnts(null); setMaxHit(0)
       setChangedAddrs(new Set())
       setOutputPorts([])
       setKeyQueue([])
@@ -2872,6 +2899,7 @@ function addTraceEntry(prevR) {
             jumpRef={disasmJumpRef}
             symbols={symbols}
             onJumpMem={setMemStart}
+            hitcnts={hitcnts} maxHit={maxHit}
             onGotoLine={(addr, labelName) => { const ln = addrLineMap.get(addr); if (ln) gotoLineRef.current?.(ln, labelName) }} />
           <ChatPanel regs={regs} src={src} />
           <div className="mem-watch-row">

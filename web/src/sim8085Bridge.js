@@ -34,6 +34,7 @@ let ioOut  = new Uint8Array(256);   // values written by OUT instructions
 let ioOutTouched = new Set();       // which output ports have been written
 let lastSymbols     = {}
 let cycles          = 0
+let hitcnt          = new Uint32Array(65536)  // profiler: instruction hit counts
 let lastProgStart   = DEFAULT_IP
 let lastProgEnd     = DEFAULT_IP
 let lastPresetAddrs = new Set()
@@ -157,6 +158,7 @@ function stepOne() {
   if (status & (HALTED | QUIT | SEVERE_ERROR)) return false;
   const pc = regs.pc;
   const op = memR(pc);
+  hitcnt[pc]++;
 
   // CALL 5 intercept
   if (op === 0xCD && memR16(pc+1) === 0x0005) {
@@ -918,7 +920,7 @@ export function simInit() {
   lastError = '';
   ioOut.fill(0); ioOutTouched.clear();
   consoleBuf = '';
-  lastSymbols = {}; cycles = 0
+  lastSymbols = {}; cycles = 0; hitcnt.fill(0)
   lastProgStart = DEFAULT_IP; lastProgEnd = DEFAULT_IP; lastPresetAddrs = new Set()
   iff = false; iffNext = false; intMask = 0
   rst75ff = false; trapPend = false
@@ -1016,6 +1018,9 @@ export function simGetError()         { return lastError; }
 export function simGetSymbols()       { return {...lastSymbols} }
 export function simGetCycles()        { return cycles }
 export function simSetCycles(n)       { cycles = n }
+export function simGetHitcnt(addr)    { return hitcnt[addr & 0xFFFF] }
+export function simGetHitcntRange(start, len) { return hitcnt.slice(start, start + len) }
+export function simResetProfile()     { hitcnt.fill(0) }
 export function simGetConsoleOutput() { return consoleBuf }
 export function simClearConsoleOutput() { consoleBuf = '' }
 export function simSetConsolePort(n)  { consolePort = n & 0xFF }

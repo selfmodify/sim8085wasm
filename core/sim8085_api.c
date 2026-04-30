@@ -539,4 +539,12 @@ EXPORT uint32_t sim_get_cycles_lo(void) { return (uint32_t)(sim_get_cycles() & 0
 EXPORT uint32_t sim_get_cycles_hi(void) { return (uint32_t)(sim_get_cycles() >> 32); }
 EXPORT void     sim_reset_cycles(void)  { sim_set_cycles(0); }
 
+/* Profiler — execution hit counts per address */
+EXPORT uint32_t sim_get_hitcnt_at(uint16_t addr)      { return sim_get_hitcnt(addr); }
+EXPORT void     sim_get_hitcnt_range(uint16_t start, uint16_t len, uint32_t *out) {
+    if (!out) return;
+    for (uint16_t i = 0; i < len; i++) out[i] = sim_get_hitcnt((uint16_t)(start + i));
+}
+EXPORT void     sim_reset_profile_api(void) { sim_reset_profile(); }
+
 #endif /* __EMSCRIPTEN__ */
