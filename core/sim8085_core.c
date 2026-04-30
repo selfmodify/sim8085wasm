@@ -1453,6 +1453,58 @@ static int ParseDirective(void) {
         SetMemWord(addr16, (word)val);
         return CORRECT_DIRECTIVE;
     }
+    if (strcmp(TOKEN(), "ASSERT") == 0) {
+        char subj[TOKEN_SIZE + 2];
+        uint8_t sub; int is_pair = 0, is_mem = 0;
+        if (NumOrIdTok() < 0) return -1;
+        strncpy(subj, TOKEN(), TOKEN_SIZE); subj[TOKEN_SIZE] = '\0';
+        if      (strcmp(subj,"B")==0)  sub=0x00;
+        else if (strcmp(subj,"C")==0)  sub=0x01;
+        else if (strcmp(subj,"D")==0)  sub=0x02;
+        else if (strcmp(subj,"E")==0)  sub=0x03;
+        else if (strcmp(subj,"H")==0)  sub=0x04;
+        else if (strcmp(subj,"L")==0)  sub=0x05;
+        else if (strcmp(subj,"M")==0)  sub=0x06;
+        else if (strcmp(subj,"A")==0)  sub=0x07;
+        else if (strcmp(subj,"CY")==0) sub=0x10;
+        else if (strcmp(subj,"Z")==0)  sub=0x11;
+        else if (strcmp(subj,"S")==0)  sub=0x12;
+        else if (strcmp(subj,"P")==0)  sub=0x13;
+        else if (strcmp(subj,"AC")==0) sub=0x14;
+        else if (strcmp(subj,"BC")==0) { sub=0x20; is_pair=1; }
+        else if (strcmp(subj,"DE")==0) { sub=0x21; is_pair=1; }
+        else if (strcmp(subj,"HL")==0) { sub=0x22; is_pair=1; }
+        else if (strcmp(subj,"SP")==0) { sub=0x23; is_pair=1; }
+        else if (strcmp(subj,"PC")==0) { sub=0x24; is_pair=1; }
+        else if (strcmp(subj,"MEM")==0){ sub=0x30; is_mem=1; }
+        else return -1;
+        if (Advance(0) != COMMA) return -1;
+        SetMemByte(PTR(), 0xDD); PTR()++;
+        SetMemByte(PTR(), sub);  PTR()++;
+        if (is_mem) {
+            word addr16; long val8;
+            if (NumOrIdTok() < 0) return -1;
+            addr16 = (word)StrToNum();
+            if (Advance(0) != COMMA) return -1;
+            if (NumOrIdTok() < 0) return -1;
+            val8 = StrToNum();
+            SetMemByte(PTR(), addr16 & 0xFF);        PTR()++;
+            SetMemByte(PTR(), (addr16 >> 8) & 0xFF); PTR()++;
+            SetMemByte(PTR(), (uchar)(val8 & 0xFF)); PTR()++;
+        } else if (is_pair) {
+            long val;
+            if (NumOrIdTok() < 0) return -1;
+            val = StrToNum();
+            SetMemByte(PTR(), (word)val & 0xFF);         PTR()++;
+            SetMemByte(PTR(), ((word)val >> 8) & 0xFF);  PTR()++;
+        } else {
+            long val;
+            if (NumOrIdTok() < 0) return -1;
+            val = StrToNum();
+            SetMemByte(PTR(), (uchar)(val & 0xFF)); PTR()++;
+        }
+        return CORRECT_DIRECTIVE;
+    }
     return -1;
 }
 
@@ -1758,6 +1810,43 @@ int sim_step_one(void) {
             SetIP(ret_addr);
             return !(GET_STATUS() & (QUIT | SEVERE_ERROR));
         }
+    }
+
+    /* ASSERT pseudo-instruction (opcode 0xDD) */
+    if (op == 0xDD) {
+        uchar sub = GetMemByte(GetIP() + 1);
+        word pc = GetIP();
+        int incr2 = 2, fail = 0;
+        char msg[128] = "";
+        if (sub <= 0x07) {
+            uchar rv[] = {GetB(),GetC(),GetD(),GetE(),GetH(),GetL(),GetMemByte(GetHL()),GetA()};
+            const char *rn[] = {"B","C","D","E","H","L","M","A"};
+            uchar exp = GetMemByte(GetIP()+2); incr2 = 3;
+            if (rv[sub] != exp) { fail=1; snprintf(msg,sizeof(msg),"%s=%02XH got %02XH",rn[sub],exp,rv[sub]); }
+        } else if (sub >= 0x10 && sub <= 0x14) {
+            const char *fn[] = {"CY","Z","S","P","AC"};
+            uchar f = GetFlag();
+            uchar fv[] = {f&1,(f>>6)&1,(f>>7)&1,(f>>2)&1,(f>>4)&1};
+            uchar exp = GetMemByte(GetIP()+2)&1; incr2 = 3;
+            if (fv[sub-0x10] != exp) { fail=1; snprintf(msg,sizeof(msg),"%s=%u got %u",fn[sub-0x10],exp,fv[sub-0x10]); }
+        } else if (sub >= 0x20 && sub <= 0x24) {
+            const char *pn[] = {"BC","DE","HL","SP","PC"};
+            word pv[] = {GetBC(),GetDE(),GetHL(),GetSP(),pc};
+            word exp = (word)(GetMemByte(GetIP()+2)|((word)GetMemByte(GetIP()+3)<<8)); incr2 = 4;
+            if (pv[sub-0x20] != exp) { fail=1; snprintf(msg,sizeof(msg),"%s=%04XH got %04XH",pn[sub-0x20],exp,pv[sub-0x20]); }
+        } else if (sub == 0x30) {
+            word addr = (word)(GetMemByte(GetIP()+2)|((word)GetMemByte(GetIP()+3)<<8));
+            uchar exp = GetMemByte(GetIP()+4); incr2 = 5;
+            uchar act = GetMemByte(addr);
+            if (act != exp) { fail=1; snprintf(msg,sizeof(msg),"mem[%04XH]=%02XH got %02XH",addr,exp,act); }
+        }
+        if (fail) {
+            snprintf(g_last_error, sizeof(g_last_error), "[%04XH] Assertion failed: %s", pc, msg);
+            SET_STATUS(SEVERE_ERROR);
+            return 0;
+        }
+        SetIP(GetIP() + incr2);
+        return 1;
     }
 
     /* Dispatch */
