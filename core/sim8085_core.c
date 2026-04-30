@@ -1660,6 +1660,10 @@ long StoreSymbolsInTable(FILE *fp) {
                 StoreInTable(saved, PTR());
                 tok = Advance(1); /* get instruction after label */
                 if (tok == EOI || tok == EOLN || tok == COMMENT) continue;
+            } else if (next == IDENTIFIER && strcmp(TOKEN(), "EQU") == 0) {
+                /* EQU constant: NAME EQU value */
+                if (NumOrIdTok() >= 0) StoreInTable(saved, (unsigned)StrToNum());
+                continue;
             } else {
                 /* Not a label - restore */
                 strncpy(TOKEN(), saved, TOKEN_SIZE);
@@ -1701,6 +1705,10 @@ int ParseLex(void) {
             tok = Advance(1);
             if (tok == EOI || tok == EOLN || tok == COMMENT) return LABEL;
             /* fall through to parse the instruction */
+        } else if (next == IDENTIFIER && strcmp(TOKEN(), "EQU") == 0) {
+            /* EQU constant: NAME EQU value — update symbol, emit nothing */
+            if (NumOrIdTok() >= 0) StoreInTable(saved, (unsigned)StrToNum());
+            return CORRECT_DIRECTIVE;
         } else {
             /* Not a label - restore and parse as instruction */
             strncpy(TOKEN(), saved, TOKEN_SIZE);

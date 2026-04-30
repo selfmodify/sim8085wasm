@@ -615,6 +615,15 @@ function assemble(source) {
       if (ti >= toks.length) continue;
     }
 
+    // EQU: NAME EQU value  (no colon — identifier followed immediately by EQU)
+    if (toks[ti]?.type==='id' && toks[ti+1]?.type==='id' && toks[ti+1].val==='EQU') {
+      const name = toks[ti].val; ti += 2;
+      const valTok = next();
+      const n = parseNum(valTok, lineNo);
+      labels[name] = typeof n === 'number' ? n : 0;
+      continue;
+    }
+
     if (!peek()) continue;
     const mnem = next().val;
 
