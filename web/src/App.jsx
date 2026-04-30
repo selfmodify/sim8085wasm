@@ -1737,7 +1737,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExportHex, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
 
@@ -1765,6 +1765,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onShare
         <div className="bmenu-dropdown">
           {item('⇡  Import .asm / .85', onImport)}
           {item('⇣  Export .asm', onExport)}
+          {item('⇣  Export .hex  (Intel HEX)', onExportHex)}
           {item('⎘  Copy share link', onShare)}
           <div className="bmenu-sep" />
           {item('🖩  Calculator', onCalc)}
@@ -2431,7 +2432,29 @@ function addTraceEntry(prevR) {
     const blob = new Blob([srcRef.current], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = 'program.asm'
+    a.href = url; a.download = (fileName.replace(/\.(asm|85|s|txt)$/i,'') || 'program') + '.asm'
+    document.body.appendChild(a); a.click()
+    document.body.removeChild(a); URL.revokeObjectURL(url)
+  }
+
+  function exportHex() {
+    const mem = sim.simGetFullMemory()
+    const start = sim.simGetProgramRegion?.().start ?? 0x100
+    const end   = sim.simGetProgramRegion?.().end   ?? 0x100
+    if (end <= start) { alert('Assemble the program first.'); return }
+    const rows = []
+    for (let addr = start; addr < end; addr += 16) {
+      const chunk = Math.min(16, end - addr)
+      let sum = chunk + (addr >> 8) + (addr & 0xFF)
+      let row = `:${hex2(chunk)}${hex4(addr)}00`
+      for (let i = 0; i < chunk; i++) { const b = mem[addr + i]; row += hex2(b); sum += b }
+      rows.push(row + hex2((-sum) & 0xFF))
+    }
+    rows.push(':00000001FF')
+    const blob = new Blob([rows.join('\n') + '\n'], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = (fileName.replace(/\.(asm|85|s|txt)$/i,'') || 'program') + '.hex'
     document.body.appendChild(a); a.click()
     document.body.removeChild(a); URL.revokeObjectURL(url)
   }
@@ -2547,6 +2570,7 @@ function addTraceEntry(prevR) {
             onShowShortcuts={() => setShowShortcuts(true)}
             onImport={() => fileInputRef.current.click()}
             onExport={exportFile}
+            onExportHex={exportHex}
             onShare={shareURL}
             onCalc={() => setShowCalc(c => !c)}
             memSize={memSize} onMemSize={changeMemSize}
