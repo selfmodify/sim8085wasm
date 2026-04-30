@@ -1857,7 +1857,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExportHex, onExportBin, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExportHex, onExportBin, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, workerMode, onWorkerMode }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
 
@@ -1894,6 +1894,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExpor
           {item('⌨  Keyboard shortcuts  ?', onShowShortcuts)}
           <div className="bmenu-sep" />
           {item(theme === 'light' ? '🌙  Dark theme' : '☀  Light theme', onTheme)}
+          {item(workerMode ? '⚙  Worker: ON' : '⚙  Worker: OFF', onWorkerMode)}
           {item('⭐  View on GitHub',  () => window.open('https://github.com/selfmodify/sim8085wasm', '_blank'))}
           {item('🐛  Report a Bug',    () => window.open('https://github.com/selfmodify/sim8085wasm/issues/new', '_blank'))}
           {item('💬  Ask a Question',  () => window.open('https://github.com/selfmodify/sim8085wasm/discussions', '_blank'))}
@@ -2170,6 +2171,9 @@ export default function App() {
   const [intState, setIntState] = useState(() => sim.simGetIntState())
   const [sid, setSid] = useState(0)
   const [sod, setSod] = useState(0)
+  const [workerMode, setWorkerMode] = useState(false)
+  const workerRef     = useRef(null)    // Worker instance
+  const workerRunning = useRef(false)   // whether Worker is currently executing
   const [memStart, setMemStart] = useState(0x100)
   const [appState, setAppState] = useState('idle')  // idle | running | halted | error
   const [engineMode, setEngineMode]   = useState('js')    // 'js' | 'wasm'
@@ -2238,6 +2242,76 @@ export default function App() {
     const t = setTimeout(() => { try { localStorage.setItem('sim8085_program', src) } catch {} }, 1000)
     return () => clearTimeout(t)
   }, [src])
+
+  // Worker lifecycle
+  useEffect(() => {
+    if (!workerMode) { if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null } return }
+    const w = new Worker(new URL('./simWorker.js', import.meta.url), { type: 'module' })
+    workerRef.current = w
+    w.onmessage = ({ data }) => {
+      const { evt } = data
+      if (evt === 'tick') {
+        setSteps(s => s + data.steps)
+        const now = performance.now()
+        const tp = throughputRef.current
+        tp.steps += data.steps; tp.ms += (now - (tp._last ?? now)); tp._last = now
+        if (tp.ms >= 500) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; setMhz(tp.mhz) }
+      } else if (evt === 'stopped') {
+        workerRunning.current = false
+        const s = data.state
+        setRegs(old => { setPrev(old); return s.regs })
+        setLeds(s.leds)
+        setCycles(s.cycles)
+        setIntState(s.intState)
+        setKeyQueue(s.keyQueue)
+        setConsoleOutput(s.console)
+        setOutputPorts(s.outputs)
+        if (s.sod !== undefined) setSod(s.sod)
+        refreshProfile()
+        updateMemDiff()
+        warpActiveRef.current = false
+        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+        setPcFlash(f => f + 1)
+        const reason = data.reason
+        if (reason === 'watchpoint') {
+          setAppState('idle'); setMsg(`⏹ Watchpoint: write to ${hex4(s.watchHit)}H at PC=${hex4(s.regs.pc)}H`)
+        } else if (reason === 'bp') {
+          setAppState('idle'); setMsg(`⏹ Breakpoint at ${hex4(s.regs.pc)}H`)
+        } else if (reason === 'user') {
+          setAppState('idle'); setMsg('⏹ Stopped.')
+        } else if (reason === 'halted') {
+          setAppState('halted'); setMsg('■ Program halted.')
+        } else {
+          setAppState('error'); setMsg(`✗ ${s.error}`)
+        }
+        refreshProfile()
+      } else if (evt === 'stepped') {
+        const s = data.state
+        setRegs(old => { setPrev(old); return s.regs })
+        setLeds(s.leds); setCycles(s.cycles)
+        setIntState(s.intState); setKeyQueue(s.keyQueue)
+        setConsoleOutput(s.console); setOutputPorts(s.outputs)
+      } else if (evt === 'assembled') {
+        const res = data.result
+        setBuildId(id => id + 1); setSteps(0); setMhz(0)
+        if (!res.ok) {
+          const m = res.errorMsg?.match(/^Line (\d+)/)
+          setErrorLine(m ? parseInt(m[1]) : null)
+          setAddrLineMap(new Map()); lineAddrRef.current = new Map(); setSymbols({}); setProgramRegion(null); setPresetAddrs(new Set())
+          setAppState('error'); setMsg(`✗ ${res.errorMsg}`)
+        } else {
+          setErrorLine(null); setAppState('idle')
+          const alm = buildAddrLineMap(srcRef.current); setAddrLineMap(alm)
+          const rev = new Map(); for (const [addr, ln] of alm) rev.set(ln, addr); lineAddrRef.current = rev
+          const t = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})
+          setMsg(`✓ ${res.bytesEmitted}B at ${hex4(res.entryPoint)}H — ready  ${t}`)
+        }
+        refresh()
+      }
+    }
+    w.postMessage({ cmd: 'init' })
+    return () => { w.terminate(); workerRef.current = null }
+  }, [workerMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function onEditorResizeDown(e) {
     e.preventDefault()
@@ -2363,6 +2437,12 @@ export default function App() {
       sim.simSetMemorySize(memSizeRef.current)
       sim.simInit()
       for (const addr of dataBps) sim.simSetDataBreakpoint(addr)
+      throughputRef.current = { steps: 0, ms: 0, mhz: 0 }
+      if (workerRef.current) {
+        // Worker assembles and sends back result; the worker's evt:'assembled' handler finalizes
+        workerRef.current.postMessage({ cmd: 'assemble', src: code })
+        return
+      }
       const res = sim.simAssemble(code)
       setBuildId(id => id + 1)
       setSteps(0); setMhz(0); throughputRef.current = { steps: 0, ms: 0, mhz: 0 }
@@ -2461,6 +2541,21 @@ export default function App() {
   function startRun() {
     if (timerRef.current) return
     setAppState('running')
+
+    // Worker mode: delegate run to the Web Worker
+    if (workerRef.current && !workerRunning.current) {
+      workerRunning.current = true
+      throughputRef.current = { steps: 0, ms: 0, mhz: 0, _last: performance.now() }
+      const speed = SPEEDS[speedRef.current]
+      const stepsPerTick = speed.warp ? 500000 : speed.steps
+      workerRef.current.postMessage({
+        cmd: 'run',
+        stepsPerTick,
+        bps: [...bpsRef.current.entries()],
+      })
+      setMsg(speed.warp ? '⚡ Warp (Worker)…' : '▶ Running (Worker)…')
+      return
+    }
 
     function finalizeTick(atBp) {
       const r = sim.simGetRegisters()
@@ -2565,6 +2660,10 @@ export default function App() {
   function stopRun() {
     warpActiveRef.current = false
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+    if (workerRef.current && workerRunning.current) {
+      workerRef.current.postMessage({ cmd: 'stop' })
+      return  // Worker will post 'stopped' event which finalizes UI
+    }
     refresh()
     refreshOutputPorts()
     if (appState === 'running') setAppState('idle')
@@ -2843,7 +2942,8 @@ function addTraceEntry(prevR) {
             memSize={memSize} onMemSize={changeMemSize}
             engineMode={engineMode} onEngineSwitch={handleEngineSwitch}
             engineSwitching={engineSwitching}
-            theme={theme} onTheme={toggleTheme} />
+            theme={theme} onTheme={toggleTheme}
+            workerMode={workerMode} onWorkerMode={() => setWorkerMode(m => !m)} />
         </div>
 
         <div className="toolbar">

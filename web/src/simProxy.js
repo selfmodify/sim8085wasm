@@ -74,3 +74,15 @@ export const simGetCycles           = (...a) => _impl.simGetCycles(...a)
 export const simSetCycles           = (...a) => _impl.simSetCycles(...a)
 export const simGetProgramRegion    = (...a) => _impl.simGetProgramRegion(...a)
 export const simGetPresetAddrs      = (...a) => _impl.simGetPresetAddrs(...a)
+export const simSetDataBreakpoint   = (...a) => _impl.simSetDataBreakpoint?.(...a)
+export const simClearDataBreakpoint = (...a) => _impl.simClearDataBreakpoint?.(...a)
+export const simClearAllDataBreakpoints = (...a) => _impl.simClearAllDataBreakpoints?.(...a)
+export const simIsDataBreakpoint    = (...a) => _impl.simIsDataBreakpoint?.(...a)
+export const simGetDataBreakpoints  = (...a) => _impl.simGetDataBreakpoints?.(...a) ?? []
+export const simGetDataWatchHit     = (...a) => _impl.simGetDataWatchHit?.(...a) ?? -1
+export const simGetHitcnt           = (...a) => _impl.simGetHitcnt?.(...a) ?? 0
+export const simGetHitcntRange      = (...a) => _impl.simGetHitcntRange?.(...a)
+export const simResetProfile        = (...a) => _impl.simResetProfile?.(...a)
+export const simGetSID              = (...a) => _impl.simGetSID?.(...a) ?? 0
+export const simSetSID              = (...a) => _impl.simSetSID?.(...a)
+export const simGetSOD              = (...a) => _impl.simGetSOD?.(...a) ?? 0
