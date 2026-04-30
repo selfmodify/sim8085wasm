@@ -2526,6 +2526,7 @@ function addTraceEntry(prevR) {
         <span className={`engine-chip engine-chip-${engineMode}`} title={engineSwitching ? 'Switching engine…' : `Engine: ${engineMode.toUpperCase()}`}>
           {engineSwitching ? '…' : engineMode.toUpperCase()}
         </span>
+        <span className="build-chip" title="Build time">{__BUILD_TIME__}</span>
       </div>
 
       {/* ── Mobile tab bar ── */}

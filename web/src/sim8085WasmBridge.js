@@ -86,10 +86,8 @@ export function simAssemble(source) {
       errors: [],
     };
   }
-  const line = M._wasm_asm_error_line();
-  const msg  = cstr(M._wasm_asm_error_msg());
-  const errorMsg = line > 0 ? `Line ${line}: ${msg}` : msg;
-  return { ok: false, errorMsg, errors: [errorMsg] };
+  const msg = cstr(M._wasm_asm_error_msg());
+  return { ok: false, errorMsg: msg, errors: [msg] };
 }
 
 // ── Execution ─────────────────────────────────────────────────────────────

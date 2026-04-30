@@ -58,7 +58,10 @@ function wasmBuildPlugin() {
 }
 
 // Change base to '/your-repo-name/' for GitHub Pages, or '/' for Netlify/Vercel
+const buildTime = new Date().toISOString().slice(0, 16).replace('T', ' ')
+
 export default defineConfig({
   plugins: [react(), wasmBuildPlugin()],
   base: '/sim8085wasm/',   // ← must match your repo name exactly
+  define: { __BUILD_TIME__: JSON.stringify(buildTime) },
 })

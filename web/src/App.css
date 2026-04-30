@@ -329,6 +329,11 @@ body {
 .engine-chip-js   { border-color: var(--border2); color: var(--text3) }
 .engine-chip-wasm { border-color: var(--blue);    color: var(--blue) }
 
+.build-chip {
+  font-family: var(--mono); font-size: 10px; color: var(--text3);
+  flex-shrink: 0; opacity: 0.5;
+}
+
 /* Speed slider */
 .speed-label { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 12px; color: var(--text3); white-space: nowrap }
 .speed-slider { width: 70px; accent-color: var(--accent); cursor: pointer }
