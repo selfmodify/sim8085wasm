@@ -2028,7 +2028,7 @@ export default function App() {
     } catch {}
     return EXAMPLES['I/O']['LED Scroll']
   })
-  const [fileName, setFileName]  = useState('')
+  const [fileName, setFileName]  = useState(() => localStorage.getItem('sim8085_filename') || '')
   const [regs, setRegs]         = useState({a:0,b:0,c:0,d:0,e:0,h:0,l:0,flags:0,pc:0x100,sp:0,flagS:0,flagZ:0,flagAC:0,flagP:0,flagCY:0,halted:false,hasError:false})
   const [prevRegs, setPrev]     = useState(null)
   const [leds, setLeds]         = useState(Array(8).fill(0))
@@ -2438,7 +2438,7 @@ function addTraceEntry(prevR) {
     reader.onload = ev => {
       const code = ev.target.result
       srcRef.current = code; setSrc(code); doAssemble(code)
-      setFileName(file.name)
+      setFileName(file.name); localStorage.setItem('sim8085_filename', file.name)
       e.target.value = ''
     }
     reader.readAsText(file)
@@ -2471,7 +2471,8 @@ function addTraceEntry(prevR) {
     srcRef.current = code
     setSrc(code)
     doAssemble(code)
-    setFileName(key.slice(sep + 2))
+    const name = key.slice(sep + 2)
+    setFileName(name); localStorage.setItem('sim8085_filename', name)
   }
 
   function setInputPort(port, val) {
@@ -2560,7 +2561,7 @@ function addTraceEntry(prevR) {
           </button>
           <label className="speed-label" title={SPEEDS[runSpeed].warp ? 'Warp: run until HLT, no mid-run UI updates' : `${SPEEDS[runSpeed].steps.toLocaleString()} steps/tick`}>
             Speed
-            <input type="range" min={0} max={5} value={runSpeed} className="speed-slider"
+            <input type="range" min={0} max={6} value={runSpeed} className="speed-slider"
               onChange={e => { const v = +e.target.value; setRunSpeed(v); speedRef.current = v }} />
             <span className="speed-val">{SPEEDS[runSpeed].label}</span>
           </label>
