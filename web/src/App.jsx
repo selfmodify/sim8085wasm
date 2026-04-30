@@ -2073,6 +2073,7 @@ export default function App() {
   const [statusLog, setStatusLog]   = useState([])
   const [histLen, setHistLen]       = useState(0)        // for disabling Step Back button
   const timerRef    = useRef(null)
+  const warpActiveRef = useRef(false)
   const editorColRef = useRef(null)
   const rightColRef  = useRef(null)
   const gotoLineRef  = useRef(null)
@@ -2278,14 +2279,66 @@ export default function App() {
   function startRun() {
     if (timerRef.current) return
     setAppState('running')
+
+    function finalizeTick(atBp) {
+      const r = sim.simGetRegisters()
+      if (oneShotBpsRef.current.size > 0) {
+        const next = new Map(bpsRef.current)
+        for (const addr of oneShotBpsRef.current) next.delete(addr)
+        oneShotBpsRef.current.clear()
+        syncBps(next)
+      }
+      updateMemDiff()
+      stopRun()
+      setPcFlash(f => f + 1)
+      if (atBp) {
+        setAppState('idle')
+        setMsg(`⏹ Breakpoint at ${hex4(r.pc)}H`)
+      } else {
+        setAppState(sim.simIsHalted() ? 'halted' : 'error')
+        setMsg(sim.simIsHalted() ? '■ Program halted.' : `✗ ${sim.simGetError()}`)
+      }
+    }
+
+    if (SPEEDS[speedRef.current].warp) {
+      setMsg('⚡ Warp…')
+      warpActiveRef.current = true
+      const tick = () => {
+        if (!warpActiveRef.current) return
+        const n = sim.simRun(500000)
+        setSteps(s => s + n)
+        if (sim.simIsHaltWaiting()) {
+          refresh(); refreshOutputPorts()
+          setMsg('⏸ HLT — awaiting interrupt…')
+          timerRef.current = setTimeout(tick, 16)
+          return
+        }
+        const r = sim.simGetRegisters()
+        const atBp = bpsRef.current.has(r.pc)
+        if (!sim.simIsRunning() || atBp) {
+          const cond = bpsRef.current.get(r.pc)
+          if (atBp && cond != null && !evalCondition(cond, r)) {
+            sim.simStep(); timerRef.current = setTimeout(tick, 0); return
+          }
+          refresh(); refreshOutputPorts()
+          warpActiveRef.current = false; timerRef.current = null
+          finalizeTick(atBp)
+          return
+        }
+        timerRef.current = setTimeout(tick, 0)
+      }
+      timerRef.current = setTimeout(tick, 0)
+      return
+    }
+
     setMsg('▶ Running…')
     timerRef.current = setInterval(() => {
       const n = sim.simRun(SPEEDS[speedRef.current].steps)
       setSteps(s => s + n)
-      const isTurbo = speedRef.current === SPEEDS.length - 1
+      const isFast = SPEEDS[speedRef.current].steps >= 1000
       refresh()
       refreshOutputPorts()
-      if (!isTurbo) updateMemDiff()
+      if (!isFast) updateMemDiff()
       if (sim.simIsHaltWaiting()) {
         setMsg('⏸ HLT — awaiting interrupt…')
         return
@@ -2294,33 +2347,16 @@ export default function App() {
       const atBp = bpsRef.current.has(r.pc)
       if (!sim.simIsRunning() || atBp) {
         const cond = bpsRef.current.get(r.pc)
-        // Conditional BP whose condition is not met — skip and continue
         if (atBp && cond != null && !evalCondition(cond, r)) {
-          sim.simStep()
-          return
+          sim.simStep(); return
         }
-        // Clean up one-shot breakpoints
-        if (oneShotBpsRef.current.size > 0) {
-          const next = new Map(bpsRef.current)
-          for (const addr of oneShotBpsRef.current) next.delete(addr)
-          oneShotBpsRef.current.clear()
-          syncBps(next)
-        }
-        updateMemDiff()
-        stopRun()
-        setPcFlash(f => f+1)
-        if (atBp) {
-          setAppState('idle')
-          setMsg(`⏹ Breakpoint at ${hex4(r.pc)}H`)
-        } else {
-          setAppState(sim.simIsHalted() ? 'halted' : 'error')
-          setMsg(sim.simIsHalted() ? '■ Program halted.' : `✗ ${sim.simGetError()}`)
-        }
+        finalizeTick(atBp)
       }
     }, 16)
   }
 
   function stopRun() {
+    warpActiveRef.current = false
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     if (appState === 'running') setAppState('idle')
   }
@@ -2513,20 +2549,20 @@ function addTraceEntry(prevR) {
             disabled={!running && appState==='error'}>
             {running ? '■ Stop' : '▶ Run'}  <kbd>{running?'F9':'F9'}</kbd>
           </button>
-          <label className="speed-label" title={`${SPEEDS[runSpeed].steps} steps/tick`}>
+          <label className="speed-label" title={SPEEDS[runSpeed].warp ? 'Warp: run until HLT, no mid-run UI updates' : `${SPEEDS[runSpeed].steps.toLocaleString()} steps/tick`}>
             Speed
-            <input type="range" min={0} max={4} value={runSpeed} className="speed-slider"
+            <input type="range" min={0} max={5} value={runSpeed} className="speed-slider"
               onChange={e => { const v = +e.target.value; setRunSpeed(v); speedRef.current = v }} />
             <span className="speed-val">{SPEEDS[runSpeed].label}</span>
           </label>
           <button className="btn btn-reset" onClick={handleReset}>↺ Reset  <kbd>F6</kbd></button>
         </div>
 
-        {fileName && <span className="topbar-filename" title={fileName}>{fileName}</span>}
+        {fileName && <span className="topbar-filename" title={fileName}>File: {fileName}</span>}
         <span className={`engine-chip engine-chip-${engineMode}`} title={engineSwitching ? 'Switching engine…' : `Engine: ${engineMode.toUpperCase()}`}>
           {engineSwitching ? '…' : engineMode.toUpperCase()}
         </span>
-        <span className="build-chip" title="Build time">{__BUILD_TIME__}</span>
+        <span className="build-chip" title="Build timestamp">Build: {__BUILD_TIME__}</span>
       </div>
 
       {/* ── Mobile tab bar ── */}

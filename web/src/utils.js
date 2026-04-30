@@ -7,11 +7,12 @@ export const b64decode = b64 => { try { return new TextDecoder().decode(Uint8Arr
 export const BASE_CYCLE = ['hex', 'dec', 'bin']
 
 export const SPEEDS = [
-  { label:'Crawl', steps:1    },
-  { label:'Slow',  steps:20   },
-  { label:'Med',   steps:200  },
-  { label:'Fast',  steps:1000 },
-  { label:'Turbo', steps:10000},
+  { label:'Crawl', steps:      1 },
+  { label:'Slow',  steps:     20 },
+  { label:'Med',   steps:    200 },
+  { label:'Fast',  steps:   1000 },
+  { label:'Turbo', steps: 100000 },
+  { label:'Warp',  steps:      0, warp: true },
 ]
 
 export function fmtByte(v, base) {
