@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration } from '@codemirror/view'
-import { EditorState, StateEffect, StateField } from '@codemirror/state'
+import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, GutterMarker, gutter } from '@codemirror/view'
+import { EditorState, StateEffect, StateField, RangeSetBuilder } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { search, searchKeymap } from '@codemirror/search'
 import { oneDarkTheme } from '@codemirror/theme-one-dark'
@@ -12,8 +12,41 @@ import { hex2, hex4, b64encode, b64decode, BASE_CYCLE, SPEEDS, fmtByte, fmtWord,
 import { asm8085Lang, asm8085Highlighting } from './lang.js'
 import './App.css'
 
-// ── CM6 error-line decoration ─────────────────────────────────────────────
+// ── CM6 error-line decoration + gutter marker ─────────────────────────────
 const setErrorLineEff = StateEffect.define()
+
+class ErrorGutterMarker extends GutterMarker {
+  toDOM() {
+    const el = document.createElement('span')
+    el.textContent = '✕'
+    el.className = 'cm-error-gutter-marker'
+    return el
+  }
+}
+const errorGutterMarker = new ErrorGutterMarker()
+
+const errorGutterState = StateField.define({
+  create: () => new RangeSetBuilder().finish(),
+  update(markers, tr) {
+    for (const e of tr.effects) {
+      if (e.is(setErrorLineEff)) {
+        if (!e.value) return new RangeSetBuilder().finish()
+        try {
+          const line = tr.newDoc.line(e.value)
+          const b = new RangeSetBuilder()
+          b.add(line.from, line.from, errorGutterMarker)
+          return b.finish()
+        } catch { return new RangeSetBuilder().finish() }
+      }
+    }
+    return markers
+  },
+})
+const errorGutterExt = gutter({
+  class: 'cm-error-gutter',
+  markers: view => view.state.field(errorGutterState),
+  initialSpacer: () => errorGutterMarker,
+})
 const errorLineField  = StateField.define({
   create: () => Decoration.none,
   update(deco, tr) {
@@ -298,11 +331,15 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
           asm8085Lang.extension,
           asm8085Highlighting,
           errorLineField,
+          errorGutterState,
+          errorGutterExt,
           EditorView.theme({
             '&': { height:'100%', fontFamily:'"JetBrains Mono","Fira Code",monospace', fontSize:'15px' },
             '.cm-scroller': { overflow:'auto' },
             '.cm-content': { padding:'8px 0', minHeight:'100%' },
             '.cm-error-line': { background: 'rgba(255,60,60,0.18)' },
+            '.cm-error-gutter': { width: '14px' },
+            '.cm-error-gutter-marker': { color: 'var(--red)', fontSize: '10px', lineHeight: '1.6', cursor: 'default' },
             '.cm-search': { background:'#1a1a2e', borderTop:'1px solid #333', padding:'4px 8px', gap:'6px' },
             '.cm-search input': { background:'#111', border:'1px solid #444', color:'#e0e0e0', borderRadius:'3px', padding:'2px 6px' },
             '.cm-button': { background:'#2a2a3e', border:'1px solid #555', color:'#ccc', borderRadius:'3px', padding:'2px 8px', cursor:'pointer' },
