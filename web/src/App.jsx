@@ -2279,6 +2279,8 @@ export default function App() {
       } else if (evt === 'stopped') {
         workerRunning.current = false
         const s = data.state
+        // Sync main-thread sim with Worker's post-execution state
+        if (s.ram) sim.simRestoreSnapshot({ regs: s.regs, ram: s.ram })
         setRegs(old => { setPrev(old); return s.regs })
         setLeds(s.leds)
         setCycles(s.cycles)
@@ -2320,6 +2322,9 @@ export default function App() {
           setAddrLineMap(new Map()); lineAddrRef.current = new Map(); setSymbols({}); setProgramRegion(null); setPresetAddrs(new Set())
           setAppState('error'); setMsg(`✗ ${res.errorMsg}`)
         } else {
+          // Sync main-thread sim so DisasmPanel/MemPanel read correct code
+          sim.simInit()
+          sim.simAssemble(srcRef.current)
           setErrorLine(null); setAppState('idle')
           const alm = buildAddrLineMap(srcRef.current); setAddrLineMap(alm)
           const rev = new Map(); for (const [addr, ln] of alm) rev.set(ln, addr); lineAddrRef.current = rev

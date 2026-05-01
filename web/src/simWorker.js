@@ -60,14 +60,16 @@ function getState() {
 function stopLoop(reason) {
   running = false
   if (tickId) { clearTimeout(tickId); tickId = null }
-  postMessage({ evt: 'stopped', state: getState(), reason })
+  const state = getState()
+  state.ram = sim.simGetFullMemory()  // lets main thread sync its sim
+  postMessage({ evt: 'stopped', state, reason }, [state.ram.buffer])
 }
 
 function runTick() {
   if (!running) return
   const n = sim.simRun(stepsPerTick)
   const now = performance.now()
-  const doUi = (now - lastUiMs) >= 16
+  const doUi = (now - lastUiMs) >= 200
   if (doUi) lastUiMs = now
   postMessage({ evt: 'tick', steps: n, state: doUi ? getState() : null })
 
