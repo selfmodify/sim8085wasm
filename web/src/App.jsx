@@ -1959,7 +1959,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExportHex, onExportBin, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, onExport, onExportHex, onExportBin, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme }) {
   const [open, setOpen] = useState(false);
   const [activeSub, setActiveSub] = useState(null);
   const wrapRef = useRef(null)
@@ -1998,6 +1998,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExpor
               <div className="exmenu-sub">
                 <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.asm / .85 source</button>
                 <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.hex / .bin image</button>
+                <button className="exmenu-sub-item" onClick={() => { onLoadFromDrive(); setOpen(false); setActiveSub(null); }}>☁ Google Drive</button>
               </div>
             )}
           </div>
@@ -2364,6 +2365,10 @@ export default function App() {
     localStorage.setItem('sim8085_theme', theme)
   }, [theme])
   function toggleTheme() { setTheme(t => t === 'dark' ? 'dim' : t === 'dim' ? 'light' : 'dark') }
+
+  const [driveFiles, setDriveFiles] = useState(null)
+  const [driveToken, setDriveToken] = useState(null)
+  const [driveLoading, setDriveLoading] = useState(false)
 
   const [showWelcome,    setShowWelcome]    = useState(() => !localStorage.getItem('sim8085_welcomed'))
   const [showCalc,       setShowCalc]       = useState(false)
@@ -2918,19 +2923,40 @@ function addTraceEntry(prevR) {
       callback: async (tokenResponse) => {
         if (tokenResponse && tokenResponse.access_token) {
           setMsg('Saving to Google Drive…')
-          const name = (fileName.replace(/\.(asm|85|s|txt)$/i,'') || 'program') + '.asm'
-          const metadata = { name, mimeType: 'text/plain' }
-          const form = new FormData()
-          form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }))
-          form.append('file', new Blob([srcRef.current], { type: 'text/plain' }))
+          const token = tokenResponse.access_token
           
           try {
+            let folderId = null
+            const query = encodeURIComponent("mimeType='application/vnd.google-apps.folder' and name='sim8085' and trashed=false")
+            const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}`, {
+              headers: { Authorization: 'Bearer ' + token }
+            })
+            const searchData = await searchRes.json()
+            
+            if (searchData.files && searchData.files.length > 0) {
+              folderId = searchData.files[0].id
+            } else {
+              const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+                method: 'POST',
+                headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: 'sim8085', mimeType: 'application/vnd.google-apps.folder' })
+              })
+              const createData = await createRes.json()
+              folderId = createData.id
+            }
+
+            const name = (fileName.replace(/\.(asm|85|s|txt)$/i,'') || 'program') + '.asm'
+            const metadata = { name, mimeType: 'text/plain', parents: folderId ? [folderId] : undefined }
+            const form = new FormData()
+            form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }))
+            form.append('file', new Blob([srcRef.current], { type: 'text/plain' }))
+
             const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
               method: 'POST',
-              headers: { Authorization: 'Bearer ' + tokenResponse.access_token },
+              headers: { Authorization: 'Bearer ' + token },
               body: form
             })
-            if (res.ok) setMsg('✓ File saved to Google Drive!')
+            if (res.ok) setMsg('✓ File saved to "sim8085" folder on Google Drive!')
             else setMsg('✗ Error saving to Google Drive.')
           } catch(e) {
             setMsg('✗ Network error saving to Google Drive.')
@@ -2939,6 +2965,58 @@ function addTraceEntry(prevR) {
       }
     })
     client.requestAccessToken()
+  }
+
+  function loadFromDrive() {
+    if (!window.google) {
+      setMsg('✗ Google Drive script blocked. Please disable your adblocker or shields.')
+      return
+    }
+    const CLIENT_ID = '467288235889-r6gbjd0ou6ubuiktrnaj54bee6iggr01.apps.googleusercontent.com'
+    const client = window.google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: 'https://www.googleapis.com/auth/drive.file',
+      callback: async (tokenResponse) => {
+        if (tokenResponse && tokenResponse.access_token) {
+          setMsg('Fetching files from Google Drive…')
+          setDriveLoading(true)
+          setDriveFiles([])
+          const token = tokenResponse.access_token
+          setDriveToken(token)
+          try {
+            const query = encodeURIComponent("mimeType='application/vnd.google-apps.folder' and name='sim8085' and trashed=false")
+            const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}`, { headers: { Authorization: 'Bearer ' + token } })
+            const searchData = await searchRes.json()
+            if (!searchData.files || searchData.files.length === 0) {
+              setDriveFiles([]); setDriveLoading(false)
+              return
+            }
+            const folderId = searchData.files[0].id
+            const filesQuery = encodeURIComponent(`'${folderId}' in parents and trashed=false`)
+            const filesRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${filesQuery}&orderBy=modifiedTime desc`, { headers: { Authorization: 'Bearer ' + token } })
+            const filesData = await filesRes.json()
+            setDriveFiles(filesData.files || [])
+          } catch(e) {
+            setMsg('✗ Network error loading from Google Drive.')
+            setDriveFiles(null)
+          } finally { setDriveLoading(false) }
+        }
+      }
+    })
+    client.requestAccessToken()
+  }
+
+  async function fetchDriveFile(fileId, fileName) {
+    setMsg(`Loading ${fileName}…`)
+    setDriveFiles(null)
+    try {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: 'Bearer ' + driveToken } })
+      if (!res.ok) throw new Error('Failed to fetch')
+      const text = await res.text()
+      srcRef.current = text; setSrc(text); doAssemble(text)
+      setFileName(fileName); localStorage.setItem('sim8085_filename', fileName)
+      setMsg(`✓ Loaded ${fileName} from Google Drive`)
+    } catch(e) { setMsg(`✗ Error loading file: ${e.message}`) }
   }
 
   function importFile(e) {
@@ -3147,6 +3225,7 @@ function addTraceEntry(prevR) {
             onShowWelcome={() => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) }}
             onShowShortcuts={() => setShowShortcuts(true)}
             onImport={() => fileInputRef.current.click()}
+            onLoadFromDrive={loadFromDrive}
             onExport={exportFile}
             onExportHex={exportHex}
             onExportBin={exportBin}
@@ -3323,6 +3402,7 @@ function addTraceEntry(prevR) {
       {helpInst && <HelpModal instruction={helpInst} onClose={() => setHelpInst(null)} />}
       {showCalc && <CalcFloat onClose={() => setShowCalc(false)} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
+      {driveFiles !== null && <DriveLoadModal files={driveFiles} loading={driveLoading} onClose={() => setDriveFiles(null)} onSelect={fetchDriveFile} />}
     </div>
   )
 }
