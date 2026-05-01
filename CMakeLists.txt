@@ -124,8 +124,8 @@ if(EMSCRIPTEN)
         "SHELL:-s EXPORTED_RUNTIME_METHODS=[ccall,cwrap,getValue,setValue,stringToUTF8,UTF8ToString,HEAPU8,HEAP32,stackAlloc,stackSave,stackRestore]"
         # Allow dynamic memory growth (assembler uses malloc for tmpfile)
         "SHELL:-s ALLOW_MEMORY_GROWTH=1"
-        # 4MB initial heap — more than enough for the 16KB machine + assembler
-        "SHELL:-s INITIAL_MEMORY=4194304"
+        # 16MB initial memory to accommodate 5MB stack + static data + heap
+        "SHELL:-s INITIAL_MEMORY=16777216"
         # Produce a clean ES module + a UMD fallback
         "SHELL:-s MODULARIZE=1"
         "SHELL:-s EXPORT_NAME=Sim8085Module"

@@ -2654,17 +2654,30 @@ export default function App() {
       lastUiRef.current = 0
       wasHaltWaitingRef.current = false
       throughputRef.current = { steps: 0, ms: 0, mhz: 0, pendingSteps: 0, _last: performance.now() }
+
+      const channel = new MessageChannel()
+
       const tick = () => {
         if (!warpActiveRef.current) return
-        const n = sim.simRun(500000)
+        
+        let n = 0
+        const startTick = performance.now()
+        while (performance.now() - startTick < 100) {
+          const chunk = sim.simRun(2000000)
+          n += chunk
+          if (chunk < 2000000) break
+        }
+        const execMs = performance.now() - startTick
+
         const tp = throughputRef.current
-        const perfNow = performance.now()
-        tp.steps += n; tp.ms += (perfNow - (tp._last ?? perfNow)); tp._last = perfNow; tp.pendingSteps = (tp.pendingSteps || 0) + n
-        if (tp.ms >= 100) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; }
+        tp.steps += n
+        tp.ms += execMs
+        tp.pendingSteps = (tp.pendingSteps || 0) + n
+        if (tp.ms >= 250) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; }
 
         const now = Date.now()
         const isHaltWaiting = sim.simIsHaltWaiting()
-        const doUi = (now - lastUiRef.current >= 250) || (isHaltWaiting && !wasHaltWaitingRef.current)
+        const doUi = (now - lastUiRef.current >= 1000) || (isHaltWaiting && !wasHaltWaitingRef.current)
         if (doUi) {
           if (tp.pendingSteps > 0) { setSteps(s => s + tp.pendingSteps); tp.pendingSteps = 0 }
           setMhz(tp.mhz || 0)
@@ -2685,7 +2698,10 @@ export default function App() {
         if (!sim.simIsRunning() || atBp || watchHit >= 0) {
           const cond = bpsRef.current.get(r.pc)
           if (atBp && watchHit < 0 && cond != null && !evalCondition(cond, r)) {
-            sim.simStep(); timerRef.current = setTimeout(tick, 0); return
+            sim.simStep()
+            timerRef.current = -1
+            channel.port2.postMessage(null)
+            return
           }
           if (tp.pendingSteps > 0) { setSteps(s => s + tp.pendingSteps); tp.pendingSteps = 0 }
           refresh(); refreshOutputPorts()
@@ -2693,9 +2709,17 @@ export default function App() {
           finalizeTick(atBp)
           return
         }
-        timerRef.current = setTimeout(tick, 0)
+        if (doUi) {
+          timerRef.current = setTimeout(tick, 16)
+        } else {
+          timerRef.current = -1
+          channel.port2.postMessage(null)
+        }
       }
-      timerRef.current = setTimeout(tick, 0)
+      
+      channel.port1.onmessage = tick
+      timerRef.current = -1
+      channel.port2.postMessage(null)
       return
     }
 
@@ -3096,7 +3120,16 @@ function addTraceEntry(prevR) {
           <label className="speed-label" title={SPEEDS[runSpeed].warp ? 'Warp: run until HLT, no mid-run UI updates' : `${SPEEDS[runSpeed].steps.toLocaleString()} steps/tick`}>
             Speed
         <input type="range" min={0} max={SPEEDS.length - 1} value={runSpeed} className="speed-slider"
-              onChange={e => { const v = +e.target.value; setRunSpeed(v); speedRef.current = v; localStorage.setItem('sim8085_speed', v) }} />
+              onChange={e => {
+                const v = +e.target.value;
+                setRunSpeed(v);
+                speedRef.current = v;
+                localStorage.setItem('sim8085_speed', v);
+                if (timerRef.current || warpActiveRef.current) {
+                  stopRun();
+                  startRun();
+                }
+              }} />
             <span className="speed-val">{SPEEDS[runSpeed].label}</span>
           </label>
           <button className="btn btn-reset" onClick={handleReset}>↺ Reset  <kbd>F6</kbd></button>
@@ -3123,7 +3156,6 @@ function addTraceEntry(prevR) {
           <div className="panel editor-panel">
             <div className="panel-hd">
             <span className="panel-icon">✏️</span>EDITOR
-            {isDirty && <span style={{ color: 'var(--amber)', textTransform: 'none', marginLeft: 8, letterSpacing: 0, fontWeight: 600 }}>• out of sync</span>}
             <div className="panel-hd-right">
               <button className="reg-base-btn" onClick={formatCode} title="Auto-format code alignment">Format</button>
               <span className="editor-hint">; semicolons for comments</span>
@@ -3225,7 +3257,7 @@ function addTraceEntry(prevR) {
           }
         </div>
         <div className="statusbar-counters">
-          {isDirty && <><span className="sbar-counter" style={{ color: 'var(--amber)', fontWeight: 600 }}>• out of sync</span><span className="sbar-sep">·</span></>}
+          {isDirty && <><span className="sbar-counter" style={{ color: 'var(--amber)', fontWeight: 600 }}>• editor out of sync</span><span className="sbar-sep">·</span></>}
           <span className="sbar-counter sc-steps" title={`${steps.toLocaleString()} instructions executed`}>{fmtCount(steps)} steps</span>
           <span className="sbar-sep">·</span>
           <span className="sbar-counter sc-cycles" title={`${cycles.toLocaleString()} T-states elapsed`}>{fmtCount(cycles)} T</span>
