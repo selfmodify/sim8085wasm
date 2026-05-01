@@ -121,44 +121,44 @@
   --shadow-led:   drop-shadow(0 0 6px rgba(255, 136, 0, 0.9));
 }
 
-:root[data-theme="amber"] {
-  --bg:       #100800;
-  --bg1:      #180e00;
-  --bg2:      #211500;
-  --bg3:      #2a1c00;
-  --border:   #452900;
-  --border2:  #6b4000;
-  --accent:   #ffb000;
-  --accent2:  #d48a00;
-  --amber:    #ff7700;
-  --red:      #ff4422;
-  --blue:     #c89040;
-  --text:     #ffe580;
-  --text2:    #c07810;
-  --text3:    #7a4e08;
-  --led-on:   #ff8800;
-  --led-off:  rgba(255, 136, 0, 0.15);
-  --syn-keyword:   #ffcc44;
-  --syn-register:  #ff9900;
-  --syn-number:    #ffb000;
-  --syn-string:    #d4c070;
-  --syn-comment:   #6a4a10;
-  --syn-label:     #ffd060;
-  --syn-directive: #ffaa44;
-  --syn-pseudo:    #ff5522;
-  --tint-accent:      rgba(255, 176,   0, .07);
-  --tint-accent-hi:   rgba(255, 176,   0, .14);
-  --tint-accent-pc:   rgba(255, 176,   0, .22);
-  --tint-accent-flash:rgba(255, 176,   0, .32);
-  --tint-amber:       rgba(255, 119,   0, .12);
-  --tint-amber-sp:    rgba(255, 119,   0, .18);
-  --tint-red:         rgba(255,  68,  34, .10);
-  --tint-blue-code:   rgba(200, 144,  64, .15);
-  --tint-green-pre:   rgba(200, 160,  40, .15);
-  --shadow-pop:   0 4px 16px rgba(0,0,0,.65);
-  --shadow-menu:  0 8px 24px rgba(0,0,0,.75);
-  --shadow-modal: 0 12px 40px rgba(0,0,0,.85);
-  --shadow-led:   drop-shadow(0 0 6px rgba(255, 136, 0, 0.9));
+:root[data-theme="gray-crt"] {
+  --bg:       #060606;
+  --bg1:      #0c0c0c;
+  --bg2:      #121212;
+  --bg3:      #181818;
+  --border:   #2c2c2c;
+  --border2:  #424242;
+  --accent:   #d8d8d8;
+  --accent2:  #a8a8a8;
+  --amber:    #c0c0c0;
+  --red:      #ff6060;
+  --blue:     #88aacc;
+  --text:     #c4c4c4;
+  --text2:    #787878;
+  --text3:    #484848;
+  --led-on:   #d8d8d8;
+  --led-off:  rgba(216, 216, 216, 0.15);
+  --syn-keyword:   #eeeeee;
+  --syn-register:  #b8b8b8;
+  --syn-number:    #d8d8d8;
+  --syn-string:    #999999;
+  --syn-comment:   #484848;
+  --syn-label:     #cccccc;
+  --syn-directive: #909090;
+  --syn-pseudo:    #ff8080;
+  --tint-accent:      rgba(216, 216, 216, .06);
+  --tint-accent-hi:   rgba(216, 216, 216, .12);
+  --tint-accent-pc:   rgba(216, 216, 216, .20);
+  --tint-accent-flash:rgba(216, 216, 216, .30);
+  --tint-amber:       rgba(192, 192, 192, .10);
+  --tint-amber-sp:    rgba(192, 192, 192, .16);
+  --tint-red:         rgba(255,  96,  96, .10);
+  --tint-blue-code:   rgba(136, 170, 204, .14);
+  --tint-green-pre:   rgba(160, 192, 160, .14);
+  --shadow-pop:   0 4px 16px rgba(0,0,0,.70);
+  --shadow-menu:  0 8px 24px rgba(0,0,0,.80);
+  --shadow-modal: 0 12px 40px rgba(0,0,0,.90);
+  --shadow-led:   drop-shadow(0 0 6px rgba(216, 216, 216, 0.9));
 }
 
 :root[data-theme="green"] {
@@ -339,15 +339,15 @@ body {
   z-index: 1000; /* Ensure overlay is on top of content but under modals */
 }
 
-/* ── CRT phosphor themes: amber + green ───────────────────────────── */
+/* ── CRT phosphor themes: gray-crt + green ────────────────────────── */
 
 /* Black browser chrome so rounded corners look like a bezel */
-:root[data-theme="amber"] html,
-:root[data-theme="green"]  html { background: #000 }
+:root[data-theme="gray-crt"] html,
+:root[data-theme="green"]     html { background: #000 }
 
 /* Rounded screen shape + stronger outer glow */
-:root[data-theme="amber"] .app,
-:root[data-theme="green"]  .app {
+:root[data-theme="gray-crt"] .app,
+:root[data-theme="green"]     .app {
   border-radius: 14px;
   overflow: hidden;
   box-shadow:
@@ -357,8 +357,8 @@ body {
 }
 
 /* Vignette — darkens edges to simulate CRT curvature */
-:root[data-theme="amber"] .app::before,
-:root[data-theme="green"]  .app::before {
+:root[data-theme="gray-crt"] .app::before,
+:root[data-theme="green"]     .app::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -368,24 +368,24 @@ body {
 }
 
 /* Heavier scanlines */
-:root[data-theme="amber"] .app::after,
-:root[data-theme="green"]  .app::after {
+:root[data-theme="gray-crt"] .app::after,
+:root[data-theme="green"]     .app::after {
   background-image: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,.4) 50%);
   background-size: 100% 3px;
   opacity: 0.55;
 }
 
 /* Phosphor bloom on register values and accent-coloured text */
-:root[data-theme="amber"] .t-mono-val,
-:root[data-theme="green"]  .t-mono-val {
+:root[data-theme="gray-crt"] .t-mono-val,
+:root[data-theme="green"]     .t-mono-val {
   text-shadow: 0 0 10px currentColor, 0 0 3px currentColor;
 }
-:root[data-theme="amber"] .fg-accent,
-:root[data-theme="green"]  .fg-accent {
+:root[data-theme="gray-crt"] .fg-accent,
+:root[data-theme="green"]     .fg-accent {
   text-shadow: 0 0 7px currentColor;
 }
-:root[data-theme="amber"] .brand-chip,
-:root[data-theme="green"]  .brand-chip {
+:root[data-theme="gray-crt"] .brand-chip,
+:root[data-theme="green"]     .brand-chip {
   box-shadow: 0 0 16px var(--accent), 0 0 5px var(--accent);
 }
 

@@ -2059,7 +2059,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
                   { id: 'dim',        label: '🌗  Dim'              },
                   { id: 'light',      label: '☀︎  Light'            },
                   { id: 'amber-mono', label: '🟡  Amber Monochrome' },
-                  { id: 'amber',      label: '🟠  Amber CRT'        },
+                  { id: 'gray-crt',   label: '⬜  Gray Retro CRT'   },
                   { id: 'green',      label: '🟢  Green CRT'        },
                 ].map(({ id, label }) => (
                   <button key={id} className="exmenu-sub-item"
@@ -2461,8 +2461,8 @@ export default function App() {
       t === 'dark'       ? 'dim'        :
       t === 'dim'        ? 'light'      :
       t === 'light'      ? 'amber-mono' :
-      t === 'amber-mono' ? 'amber'      :
-      t === 'amber'      ? 'green'      : 'dark'
+      t === 'amber-mono' ? 'gray-crt'   :
+      t === 'gray-crt'   ? 'green'      : 'dark'
     )
   }
 
