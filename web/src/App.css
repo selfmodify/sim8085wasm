@@ -1119,7 +1119,7 @@ body {
   gap: 2px;
 }
 .led-digit svg { filter: var(--shadow-led) }
-.led-digit-st { opacity: 0.45 }
+.led-digit-st { }
 .led-val {
   font-family: var(--mono);
   font-size: 11px;
