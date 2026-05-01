@@ -613,7 +613,11 @@ function assemble(source) {
       const name = toks[ti].val; ti += 2;
       const valTok = next();
       const n = parseNum(valTok, lineNo);
-      labels[name] = typeof n === 'number' ? n : 0;
+      if (typeof n === 'object' && n.val && labels[n.val] !== undefined) {
+        labels[name] = labels[n.val];
+      } else {
+        labels[name] = typeof n === 'number' ? n : 0;
+      }
       continue;
     }
 
@@ -647,10 +651,40 @@ function assemble(source) {
       const emitDbVal = (tok) => {
         if (!tok) { errors.push(`Line ${lineNo+1}: DB missing value`); return; }
         if (tok.type === 'str') { for (const ch of tok.val) { ram[ptr++] = ch.charCodeAt(0) & 0xFF; } }
-        else { const n = parseNum(tok, lineNo); ram[ptr++] = (typeof n==='number' ? n : 0) & 0xFF; }
+        else { 
+          const n = parseNum(tok, lineNo); 
+          if (typeof n === 'number') {
+            ram[ptr++] = n & 0xFF;
+          } else if (typeof n === 'object' && n.val) {
+            patches.push({ addr: ptr, label: n.val, lineNo, size: 1 });
+            ram[ptr++] = 0;
+          } else {
+            ram[ptr++] = 0;
+          }
+        }
       };
       emitDbVal(next());
       while (toks[ti]?.type === 'comma') { ti++; emitDbVal(next()); }
+      continue;
+    }
+    if (mnem==='DW') {
+      const emitDwVal = (tok) => {
+        if (!tok) { errors.push(`Line ${lineNo+1}: DW missing value`); return; }
+        const n = parseNum(tok, lineNo);
+        if (typeof n === 'number') {
+          ram[ptr++] = n & 0xFF;
+          ram[ptr++] = (n >> 8) & 0xFF;
+        } else if (typeof n === 'object' && n.val) {
+          patches.push({ addr: ptr, label: n.val, lineNo, size: 2 });
+          ram[ptr++] = 0;
+          ram[ptr++] = 0;
+        } else {
+          ram[ptr++] = 0;
+          ram[ptr++] = 0;
+        }
+      };
+      emitDwVal(next());
+      while (toks[ti]?.type === 'comma') { ti++; emitDwVal(next()); }
       continue;
     }
     if (mnem==='DS') {
@@ -823,8 +857,10 @@ function assemble(source) {
     if (addr === undefined) {
       errors.push(`Line ${p.lineNo+1}: undefined label '${p.label}'`);
     } else {
-      ram[p.addr]   = addr & 0xFF;
-      ram[p.addr+1] = (addr >> 8) & 0xFF;
+      ram[p.addr] = addr & 0xFF;
+      if (p.size !== 1) {
+        ram[p.addr+1] = (addr >> 8) & 0xFF;
+      }
     }
   }
 
