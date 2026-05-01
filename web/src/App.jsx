@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, GutterMarker, gutter } from '@codemirror/view'
-import { EditorState, StateEffect, StateField, RangeSetBuilder } from '@codemirror/state'
+import { EditorState, StateEffect, StateField, RangeSetBuilder, Compartment } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { search, searchKeymap } from '@codemirror/search'
 import { oneDarkTheme } from '@codemirror/theme-one-dark'
@@ -284,7 +284,7 @@ function getInstWord(state, pos) {
 
 // ── 7-segment LED digit ──────────────────────────────────────────────────
 function SevenSeg({ value }) {
-  const ON = '#FF2200', OFF = 'rgba(255,34,0,0.15)'
+  const ON = 'var(--led-on, #FF2200)', OFF = 'var(--led-off, rgba(255, 34, 0, 0.15))'
   const segs = [
     { id:'a', d:'M3 1 L11 1 L10 3 L4 3 Z', bit:1 },
     { id:'b', d:'M11 2 L13 4 L12 10 L10 8 L10 3 Z', bit:2 },
@@ -303,13 +303,14 @@ function SevenSeg({ value }) {
 }
 
 // ── CodeMirror editor ────────────────────────────────────────────────────
-function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, gotoRef, onRunTo, lineAddrRef }) {
+function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, gotoRef, onRunTo, lineAddrRef, theme }) {
   const elRef      = useRef(null)
   const viewRef    = useRef(null)
   const syncing    = useRef(false)
   const cursorCb   = useRef(onCursorInstruction)
   const detailCb   = useRef(onInstructionDetail)
   const onRunToRef = useRef(onRunTo)
+  const themeConf  = useRef(new Compartment())
   const [editorCtx, setEditorCtx] = useState(null)  // {addr, x, y}
   useEffect(() => { cursorCb.current   = onCursorInstruction }, [onCursorInstruction])
   useEffect(() => { detailCb.current   = onInstructionDetail }, [onInstructionDetail])
@@ -330,7 +331,7 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
           highlightActiveLine(),
           search({ top: true }),
           keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
-          oneDarkTheme,
+          themeConf.current.of(theme === 'light' ? [] : oneDarkTheme),
           asm8085Lang.extension,
           asm8085Highlighting,
           errorLineField,
@@ -343,9 +344,9 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
             '.cm-error-line': { background: 'rgba(255,60,60,0.18)' },
             '.cm-error-gutter': { width: '14px' },
             '.cm-error-gutter-marker': { color: 'var(--red)', fontSize: '10px', lineHeight: '1.6', cursor: 'default' },
-            '.cm-search': { background:'#1a1a2e', borderTop:'1px solid #333', padding:'4px 8px', gap:'6px' },
-            '.cm-search input': { background:'#111', border:'1px solid #444', color:'#e0e0e0', borderRadius:'3px', padding:'2px 6px' },
-            '.cm-button': { background:'#2a2a3e', border:'1px solid #555', color:'#ccc', borderRadius:'3px', padding:'2px 8px', cursor:'pointer' },
+            '.cm-search': { background:'var(--bg2)', borderTop:'1px solid var(--border)', padding:'4px 8px', gap:'6px' },
+            '.cm-search input': { background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:'3px', padding:'2px 6px' },
+            '.cm-button': { background:'var(--bg3)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:'3px', padding:'2px 8px', cursor:'pointer' },
           }),
           EditorView.updateListener.of(u => {
             if (u.docChanged && !syncing.current) onChange(u.state.doc.toString())
@@ -414,6 +415,14 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
     })
     syncing.current = false
   }, [value])
+
+  useEffect(() => {
+    if (viewRef.current) {
+      viewRef.current.dispatch({
+        effects: themeConf.current.reconfigure(theme === 'light' ? [] : oneDarkTheme)
+      })
+    }
+  }, [theme])
 
   useEffect(() => {
     if (!editorCtx) return
@@ -2021,7 +2030,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExpor
           </div>
 
           <div className="bmenu-sep" />
-          {item(theme === 'light' ? '🌙  Dark theme' : '☀  Light theme', onTheme)}
+          {item(theme === 'dark' ? '🌗  Dim theme' : theme === 'dim' ? '☀  Light theme' : '🌙  Dark theme', onTheme)}
           <div className="bmenu-setting">
             <span className="bmenu-setting-label">RAM size</span>
             <select className="bmenu-setting-sel" value={memSize}
@@ -2313,12 +2322,12 @@ export default function App() {
   const [consoleOutput, setConsoleOutput] = useState('')
   const [consolePort,   setConsolePort]   = useState(() => sim.simGetConsolePort())
   const [mobileTab,      setMobileTab]      = useState('editor')
-  const [theme, setTheme] = useState(() => localStorage.getItem('sim8085_theme') || 'dark')
+  const [theme, setTheme] = useState(() => localStorage.getItem('sim8085_theme') || 'dim')
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('sim8085_theme', theme)
   }, [theme])
-  function toggleTheme() { setTheme(t => t === 'dark' ? 'light' : 'dark') }
+  function toggleTheme() { setTheme(t => t === 'dark' ? 'dim' : t === 'dim' ? 'light' : 'dark') }
 
   const [showWelcome,    setShowWelcome]    = useState(() => !localStorage.getItem('sim8085_welcomed'))
   const [showCalc,       setShowCalc]       = useState(false)
@@ -3087,7 +3096,8 @@ function addTraceEntry(prevR) {
               onInstructionDetail={setHelpInst}
               errorLine={errorLine}
               onRunTo={runToAddr}
-              lineAddrRef={lineAddrRef} />
+              lineAddrRef={lineAddrRef}
+              theme={theme} />
           </div>
           <HelpPanel instruction={cursorInst} />
           <LedDisplay leds={leds} />

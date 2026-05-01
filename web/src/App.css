@@ -41,6 +41,46 @@
   --shadow-led:   drop-shadow(0 0 5px rgba(220, 40, 0, 0.6));
 }
 
+:root[data-theme="dim"] {
+  --bg:       #21252b;
+  --bg1:      #282c34;
+  --bg2:      #323842;
+  --bg3:      #3e4451;
+  --border:   #4b5363;
+  --border2:  #5c6370;
+  --accent:   #98c379;
+  --accent2:  #7cb668;
+  --amber:    #e5c07b;
+  --red:      #e06c75;
+  --blue:     #61afef;
+  --text:     #abb2bf;
+  --text2:    #828997;
+  --text3:    #5c6370;
+  --led-on:   #e06c75;
+  --led-off:  rgba(224, 108, 117, 0.15);
+  --syn-keyword:   #c678dd;
+  --syn-register:  #e5c07b;
+  --syn-number:    #d19a66;
+  --syn-string:    #98c379;
+  --syn-comment:   #5c6370;
+  --syn-label:     #61afef;
+  --syn-directive: #56b6c2;
+  --syn-pseudo:    #e06c75;
+  --tint-accent:      rgba(152, 195, 121, .08);
+  --tint-accent-hi:   rgba(152, 195, 121, .15);
+  --tint-accent-pc:   rgba(152, 195, 121, .25);
+  --tint-accent-flash:rgba(152, 195, 121, .35);
+  --tint-amber:       rgba(229, 192, 123, .12);
+  --tint-amber-sp:    rgba(229, 192, 123, .18);
+  --tint-red:         rgba(224, 108, 117, .12);
+  --tint-blue-code:   rgba(97, 175, 239, .15);
+  --tint-green-pre:   rgba(86, 182, 194, .15);
+  --shadow-pop:   0 4px 16px rgba(0,0,0,.3);
+  --shadow-menu:  0 8px 24px rgba(0,0,0,.35);
+  --shadow-modal: 0 12px 40px rgba(0,0,0,.45);
+  --shadow-led:   drop-shadow(0 0 5px rgba(224, 108, 117, 0.7));
+}
+
 :root {
   --bg:       #0d0f14;
   --bg1:      #141720;
@@ -1110,7 +1150,7 @@ body {
   justify-content: center;
   gap: 6px;
   padding: 10px 8px;
-  background: #080a10;
+  background: var(--bg);
 }
 .led-digit {
   display: flex;
