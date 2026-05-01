@@ -1961,7 +1961,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveToGist, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveToGist, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme }) {
   const [open, setOpen] = useState(false);
   const [activeSub, setActiveSub] = useState(null);
   const wrapRef = useRef(null)
@@ -2049,14 +2049,28 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
           </div>
 
           <div className="bmenu-sep" />
-          {item(
-            theme === 'dark'  ? '🌗  Dim theme'   :
-            theme === 'dim'   ? '☀︎  Light theme' :
-            theme === 'light' ? '🟠  Amber CRT'   :
-            theme === 'amber' ? '🟢  Green CRT'   :
-                                '🌙  Dark theme',
-            onTheme
-          )}
+          <div className={`bmenu-item exmenu-cat ${activeSub === 'theme' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('theme')}>
+            <span>🎨  Theme</span>
+            <span className="exmenu-arrow">▶</span>
+            {activeSub === 'theme' && (
+              <div className="exmenu-sub">
+                {[
+                  { id: 'dark',  label: '🌙  Dark'        },
+                  { id: 'dim',   label: '🌗  Dim'         },
+                  { id: 'light', label: '☀︎  Light'       },
+                  { id: 'amber', label: '🟠  Amber CRT'   },
+                  { id: 'green', label: '🟢  Green CRT'   },
+                ].map(({ id, label }) => (
+                  <button key={id} className="exmenu-sub-item"
+                    style={{ color: theme === id ? 'var(--accent)' : undefined,
+                             fontWeight: theme === id ? 700 : undefined }}
+                    onClick={() => { onSetTheme(id); setOpen(false); setActiveSub(null) }}>
+                    {label}{theme === id ? '  ✓' : ''}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="bmenu-setting">
             <span className="bmenu-setting-label">RAM size</span>
             <select className="bmenu-setting-sel" value={memSize}
@@ -3425,7 +3439,7 @@ function addTraceEntry(prevR) {
             memSize={memSize} onMemSize={changeMemSize}
             engineMode={engineMode} onEngineSwitch={handleEngineSwitch}
             engineSwitching={engineSwitching}
-            theme={theme} onTheme={toggleTheme} />
+            theme={theme} onTheme={toggleTheme} onSetTheme={setTheme} />
           <div className="view-tabs">
             <button className={`view-tab${activeView === 'simulator' ? ' active' : ''}`} onClick={() => setActiveView('simulator')}>Simulator</button>
             <button className={`view-tab${activeView === 'challenges' ? ' active' : ''}`} onClick={() => setActiveView('challenges')}>Challenges</button>
