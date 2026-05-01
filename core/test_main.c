@@ -62,7 +62,6 @@ static void test_registers(void) {
     );
     if (!r.ok) return;
 
-    sim_reset();
     sim_run(100);
 
     Sim8085Registers regs = sim_get_registers();
@@ -87,7 +86,6 @@ static void test_arithmetic(void) {
         "hlt\n",
         "ADI with aux carry"
     );
-    sim_reset();
     sim_run(100);
     Sim8085Registers r = sim_get_registers();
     TEST("ADI 0F+01=10H"); ASSERT_EQ(r.a, 0x10, "result");
@@ -103,7 +101,6 @@ static void test_arithmetic(void) {
         "hlt\n",
         "ADI with carry"
     );
-    sim_reset();
     sim_run(100);
     r = sim_get_registers();
     TEST("ADI FF+01=00H"); ASSERT_EQ(r.a, 0x00, "result");
@@ -127,7 +124,6 @@ static void test_memory(void) {
         "hlt\n",
         "LDA/STA"
     );
-    sim_reset();
     sim_run(100);
 
     Sim8085Registers r = sim_get_registers();
@@ -152,7 +148,6 @@ static void test_branches(void) {
         "hlt\n",
         "countdown loop"
     );
-    sim_reset();
     sim_run(1000);
 
     Sim8085Registers r = sim_get_registers();
@@ -178,7 +173,6 @@ static void test_stack(void) {
         "hlt\n",
         "PUSH PSW / POP PSW"
     );
-    sim_reset();
     sim_run(100);
 
     Sim8085Registers r = sim_get_registers();
@@ -227,7 +221,6 @@ static void test_bubble_sort(void) {
 
     if (!r.ok) { printf("  Assembly failed: %s\n", r.error_msg); return; }
 
-    sim_reset();
     sim_run(100000);   /* give it plenty of steps */
 
     /* After sorting, 0x251..0x25A should be in ascending order */
@@ -262,7 +255,6 @@ static void test_breakpoints(void) {
         "hlt\n",
         "breakpoint test"
     );
-    sim_reset();
 
     /* Set breakpoint at 0x104 (third instruction) */
     sim_set_breakpoint(0x104);
@@ -299,6 +291,33 @@ static void test_disassembler(void) {
 }
 
 /* -----------------------------------------------------------------------
+ * Test 9: stack wraparound at 0xFFFF
+ * --------------------------------------------------------------------- */
+static void test_stack_wrap(void) {
+    printf("\n[Stack wraparound]\n");
+
+    sim_init();
+    assemble_and_check(
+        "org 100\n"
+        "kickoff 100\n"
+        "lxi sp,0001H\n"  /* SP = 0x0001 */
+        "lxi b,0ABCDH\n"  /* BC = 0xABCD */
+        "push b\n"        /* mem[0x0000]=0xAB, mem[0xFFFF]=0xCD, SP=0xFFFF */
+        "pop d\n"         /* E=mem[0xFFFF], D=mem[0x0000], SP=0x0001 */
+        "hlt\n",
+        "Stack wrap 0xFFFF"
+    );
+    sim_run(100);
+
+    Sim8085Registers r = sim_get_registers();
+    TEST("SP wraps around to 0001H");  ASSERT_EQ(r.sp, 0x0001, "SP after PUSH/POP");
+    TEST("High byte written to 0000H");ASSERT_EQ(sim_read_byte(0x0000), 0xAB, "mem[0x0000]");
+    TEST("Low byte written to FFFFH"); ASSERT_EQ(sim_read_byte(0xFFFF), 0xCD, "mem[0xFFFF]");
+    TEST("D = AB (restored)");         ASSERT_EQ(r.d, 0xAB, "D register");
+    TEST("E = CD (restored)");         ASSERT_EQ(r.e, 0xCD, "E register");
+}
+
+/* -----------------------------------------------------------------------
  * main
  * --------------------------------------------------------------------- */
 int main(void) {
@@ -314,6 +333,7 @@ int main(void) {
     test_bubble_sort();
     test_breakpoints();
     test_disassembler();
+    test_stack_wrap();
 
     printf("\n=============================================================\n");
     printf("  Results: %d/%d passed", tests_passed, tests_run);

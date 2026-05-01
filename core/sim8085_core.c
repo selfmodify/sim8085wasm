@@ -274,16 +274,14 @@ int ShouldSetAuxillaryFlag(int a, int b, int sign) {
  * Helper: stack push / pop
  * --------------------------------------------------------------------- */
 static void StackPush(word val) {
-    if (GetSP() < 2) { SET_STATUS(STACK_OVERFLOW|SEVERE_ERROR); return; }
-    SetSP(GetSP() - 1); SetMemByte(GetSP(), (uchar)(val >> 8));
-    SetSP(GetSP() - 1); SetMemByte(GetSP(), (uchar)(val & 0xFF));
+    SetSP((GetSP() - 1) & 0xFFFF); SetMemByte(GetSP(), (uchar)(val >> 8));
+    SetSP((GetSP() - 1) & 0xFFFF); SetMemByte(GetSP(), (uchar)(val & 0xFF));
 }
 
 static word StackPop(void) {
     word lo, hi;
-    if (GetSP() >= MAIN_MEMORY - 1) { SET_STATUS(STACK_UNDERFLOW|SEVERE_ERROR); return 0; }
-    lo = GetMemByte(GetSP()); SetSP(GetSP() + 1);
-    hi = GetMemByte(GetSP()); SetSP(GetSP() + 1);
+    lo = GetMemByte(GetSP()); SetSP((GetSP() + 1) & 0xFFFF);
+    hi = GetMemByte(GetSP()); SetSP((GetSP() + 1) & 0xFFFF);
     return (word)((hi << 8) | lo);
 }
 

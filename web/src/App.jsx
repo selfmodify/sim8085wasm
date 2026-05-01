@@ -601,7 +601,7 @@ const PAIR_DEFS = [
   { name: 'HL', hi: 'h', lo: 'l' },
 ]
 
-function PairPanel({ regs, prev, onJump, onEdit, regBase, onRegBase }) {
+function PairPanel({ regs, prev, onJump, onEdit, regBase, onRegBase, onMemoryEdited }) {
   const [collapsed, toggleCollapsed] = useCollapsible('pairs', false)
   const [editing, setEditing] = useState(null)  // { key, field: 'addr'|'content' }
   const [buf, setBuf] = useState('')
@@ -624,6 +624,7 @@ function PairPanel({ regs, prev, onJump, onEdit, regBase, onRegBase }) {
         sim.simSetRegisters({ [def.hi]: (n >> 8) & 0xFF, [def.lo]: n & 0xFF })
       } else {
         sim.simWriteByte(addr, n & 0xFF)
+        onMemoryEdited?.()
       }
       onEdit()
     }
@@ -939,7 +940,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
 }
 
 // ── Memory dump panel ────────────────────────────────────────────────────
-function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion, presetAddrs }) {
+function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion, presetAddrs, onMemoryEdited }) {
   const [mem, setMem] = useState(new Uint8Array(128))
   const [followPC, setFollowPC] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -1031,7 +1032,10 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
 
   function commit(addr, raw) {
     const v = parseInt(raw, 16)
-    if (!isNaN(v)) sim.simWriteByte(addr, v)
+    if (!isNaN(v)) {
+      sim.simWriteByte(addr, v)
+      onMemoryEdited?.()
+    }
     setEditing(null)
     refresh()
   }
@@ -1088,6 +1092,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
     const end   = Math.min(Math.max(from, to) & 0xFFFF, 0xFFFF)
     for (let a = start; a <= end; a++) sim.simWriteByte(a, val & 0xFF)
     refresh()
+    onMemoryEdited?.()
   }
 
   function runExport() {
@@ -1110,6 +1115,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
     if (!window.confirm('Clear all memory? This will overwrite everything with 00H.')) return
     for (let i = 0; i <= 0xFFFF; i++) sim.simWriteByte(i, 0)
     refresh()
+    onMemoryEdited?.()
   }
 
   return (
@@ -2497,6 +2503,7 @@ export default function App() {
       sim.simSetMemorySize(memSizeRef.current)
       sim.simInit()
       for (const addr of dataBps) sim.simSetDataBreakpoint(addr)
+      for (const addr of bpsRef.current.keys()) sim.simSetBreakpoint(addr)
       throughputRef.current = { steps: 0, ms: 0, mhz: 0 }
       const res = sim.simAssemble(code)
       setBuildId(id => id + 1)
@@ -2701,9 +2708,9 @@ export default function App() {
         return
       }
       const watchHit2 = sim.simGetDataWatchHit ? sim.simGetDataWatchHit() : -1
-      if (!sim.simIsRunning() || watchHit2 >= 0) {
-        const r = sim.simGetRegisters()
-        const atBp = bpsRef.current.has(r.pc)
+      const r = sim.simGetRegisters()
+      const atBp = bpsRef.current.has(r.pc)
+      if (!sim.simIsRunning() || atBp || watchHit2 >= 0) {
         const cond = bpsRef.current.get(r.pc)
         if (atBp && watchHit2 < 0 && cond != null && !evalCondition(cond, r)) {
           sim.simStep(); return
@@ -2726,7 +2733,14 @@ export default function App() {
     if (appState === 'running') setAppState('idle')
   }
 
-  function handleRun() { appState === 'running' ? stopRun() : startRun() }
+  function handleRun() {
+    if (appState === 'running') {
+      stopRun()
+      setMsg('⏹ Stopped.')
+    } else {
+      startRun()
+    }
+  }
 
   function handleReset() { doAssemble(srcRef.current) }
 
@@ -3130,6 +3144,7 @@ function addTraceEntry(prevR) {
                 changedAddrs={changedAddrs}
                 programRegion={programRegion}
                 presetAddrs={presetAddrs}
+              onMemoryEdited={() => setBuildId(id => id + 1)}
               />
             </div>
             <div className="mem-watch-divider" onMouseDown={onMemWatchDividerDown} />
@@ -3165,7 +3180,7 @@ function addTraceEntry(prevR) {
           <RegPanel   regs={regs} prev={prevRegs} onJump={setMemStart}
             regBase={regBase} onRegBase={setRegBase} onEdit={refresh} />
           <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh}
-            regBase={regBase} onRegBase={setRegBase} />
+            regBase={regBase} onRegBase={setRegBase} onMemoryEdited={() => setBuildId(id => id + 1)} />
           <FlagPanel  regs={regs} />
           <IntPanel intState={intState} onAssert={assertInterrupt} onDeassert={deassertInterrupt} />
           <IOPortPanel outputPorts={outputPorts} inputPresets={inputPresets}
@@ -3193,10 +3208,10 @@ function addTraceEntry(prevR) {
         </div>
         {(steps > 0 || cycles > 0) && (
           <div className="statusbar-counters">
-            <span className="sbar-counter" title={`${steps.toLocaleString()} instructions executed`}>{fmtCount(steps)} steps</span>
+            <span className="sbar-counter sc-steps" title={`${steps.toLocaleString()} instructions executed`}>{fmtCount(steps)} steps</span>
             <span className="sbar-sep">·</span>
-            <span className="sbar-counter" title={`${cycles.toLocaleString()} T-states elapsed`}>{fmtCount(cycles)} T</span>
-            {mhz > 0 && <><span className="sbar-sep">·</span><span className="sbar-counter" title="Simulated throughput">{mhz >= 1000 ? `${(mhz/1000).toFixed(1)} GHz` : mhz >= 1 ? `${mhz.toFixed(1)} MHz` : `${(mhz*1000).toFixed(0)} kHz`}</span></>}
+            <span className="sbar-counter sc-cycles" title={`${cycles.toLocaleString()} T-states elapsed`}>{fmtCount(cycles)} T</span>
+            {mhz > 0 && <><span className="sbar-sep">·</span><span className="sbar-counter sc-mhz" title="Simulated throughput">{mhz >= 1000 ? `${(mhz/1000).toFixed(1)} GHz` : mhz >= 1 ? `${mhz.toFixed(1)} MHz` : `${(mhz*1000).toFixed(0)} kHz`}</span></>}
           </div>
         )}
       </div>
