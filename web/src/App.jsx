@@ -2294,7 +2294,7 @@ export default function App() {
       const saved = localStorage.getItem('sim8085_program')
       if (saved) return saved
     } catch {}
-    return EXAMPLES['I/O']['LED Scroll']
+    return EXAMPLES['I/O']['LED Count']
   })
   const [fileName, setFileName]  = useState(() => localStorage.getItem('sim8085_filename') || '')
   const [regs, setRegs]         = useState({a:0,b:0,c:0,d:0,e:0,h:0,l:0,flags:0,pc:0x100,sp:0,flagS:0,flagZ:0,flagAC:0,flagP:0,flagCY:0,halted:false,hasError:false})
