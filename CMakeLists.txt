@@ -109,7 +109,8 @@ if(EMSCRIPTEN)
     string(JOIN "," EXPORTED_FUNCS_STR ${EXPORTED_FUNCS})
 
     target_compile_options(sim8085 PRIVATE
-        -O2
+        -O3
+        -flto
         -Wall
         -Wno-unused-function
     )
@@ -135,7 +136,8 @@ if(EMSCRIPTEN)
         "SHELL:-lnodefs.js"
         # Aggressive dead-code elimination
         "SHELL:-s DEAD_FUNCTIONS=[]"
-        -O2
+        -O3
+        -flto
     )
 
     # Output into web/public

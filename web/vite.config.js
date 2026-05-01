@@ -7,10 +7,7 @@ import path from 'path'
 function runWasmBuild() {
   return new Promise((resolve, reject) => {
     // This more generic command works on any system (Windows, macOS, Linux)
-    // as long as `cmake` is in the PATH.
-    // Assumes you have already configured the build with `emcmake cmake ..`
-    // in the `build-wasm` directory.
-    exec('cmake --build ../build-wasm', (err, stdout, stderr) => {
+    exec('npm run build:wasm', (err, stdout, stderr) => {
       if (err) {
         console.error(stderr)
         reject(new Error(`WASM build failed with exit code ${err.code}`))

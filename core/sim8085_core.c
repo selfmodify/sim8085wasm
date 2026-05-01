@@ -1969,7 +1969,7 @@ int sim_run_steps(int max_steps) {
         if (!sim_step_one()) break;
         steps++;
         CheckInterrupts();
-        if (IsABreakPoint(GetIP()) >= 0) break;
+        if (BREAK_PT_CTR() > 0 && IsABreakPoint(GetIP()) >= 0) break;
     }
     return steps;
 }
