@@ -2906,7 +2906,7 @@ function addTraceEntry(prevR) {
 
   function saveToDrive() {
     if (!window.google) {
-      setMsg('✗ Google Identity Services script failed to load.')
+      setMsg('✗ Google Drive script blocked. Please disable your adblocker or shields.')
       return
     }
     // Replace with your actual Google Cloud OAuth Client ID
