@@ -130,6 +130,10 @@ void        sim_clear_console_output(void);
 void        sim_set_console_port(uint8_t port);
 uint8_t     sim_get_console_port(void);
 
+/* Profiler */
+uint32_t    sim_get_hitcnt(uint16_t addr);
+void        sim_reset_profile(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -2328,7 +2328,7 @@ export default function App() {
   const [consoleOutput, setConsoleOutput] = useState('')
   const [consolePort,   setConsolePort]   = useState(() => sim.simGetConsolePort())
   const [mobileTab,      setMobileTab]      = useState('editor')
-  const [theme, setTheme] = useState(() => localStorage.getItem('sim8085_theme') || 'dim')
+  const [theme, setTheme] = useState(() => localStorage.getItem('sim8085_theme') || 'dark')
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('sim8085_theme', theme)
@@ -3204,14 +3204,14 @@ function addTraceEntry(prevR) {
             )})()
           }
         </div>
-        {(steps > 0 || cycles > 0) && (
-          <div className="statusbar-counters">
-            <span className="sbar-counter sc-steps" title={`${steps.toLocaleString()} instructions executed`}>{fmtCount(steps)} steps</span>
-            <span className="sbar-sep">·</span>
-            <span className="sbar-counter sc-cycles" title={`${cycles.toLocaleString()} T-states elapsed`}>{fmtCount(cycles)} T</span>
-            {mhz > 0 && <><span className="sbar-sep">·</span><span className="sbar-counter sc-mhz" title="Simulated throughput">{mhz >= 1000 ? `${(mhz/1000).toFixed(1)} GHz` : mhz >= 1 ? `${mhz.toFixed(1)} MHz` : `${(mhz*1000).toFixed(0)} kHz`}</span></>}
-          </div>
-        )}
+        <div className="statusbar-counters">
+          {isDirty && <><span className="sbar-counter" style={{ color: 'var(--amber)', fontWeight: 600 }}>• out of sync</span><span className="sbar-sep">·</span></>}
+          <span className="sbar-counter sc-steps" title={`${steps.toLocaleString()} instructions executed`}>{fmtCount(steps)} steps</span>
+          <span className="sbar-sep">·</span>
+          <span className="sbar-counter sc-cycles" title={`${cycles.toLocaleString()} T-states elapsed`}>{fmtCount(cycles)} T</span>
+          <span className="sbar-sep">·</span>
+          <span className="sbar-counter sc-mhz" title="Simulated throughput">{mhz >= 1000 ? `${(mhz/1000).toFixed(2)} GHz` : mhz >= 1 ? `${mhz.toFixed(2)} MHz` : `${(mhz*1000).toFixed(2)} kHz`}</span>
+        </div>
       </div>
       {showWelcome && <WelcomeModal onClose={dismissWelcome} />}
       {helpInst && <HelpModal instruction={helpInst} onClose={() => setHelpInst(null)} />}

@@ -59,6 +59,8 @@ if(EMSCRIPTEN)
         "_sim_clear_console_output"
         "_sim_set_console_port"
         "_sim_get_console_port"
+        "_sim_get_hitcnt"
+        "_sim_reset_profile"
         # WASM glue — flat-primitive wrappers for struct-returning functions
         "_wasm_assemble"
         "_wasm_asm_error_line"

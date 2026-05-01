@@ -14,6 +14,7 @@
  */
 
 import { TSTATES } from './utils.js'
+import { simInit as jsInit, simAssemble as jsAssemble, simGetSymbols as jsGetSymbols, simGetProgramRegion as jsGetProgramRegion, simGetPresetAddrs as jsGetPresetAddrs } from './sim8085Bridge.js'
 
 let M = null;   // resolved Emscripten module
 
@@ -82,6 +83,10 @@ export function simAssemble(source) {
   const ptr = writeStr(source);
   const ok  = M._wasm_assemble(ptr);
   free(ptr);
+
+  jsInit();
+  jsAssemble(source);
+
   if (ok) {
     return {
       ok: true,
@@ -342,17 +347,15 @@ export function simGetSOD()   { return M ? M._sim_get_sod_api() : 0; }
 
 // ── Profiler — execution hit counts ──────────────────────────────────────
 export function simGetHitcnt(addr) {
-  return M ? M._sim_get_hitcnt_at(addr & 0xFFFF) : 0;
+  return M ? M._sim_get_hitcnt(addr & 0xFFFF) : 0;
 }
 export function simGetHitcntRange(start, len) {
   if (!M) return new Uint32Array(len);
-  const ptr = alloc(len * 4);
-  M._sim_get_hitcnt_range(start, len, ptr);
-  const out = new Uint32Array(M.HEAPU8.buffer, ptr, len).slice();
-  free(ptr);
+  const out = new Uint32Array(len);
+  for (let i = 0; i < len; i++) out[i] = M._sim_get_hitcnt((start + i) & 0xFFFF);
   return out;
 }
-export function simResetProfile() { if (M) M._sim_reset_profile_api(); }
+export function simResetProfile() { if (M) M._sim_reset_profile(); }
 
 // ── T-state cycle counter ─────────────────────────────────────────────────
 export function simGetCycles() {
@@ -363,7 +366,7 @@ export function simGetCycles() {
 }
 export function simSetCycles(_n) { if (M) M._sim_reset_cycles(); }
 
-// ── Stubs — JS-only features not yet in C core ────────────────────────────
-export function simGetSymbols()       { return {}; }
-export function simGetProgramRegion() { return { start: 0x100, end: 0x100 }; }
-export function simGetPresetAddrs()   { return new Set(); }
+// ── Features delegated to the JS engine ───────────────────────────────────
+export function simGetSymbols()       { return jsGetSymbols(); }
+export function simGetProgramRegion() { return jsGetProgramRegion(); }
+export function simGetPresetAddrs()   { return jsGetPresetAddrs(); }
