@@ -13,6 +13,8 @@
  * ──────────────────────────────────────────────────────────────
  */
 
+import { TSTATES } from './utils.js'
+
 let M = null;   // resolved Emscripten module
 
 function loadScript(src) {
@@ -209,12 +211,13 @@ export function simDisassemble(addr) {
   M._wasm_disassemble(addr);
   const text = cstr(M._wasm_disasm_text());
   const len  = M._wasm_disasm_len();
+  const op   = M._sim_read_byte(addr);
   return {
     text,
     len:    Math.max(1, len),
     addr,
     mnem:   text.trim().split(/[\s,]+/)[0] ?? '',
-    cycles: 0,
+    cycles: op === 0xDD ? 0 : TSTATES[op] ?? 0,
   };
 }
 
