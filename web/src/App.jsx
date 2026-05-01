@@ -444,7 +444,22 @@ function useCopy() {
   return [copied, copy]
 }
 
+function useCollapsible(key, defaultCollapsed = false) {
+  const sk = 'panel_collapsed_' + key
+  const [collapsed, setCollapsed] = useState(() => {
+    try { const s = localStorage.getItem(sk); return s !== null ? s === 'true' : defaultCollapsed }
+    catch { return defaultCollapsed }
+  })
+  const toggle = useCallback(() => setCollapsed(v => {
+    const next = !v
+    try { localStorage.setItem(sk, next) } catch {}
+    return next
+  }), [sk])
+  return [collapsed, toggle]
+}
+
 function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
+  const [collapsed, toggleCollapsed] = useCollapsible('reg', false)
   const p = prev || {}
 
   function EditableRow({ name, val, prevVal, regKey, is16 }) {
@@ -526,40 +541,43 @@ function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
 
   return (
     <div className="panel reg-panel">
-      <div className="panel-hd">
+      <div className={`panel-hd collapsible`} onClick={toggleCollapsed}>
         <span className="panel-icon">🧠</span>REGISTERS
-        <div className="panel-hd-right">
+        <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
           <button className="reg-base-btn" onClick={() => onRegBase(nextBase)}
             title="Toggle display: hex / dec / bin">{regBase.toUpperCase()}</button>
           <PanelHelp panel="REGISTERS" />
         </div>
+        <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
       </div>
-      <EditableRow name="A" val={regs.a} prevVal={p.a} regKey="a" />
-      <div className="reg-bits">
-        {[7,6,5,4,3,2,1,0].map(bit => (
-          <div key={bit} className={`reg-bit${(regs.a>>bit)&1 ? ' reg-bit-on' : ''}`}
-               title={`bit ${bit} — click to toggle`}
-               onClick={() => { const v = regs.a ^ (1<<bit); sim.simSetRegisters({a:v}); onEdit() }}>
-            <div className="reg-bit-lbl">{bit}</div>
-            <div className="reg-bit-val">{(regs.a>>bit)&1}</div>
-          </div>
-        ))}
-      </div>
-      <div className="reg-pair-row">
-        <PairCell name="B" val={regs.b} prevVal={p.b} regKey="b" />
-        <PairCell name="C" val={regs.c} prevVal={p.c} regKey="c" />
-      </div>
-      <div className="reg-pair-row">
-        <PairCell name="D" val={regs.d} prevVal={p.d} regKey="d" />
-        <PairCell name="E" val={regs.e} prevVal={p.e} regKey="e" />
-      </div>
-      <div className="reg-pair-row">
-        <PairCell name="H" val={regs.h} prevVal={p.h} regKey="h" />
-        <PairCell name="L" val={regs.l} prevVal={p.l} regKey="l" />
-      </div>
-      <div className="reg-sep" />
-      <EditableRow name="PC" val={regs.pc} prevVal={p.pc} regKey="pc" is16 />
-      <EditableRow name="SP" val={regs.sp} prevVal={p.sp} regKey="sp" is16 />
+      {!collapsed && <>
+        <EditableRow name="A" val={regs.a} prevVal={p.a} regKey="a" />
+        <div className="reg-bits">
+          {[7,6,5,4,3,2,1,0].map(bit => (
+            <div key={bit} className={`reg-bit${(regs.a>>bit)&1 ? ' reg-bit-on' : ''}`}
+                 title={`bit ${bit} — click to toggle`}
+                 onClick={() => { const v = regs.a ^ (1<<bit); sim.simSetRegisters({a:v}); onEdit() }}>
+              <div className="reg-bit-lbl">{bit}</div>
+              <div className="reg-bit-val">{(regs.a>>bit)&1}</div>
+            </div>
+          ))}
+        </div>
+        <div className="reg-pair-row">
+          <PairCell name="B" val={regs.b} prevVal={p.b} regKey="b" />
+          <PairCell name="C" val={regs.c} prevVal={p.c} regKey="c" />
+        </div>
+        <div className="reg-pair-row">
+          <PairCell name="D" val={regs.d} prevVal={p.d} regKey="d" />
+          <PairCell name="E" val={regs.e} prevVal={p.e} regKey="e" />
+        </div>
+        <div className="reg-pair-row">
+          <PairCell name="H" val={regs.h} prevVal={p.h} regKey="h" />
+          <PairCell name="L" val={regs.l} prevVal={p.l} regKey="l" />
+        </div>
+        <div className="reg-sep" />
+        <EditableRow name="PC" val={regs.pc} prevVal={p.pc} regKey="pc" is16 />
+        <EditableRow name="SP" val={regs.sp} prevVal={p.sp} regKey="sp" is16 />
+      </>}
     </div>
   )
 }
@@ -572,6 +590,7 @@ const PAIR_DEFS = [
 ]
 
 function PairPanel({ regs, prev, onJump, onEdit, regBase, onRegBase }) {
+  const [collapsed, toggleCollapsed] = useCollapsible('pairs', false)
   const [editing, setEditing] = useState(null)  // { key, field: 'addr'|'content' }
   const [buf, setBuf] = useState('')
   const p = prev || {}
@@ -601,15 +620,16 @@ function PairPanel({ regs, prev, onJump, onEdit, regBase, onRegBase }) {
 
   return (
     <div className="panel reg-panel">
-      <div className="panel-hd">
+      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
         <span className="panel-icon">🔗</span>REGISTER PAIRS
-        <div className="panel-hd-right">
+        <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
           <button className="reg-base-btn" onClick={() => onRegBase(BASE_CYCLE[(BASE_CYCLE.indexOf(regBase)+1)%3])}
             title="Toggle display: hex / dec / bin">{(regBase||'hex').toUpperCase()}</button>
           <PanelHelp panel="REGISTER PAIRS" />
         </div>
+        <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
       </div>
-      <div className="pair-col-hdr">
+      {!collapsed && <><div className="pair-col-hdr">
         <span />
         <span>ADDR</span>
         <span>CONTENT</span>
@@ -648,13 +668,14 @@ function PairPanel({ regs, prev, onJump, onEdit, regBase, onRegBase }) {
             }
           </div>
         )
-      })}
+      })}</>}
     </div>
   )
 }
 
 // ── Flags panel ──────────────────────────────────────────────────────────
 function FlagPanel({ regs }) {
+  const [collapsed, toggleCollapsed] = useCollapsible('flags', false)
   const FLAGS = [
     { label:'S',  key:'flagS',  title:'Sign — result was negative' },
     { label:'Z',  key:'flagZ',  title:'Zero — result was zero' },
@@ -664,15 +685,21 @@ function FlagPanel({ regs }) {
   ]
   return (
     <div className="panel flag-panel">
-      <div className="panel-hd"><span className="panel-icon">🚩</span>FLAGS<PanelHelp panel="FLAGS" /></div>
-      <div className="flags-row">
+      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
+        <span className="panel-icon">🚩</span>FLAGS
+        <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
+          <PanelHelp panel="FLAGS" />
+        </div>
+        <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
+      </div>
+      {!collapsed && <div className="flags-row">
         {FLAGS.map(f => (
           <div key={f.key} className={`flag${regs[f.key] ? ' flag-on' : ''}`} title={f.title}>
             <div className="flag-lbl">{f.label}</div>
             <div className="flag-val">{regs[f.key]}</div>
           </div>
         ))}
-      </div>
+      </div>}
     </div>
   )
 }
@@ -1362,6 +1389,7 @@ function ChatPanel({ regs, src }) {
 
 // ── Stack panel ──────────────────────────────────────────────────────────
 function StackPanel({ regs, regBase, onRegBase }) {
+  const [collapsed, toggleCollapsed] = useCollapsible('stack', false)
   const panelRef = useRef(null)
   const entries = useMemo(() => {
     const out = []
@@ -1388,28 +1416,31 @@ function StackPanel({ regs, regBase, onRegBase }) {
 
   return (
     <div className="panel stack-panel" ref={panelRef}>
-      <div className="panel-hd">
+      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
         <span className="panel-icon">📚</span>STACK
-        <div className="panel-hd-right">
+        <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
           <code className="sp-val">SP={hex4(regs.sp)}</code>
           <button className="reg-base-btn" onClick={() => onRegBase(BASE_CYCLE[(BASE_CYCLE.indexOf(regBase)+1)%3])}
             title="Toggle display: hex / dec / bin">{(regBase||'hex').toUpperCase()}</button>
           <PanelHelp panel="STACK" />
         </div>
+        <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
       </div>
-      <div className="stack-body">
-        {entries.length === 0
-          ? <div className="stack-empty">empty</div>
-          : entries.map((e,i) => (
-            <div key={e.addr} className={`stack-row${i===0?' stack-top':''}`}>
-              <span className="stack-addr">{hex4(e.addr)}</span>
-              <span className="stack-sep">→</span>
-              <span className="stack-val">{fmtWord(e.val, regBase)}</span>
-            </div>
-          ))
-        }
-      </div>
-      <div className="stack-resize-handle" onMouseDown={onResizeDown} />
+      {!collapsed && <>
+        <div className="stack-body">
+          {entries.length === 0
+            ? <div className="stack-empty">empty</div>
+            : entries.map((e,i) => (
+              <div key={e.addr} className={`stack-row${i===0?' stack-top':''}`}>
+                <span className="stack-addr">{hex4(e.addr)}</span>
+                <span className="stack-sep">→</span>
+                <span className="stack-val">{fmtWord(e.val, regBase)}</span>
+              </div>
+            ))
+          }
+        </div>
+        <div className="stack-resize-handle" onMouseDown={onResizeDown} />
+      </>}
     </div>
   )
 }
@@ -1435,6 +1466,7 @@ function LedDisplay({ leds }) {
 
 // ── Execution trace panel ────────────────────────────────────────────────
 function TracePanel({ trace, onClear }) {
+  const [collapsed, toggleCollapsed] = useCollapsible('trace', true)
   const bodyRef = useRef(null)
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight
@@ -1442,14 +1474,15 @@ function TracePanel({ trace, onClear }) {
 
   return (
     <div className="panel trace-panel">
-      <div className="panel-hd">
+      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
         <span className="panel-icon">📜</span>TRACE
-        <div className="panel-hd-right">
+        <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
           <button className="reg-base-btn" onClick={onClear} title="Clear trace">✕</button>
           <PanelHelp panel="TRACE" />
         </div>
+        <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
       </div>
-      <div className="trace-body" ref={bodyRef}>
+      {!collapsed && <div className="trace-body" ref={bodyRef}>
         {trace.length === 0
           ? <div className="trace-empty">Step or run to record execution</div>
           : trace.map((e, i) => (
@@ -1469,34 +1502,34 @@ function TracePanel({ trace, onClear }) {
             </div>
           ))
         }
-      </div>
+      </div>}
     </div>
   )
 }
 
 // ── Watch panel ──────────────────────────────────────────────────────────
 function CallStackPanel({ callStack, onJump }) {
-  if (callStack.length === 0) return (
-    <div className="panel callstack-panel">
-      <div className="panel-hd"><span className="panel-icon">📞</span>CALL STACK</div>
-      <div className="callstack-empty">— empty (step to populate) —</div>
-    </div>
-  )
+  const [collapsed, toggleCollapsed] = useCollapsible('callstack', true)
   return (
     <div className="panel callstack-panel">
-      <div className="panel-hd"><span className="panel-icon">📞</span>CALL STACK
-        <span className="callstack-depth">{callStack.length}</span>
+      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
+        <span className="panel-icon">📞</span>CALL STACK
+        {callStack.length > 0 && <span className="callstack-depth">{callStack.length}</span>}
+        <span className="panel-chevron" style={{marginLeft:'auto'}}>{collapsed ? '▶' : '▼'}</span>
       </div>
-      <div className="callstack-list">
-        {[...callStack].reverse().map((frame, i) => (
-          <div key={i} className={`callstack-row${i === 0 ? ' callstack-top' : ''}`}>
-            <span className="callstack-target" title="Target address" onClick={() => onJump(frame.targetAddr)}>{hex4(frame.targetAddr)}H</span>
-            <span className="callstack-arrow">←</span>
-            <span className="callstack-site" title="Call site" onClick={() => onJump(frame.callAddr)}>{hex4(frame.callAddr)}H</span>
-            <span className="callstack-ret" title="Return address">ret:{hex4(frame.retAddr)}H</span>
+      {!collapsed && (callStack.length === 0
+        ? <div className="callstack-empty">— empty (step to populate) —</div>
+        : <div className="callstack-list">
+            {[...callStack].reverse().map((frame, i) => (
+              <div key={i} className={`callstack-row${i === 0 ? ' callstack-top' : ''}`}>
+                <span className="callstack-target" title="Target address" onClick={() => onJump(frame.targetAddr)}>{hex4(frame.targetAddr)}H</span>
+                <span className="callstack-arrow">←</span>
+                <span className="callstack-site" title="Call site" onClick={() => onJump(frame.callAddr)}>{hex4(frame.callAddr)}H</span>
+                <span className="callstack-ret" title="Return address">ret:{hex4(frame.retAddr)}H</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+      )}
     </div>
   )
 }
@@ -1624,6 +1657,7 @@ function ConsolePanel({ output, port, onSetPort, onClear }) {
 
 // ── I/O port panel ───────────────────────────────────────────────────────
 function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput, keyQueue, onEnqueueKeys, onClearKeyQueue, sid, sod, onSetSID }) {
+  const [collapsed, toggleCollapsed] = useCollapsible('ioports', true)
   const [portBuf, setPortBuf] = useState('')
   const [valBuf,  setValBuf]  = useState('')
   const [kbdBuf,  setKbdBuf]  = useState('')
@@ -1644,8 +1678,14 @@ function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput, key
 
   return (
     <div className="panel ioport-panel">
-      <div className="panel-hd"><span className="panel-icon">🔌</span>I/O PORTS<PanelHelp panel="I/O PORTS" /></div>
-
+      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
+        <span className="panel-icon">🔌</span>I/O PORTS
+        <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
+          <PanelHelp panel="I/O PORTS" />
+        </div>
+        <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
+      </div>
+      {!collapsed && <>
       <div className="ioport-section-hd">OUTPUT  <span className="ioport-hint">written by OUT</span></div>
       {outputPorts.length === 0
         ? <div className="ioport-empty">No OUT executed yet</div>
@@ -1710,12 +1750,14 @@ function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput, key
             <button className="watch-rm" onClick={onClearKeyQueue} title="Clear queue">✕</button>
           </div>
       }
+      </>}
     </div>
   )
 }
 
 // ── Interrupt panel ──────────────────────────────────────────────────────
 function IntPanel({ intState, onAssert, onDeassert }) {
+  const [collapsed, toggleCollapsed] = useCollapsible('interrupts', true)
   const { iff, intMask, rst75ff, trapPend, rst65, rst55, intr } = intState
   const [intrRst, setIntrRst] = useState(7)
 
@@ -1731,44 +1773,49 @@ function IntPanel({ intState, onAssert, onDeassert }) {
 
   return (
     <div className="panel int-panel">
-      <div className="panel-hd">
+      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
         <span className="panel-icon">🔔</span>INTERRUPTS
-        <PanelHelp panel="INTERRUPTS" />
-      </div>
-      <div className="int-iff">
-        IFF <span className={`int-iff-val${iff ? ' int-iff-on' : ''}`}>{iff ? 'ENABLED' : 'DISABLED'}</span>
-      </div>
-      {rows.map(({ type, label, vec, pulse, bit }) => (
-        <div key={type} className="int-row">
-          {pulse
-            ? <button className={`btn btn-xs int-btn${lineOn[type] ? ' int-pending' : ''}`}
-                onClick={() => onAssert(type)}>
-                {lineOn[type] ? 'PEND' : 'FIRE'}
-              </button>
-            : <button className={`btn btn-xs int-btn${lineOn[type] ? ' int-btn-on' : ''}`}
-                onClick={() => lineOn[type] ? onDeassert(type) : onAssert(type)}>
-                {lineOn[type] ? 'ON' : 'OFF'}
-              </button>
-          }
-          <span className={`int-label${bit >= 0 && masked(bit) ? ' int-masked' : ''}`}>{label}</span>
-          <span className="int-vec">{vec}</span>
-          {bit >= 0 && masked(bit) && <span className="int-mask-tag">masked</span>}
+        <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
+          <PanelHelp panel="INTERRUPTS" />
         </div>
-      ))}
-      <div className="int-row">
-        <button className={`btn btn-xs int-btn${intr ? ' int-btn-on' : ''}`}
-          onClick={() => intr ? onDeassert('INTR') : onAssert('INTR', 0xC7 | (intrRst << 3))}>
-          {intr ? 'ON' : 'OFF'}
-        </button>
-        <span className="int-label">INTR</span>
-        <span className="int-vec">RST&nbsp;
-          <select className="int-rst-sel" value={intrRst}
-            onChange={e => setIntrRst(+e.target.value)}>
-            {[0,1,2,3,4,5,6,7].map(n =>
-              <option key={n} value={n}>{n} ({hex4(n*8)}H)</option>)}
-          </select>
-        </span>
+        <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
       </div>
+      {!collapsed && <>
+        <div className="int-iff">
+          IFF <span className={`int-iff-val${iff ? ' int-iff-on' : ''}`}>{iff ? 'ENABLED' : 'DISABLED'}</span>
+        </div>
+        {rows.map(({ type, label, vec, pulse, bit }) => (
+          <div key={type} className="int-row">
+            {pulse
+              ? <button className={`btn btn-xs int-btn${lineOn[type] ? ' int-pending' : ''}`}
+                  onClick={() => onAssert(type)}>
+                  {lineOn[type] ? 'PEND' : 'FIRE'}
+                </button>
+              : <button className={`btn btn-xs int-btn${lineOn[type] ? ' int-btn-on' : ''}`}
+                  onClick={() => lineOn[type] ? onDeassert(type) : onAssert(type)}>
+                  {lineOn[type] ? 'ON' : 'OFF'}
+                </button>
+            }
+            <span className={`int-label${bit >= 0 && masked(bit) ? ' int-masked' : ''}`}>{label}</span>
+            <span className="int-vec">{vec}</span>
+            {bit >= 0 && masked(bit) && <span className="int-mask-tag">masked</span>}
+          </div>
+        ))}
+        <div className="int-row">
+          <button className={`btn btn-xs int-btn${intr ? ' int-btn-on' : ''}`}
+            onClick={() => intr ? onDeassert('INTR') : onAssert('INTR', 0xC7 | (intrRst << 3))}>
+            {intr ? 'ON' : 'OFF'}
+          </button>
+          <span className="int-label">INTR</span>
+          <span className="int-vec">RST&nbsp;
+            <select className="int-rst-sel" value={intrRst}
+              onChange={e => setIntrRst(+e.target.value)}>
+              {[0,1,2,3,4,5,6,7].map(n =>
+                <option key={n} value={n}>{n} ({hex4(n*8)}H)</option>)}
+            </select>
+          </span>
+        </div>
+      </>}
     </div>
   )
 }

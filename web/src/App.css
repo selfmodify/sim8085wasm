@@ -458,6 +458,9 @@ body {
 }
 
 .panel-icon { letter-spacing: 0; margin-right: 5px; font-size: 13px; text-transform: none }
+.panel-hd.collapsible { cursor: pointer; user-select: none }
+.panel-hd.collapsible:hover { background: var(--bg3) }
+.panel-chevron { font-size: 9px; color: var(--text3); margin-left: 4px; flex-shrink: 0; letter-spacing: 0; text-transform: none }
 
 /* ── Panel header right-side group + help button ─────────────────── */
 .panel-hd-right { display: flex; align-items: center; gap: 4px }
