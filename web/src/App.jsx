@@ -3421,9 +3421,9 @@ function addTraceEntry(prevR) {
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
           {driveToken && (
             <>
-              <button className="btn" onClick={loadFromDrive} title="Load file from Google Drive">📂 Load</button>
-              <button className="btn" onClick={saveToDrive} disabled={driveSaveStatus === 'saving'} title="Save file to Google Drive">
-                {driveSaveStatus === 'saving' ? '⏳ Saving…' : driveSaveStatus === 'success' ? '✓ Saved' : '💾 Save'}
+              <button className="btn" onClick={loadFromDrive} title="Load from Google Drive">☁ Load</button>
+              <button className="btn" onClick={saveToDrive} disabled={driveSaveStatus === 'saving'} title="Save to Google Drive">
+                {driveSaveStatus === 'saving' ? '⏳ Saving…' : driveSaveStatus === 'success' ? '✓ Saved' : '☁ Save'}
               </button>
             </>
           )}
