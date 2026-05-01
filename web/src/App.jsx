@@ -2529,8 +2529,7 @@ export default function App() {
         setSymbols(sim.simGetSymbols())
         setProgramRegion(sim.simGetProgramRegion())
         setPresetAddrs(sim.simGetPresetAddrs())
-        const t = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})
-        setMsg(`✓ ${res.bytesEmitted}B at ${hex4(res.entryPoint)}H — ready  ${t}`)
+        setMsg(`✓ Build completed (${res.bytesEmitted}B at ${hex4(res.entryPoint)}H)`)
         lastBuiltSrcRef.current = code
       }
     } catch (err) {
@@ -3200,7 +3199,6 @@ function addTraceEntry(prevR) {
             ? <span className="statusbar-empty">—</span>
             : (() => { const e = statusLog[statusLog.length - 1]; return (
               <div className={`statusbar-entry sbar-${e.kind}`}>
-                <span className="statusbar-time">{e.t}</span>
                 <span className="statusbar-text">{e.text}</span>
               </div>
             )})()
