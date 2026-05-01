@@ -1959,7 +1959,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, onExport, onExportHex, onExportBin, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, onExport, onExportHex, onExportBin, onSaveToDrive, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme }) {
   const [open, setOpen] = useState(false);
   const [activeSub, setActiveSub] = useState(null);
   const wrapRef = useRef(null)
@@ -1998,7 +1998,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
               <div className="exmenu-sub">
                 <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.asm / .85 source</button>
                 <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.hex / .bin image</button>
-                <button className="exmenu-sub-item" onClick={() => { onLoadFromDrive(); setOpen(false); setActiveSub(null); }}>☁ Google Drive</button>
+                <button className="exmenu-sub-item" onClick={() => { onLoadFromDrive(); setOpen(false); setActiveSub(null); }}>☁ Load from Drive</button>
               </div>
             )}
           </div>
@@ -2011,6 +2011,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
                 <button className="exmenu-sub-item" onClick={() => { onExport(); setOpen(false); setActiveSub(null); }}>.asm source</button>
                 <button className="exmenu-sub-item" onClick={() => { onExportHex(); setOpen(false); setActiveSub(null); }}>.hex (Intel HEX)</button>
                 <button className="exmenu-sub-item" onClick={() => { onExportBin(); setOpen(false); setActiveSub(null); }}>.bin (raw binary)</button>
+                <button className="exmenu-sub-item" onClick={() => { onSaveToDrive(); setOpen(false); setActiveSub(null); }}>☁ Save to Drive</button>
               </div>
             )}
           </div>
@@ -2909,101 +2910,104 @@ function addTraceEntry(prevR) {
     document.body.removeChild(a); URL.revokeObjectURL(url)
   }
 
-  function saveToDrive() {
+  function handleDriveConnectToggle() {
+    if (driveToken) {
+      if (window.google) window.google.accounts.oauth2.revoke(driveToken, () => {})
+      setDriveToken(null)
+      setMsg('✓ Disconnected from Google Drive')
+    } else {
+      connectDrive()
+    }
+  }
+
+  function connectDrive(onSuccess) {
     if (!window.google) {
       setMsg('✗ Google Drive script blocked. Please disable your adblocker or shields.')
       return
     }
-    // Replace with your actual Google Cloud OAuth Client ID
     const CLIENT_ID = '467288235889-r6gbjd0ou6ubuiktrnaj54bee6iggr01.apps.googleusercontent.com'
-    
     const client = window.google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: 'https://www.googleapis.com/auth/drive.file',
       callback: async (tokenResponse) => {
         if (tokenResponse && tokenResponse.access_token) {
-          setMsg('Saving to Google Drive…')
-          const token = tokenResponse.access_token
-          
-          try {
-            let folderId = null
-            const query = encodeURIComponent("mimeType='application/vnd.google-apps.folder' and name='sim8085' and trashed=false")
-            const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}`, {
-              headers: { Authorization: 'Bearer ' + token }
-            })
-            const searchData = await searchRes.json()
-            
-            if (searchData.files && searchData.files.length > 0) {
-              folderId = searchData.files[0].id
-            } else {
-              const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
-                method: 'POST',
-                headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: 'sim8085', mimeType: 'application/vnd.google-apps.folder' })
-              })
-              const createData = await createRes.json()
-              folderId = createData.id
-            }
-
-            const name = (fileName.replace(/\.(asm|85|s|txt)$/i,'') || 'program') + '.asm'
-            const metadata = { name, mimeType: 'text/plain', parents: folderId ? [folderId] : undefined }
-            const form = new FormData()
-            form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }))
-            form.append('file', new Blob([srcRef.current], { type: 'text/plain' }))
-
-            const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-              method: 'POST',
-              headers: { Authorization: 'Bearer ' + token },
-              body: form
-            })
-            if (res.ok) setMsg('✓ File saved to "sim8085" folder on Google Drive!')
-            else setMsg('✗ Error saving to Google Drive.')
-          } catch(e) {
-            setMsg('✗ Network error saving to Google Drive.')
-          }
+          setDriveToken(tokenResponse.access_token)
+          if (typeof onSuccess === 'function') onSuccess(tokenResponse.access_token)
+          else setMsg('✓ Connected to Google Drive')
         }
       }
     })
     client.requestAccessToken()
   }
 
-  function loadFromDrive() {
-    if (!window.google) {
-      setMsg('✗ Google Drive script blocked. Please disable your adblocker or shields.')
-      return
-    }
-    const CLIENT_ID = '467288235889-r6gbjd0ou6ubuiktrnaj54bee6iggr01.apps.googleusercontent.com'
-    const client = window.google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: 'https://www.googleapis.com/auth/drive.file',
-      callback: async (tokenResponse) => {
-        if (tokenResponse && tokenResponse.access_token) {
-          setMsg('Fetching files from Google Drive…')
-          setDriveLoading(true)
-          setDriveFiles([])
-          const token = tokenResponse.access_token
-          setDriveToken(token)
-          try {
-            const query = encodeURIComponent("mimeType='application/vnd.google-apps.folder' and name='sim8085' and trashed=false")
-            const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}`, { headers: { Authorization: 'Bearer ' + token } })
-            const searchData = await searchRes.json()
-            if (!searchData.files || searchData.files.length === 0) {
-              setDriveFiles([]); setDriveLoading(false)
-              return
-            }
-            const folderId = searchData.files[0].id
-            const filesQuery = encodeURIComponent(`'${folderId}' in parents and trashed=false`)
-            const filesRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${filesQuery}&orderBy=modifiedTime desc`, { headers: { Authorization: 'Bearer ' + token } })
-            const filesData = await filesRes.json()
-            setDriveFiles(filesData.files || [])
-          } catch(e) {
-            setMsg('✗ Network error loading from Google Drive.')
-            setDriveFiles(null)
-          } finally { setDriveLoading(false) }
-        }
+  async function saveToDrive() {
+    if (!driveToken) { connectDrive(performSave); return }
+    performSave(driveToken)
+  }
+
+  async function performSave(token) {
+    setMsg('Saving to Google Drive…')
+    try {
+      let folderId = null
+      const query = encodeURIComponent("mimeType='application/vnd.google-apps.folder' and name='sim8085' and trashed=false")
+      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}`, { headers: { Authorization: 'Bearer ' + token } })
+      if (searchRes.status === 401) { setDriveToken(null); setMsg('✗ Drive session expired. Please connect again.'); return }
+      const searchData = await searchRes.json()
+      if (searchData.files && searchData.files.length > 0) {
+        folderId = searchData.files[0].id
+      } else {
+        const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+          method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'sim8085', mimeType: 'application/vnd.google-apps.folder' })
+        })
+        const createData = await createRes.json()
+        folderId = createData.id
       }
-    })
-    client.requestAccessToken()
+
+      const name = (fileName.replace(/\.(asm|85|s|txt)$/i,'') || 'program') + '.asm'
+      const metadata = { name, mimeType: 'text/plain', parents: folderId ? [folderId] : undefined }
+      const form = new FormData()
+      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }))
+      form.append('file', new Blob([srcRef.current], { type: 'text/plain' }))
+
+      const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: form
+      })
+      if (res.status === 401) { setDriveToken(null); setMsg('✗ Drive session expired. Please connect again.'); return }
+      if (res.ok) setMsg('✓ File saved to "sim8085" folder on Google Drive!')
+      else setMsg('✗ Error saving to Google Drive.')
+    } catch(e) {
+      setMsg('✗ Network error saving to Google Drive.')
+    }
+  }
+
+  async function loadFromDrive() {
+    if (!driveToken) { connectDrive(performLoad); return }
+    performLoad(driveToken)
+  }
+
+  async function performLoad(token) {
+    setMsg('Fetching files from Google Drive…')
+    setDriveLoading(true)
+    setDriveFiles([])
+    try {
+      const query = encodeURIComponent("mimeType='application/vnd.google-apps.folder' and name='sim8085' and trashed=false")
+      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}`, { headers: { Authorization: 'Bearer ' + token } })
+      if (searchRes.status === 401) { setDriveToken(null); setMsg('✗ Drive session expired. Please connect again.'); setDriveFiles(null); setDriveLoading(false); return }
+      const searchData = await searchRes.json()
+      if (!searchData.files || searchData.files.length === 0) {
+        setDriveFiles([]); setDriveLoading(false)
+        return
+      }
+      const folderId = searchData.files[0].id
+      const filesQuery = encodeURIComponent(`'${folderId}' in parents and trashed=false`)
+      const filesRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${filesQuery}&orderBy=modifiedTime desc`, { headers: { Authorization: 'Bearer ' + token } })
+      const filesData = await filesRes.json()
+      setDriveFiles(filesData.files || [])
+    } catch(e) {
+      setMsg('✗ Network error loading from Google Drive.')
+      setDriveFiles(null)
+    } finally { setDriveLoading(false) }
   }
 
   async function fetchDriveFile(fileId, fileName) {
@@ -3011,6 +3015,7 @@ function addTraceEntry(prevR) {
     setDriveFiles(null)
     try {
       const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: 'Bearer ' + driveToken } })
+      if (res.status === 401) { setDriveToken(null); setMsg('✗ Drive session expired. Please connect again.'); return }
       if (!res.ok) throw new Error('Failed to fetch')
       const text = await res.text()
       srcRef.current = text; setSrc(text); doAssemble(text)
@@ -3229,6 +3234,7 @@ function addTraceEntry(prevR) {
             onExport={exportFile}
             onExportHex={exportHex}
             onExportBin={exportBin}
+            onSaveToDrive={saveToDrive}
             onShare={shareURL}
             onCalc={() => setShowCalc(c => !c)}
             memSize={memSize} onMemSize={changeMemSize}
@@ -3267,7 +3273,7 @@ function addTraceEntry(prevR) {
           <button className="btn btn-reset" onClick={handleReset}>↺ Reset  <kbd>F6</kbd></button>
         </div>
 
-        <button className="btn" style={{ marginLeft: 'auto', color: 'var(--blue)', borderColor: 'var(--border2)' }} onClick={saveToDrive} title="Connect and save to Google Drive">☁ Save to Drive</button>
+        <button className="btn" style={{ marginLeft: 'auto', color: 'var(--blue)', borderColor: 'var(--border2)' }} onClick={handleDriveConnectToggle} title={driveToken ? "Disconnect Google Drive" : "Connect to Google Drive"}>{driveToken ? '☁ Drive Connected' : '☁ Connect Drive'}</button>
         {fileName && <span className="topbar-filename" style={{ marginLeft: 10 }} title={fileName}>File: {fileName}</span>}
         <span className={`engine-chip engine-chip-${engineMode}`} title={engineSwitching ? 'Switching engine…' : `Engine: ${engineMode.toUpperCase()}`}>
           {engineSwitching ? '…' : `Engine: ${engineMode.toUpperCase()}`}
