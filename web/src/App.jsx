@@ -2288,6 +2288,36 @@ function HelpPanel({ instruction }) {
   )
 }
 
+// ── Google Drive Load modal ──────────────────────────────────────────────
+function DriveLoadModal({ files, loading, onClose, onSelect }) {
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div className="help-overlay" onClick={onClose}>
+      <div className="shortcuts-modal" onClick={e => e.stopPropagation()} style={{ width: 420 }}>
+        <div className="help-hd">
+          <span className="help-mnem">Load from Drive</span>
+          <button className="help-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="shortcuts-body" style={{ padding: 0, maxHeight: '50vh' }}>
+          {loading ? (
+            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text3)' }}>Loading files…</div>
+          ) : files.length === 0 ? (
+            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text3)' }}>No files found in the "sim8085" folder.</div>
+          ) : files.map(f => (
+            <button key={f.id} className="bmenu-item" style={{ width: '100%', borderBottom: '1px solid var(--border)' }} onClick={() => onSelect(f.id, f.name)}>
+              📄 {f.name}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Root app ─────────────────────────────────────────────────────────────
 export default function App() {
   const [src, setSrc]           = useState(() => {
@@ -2368,8 +2398,18 @@ export default function App() {
   function toggleTheme() { setTheme(t => t === 'dark' ? 'dim' : t === 'dim' ? 'light' : 'dark') }
 
   const [driveFiles, setDriveFiles] = useState(null)
-  const [driveToken, setDriveToken] = useState(null)
+  const [driveToken, setDriveToken] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('sim8085_drive_token'))
+      if (saved && saved.token && saved.expiresAt > Date.now()) return saved.token
+    } catch {}
+    return null
+  })
+  useEffect(() => {
+    if (!driveToken) localStorage.removeItem('sim8085_drive_token')
+  }, [driveToken])
   const [driveLoading, setDriveLoading] = useState(false)
+  const [driveSaveStatus, setDriveSaveStatus] = useState(null)
 
   const [showWelcome,    setShowWelcome]    = useState(() => !localStorage.getItem('sim8085_welcomed'))
   const [showCalc,       setShowCalc]       = useState(false)
@@ -2931,6 +2971,8 @@ function addTraceEntry(prevR) {
       scope: 'https://www.googleapis.com/auth/drive.file',
       callback: async (tokenResponse) => {
         if (tokenResponse && tokenResponse.access_token) {
+          const expiresAt = Date.now() + (tokenResponse.expires_in * 1000 || 3500000)
+          localStorage.setItem('sim8085_drive_token', JSON.stringify({ token: tokenResponse.access_token, expiresAt }))
           setDriveToken(tokenResponse.access_token)
           if (typeof onSuccess === 'function') onSuccess(tokenResponse.access_token)
           else setMsg('✓ Connected to Google Drive')
@@ -2947,11 +2989,12 @@ function addTraceEntry(prevR) {
 
   async function performSave(token) {
     setMsg('Saving to Google Drive…')
+    setDriveSaveStatus('saving')
     try {
       let folderId = null
       const query = encodeURIComponent("mimeType='application/vnd.google-apps.folder' and name='sim8085' and trashed=false")
       const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}`, { headers: { Authorization: 'Bearer ' + token } })
-      if (searchRes.status === 401) { setDriveToken(null); setMsg('✗ Drive session expired. Please connect again.'); return }
+      if (searchRes.status === 401) { setDriveToken(null); setMsg('✗ Drive session expired. Please connect again.'); setDriveSaveStatus(null); return }
       const searchData = await searchRes.json()
       if (searchData.files && searchData.files.length > 0) {
         folderId = searchData.files[0].id
@@ -2965,19 +3008,41 @@ function addTraceEntry(prevR) {
       }
 
       const name = (fileName.replace(/\.(asm|85|s|txt)$/i,'') || 'program') + '.asm'
-      const metadata = { name, mimeType: 'text/plain', parents: folderId ? [folderId] : undefined }
+      
+      let existingFileId = null
+      if (folderId) {
+        const fileQuery = encodeURIComponent(`name='${name.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed=false`)
+        const fileSearchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${fileQuery}`, { headers: { Authorization: 'Bearer ' + token } })
+        const fileSearchData = await fileSearchRes.json()
+        if (fileSearchData.files && fileSearchData.files.length > 0) {
+          existingFileId = fileSearchData.files[0].id
+        }
+      }
+
+      const metadata = { name, mimeType: 'text/plain' }
+      if (!existingFileId && folderId) metadata.parents = [folderId]
+
       const form = new FormData()
       form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }))
       form.append('file', new Blob([srcRef.current], { type: 'text/plain' }))
 
-      const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: form
+      const url = existingFileId 
+        ? `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=multipart`
+        : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'
+      const method = existingFileId ? 'PATCH' : 'POST'
+
+      const res = await fetch(url, {
+        method, headers: { Authorization: 'Bearer ' + token }, body: form
       })
-      if (res.status === 401) { setDriveToken(null); setMsg('✗ Drive session expired. Please connect again.'); return }
-      if (res.ok) setMsg('✓ File saved to "sim8085" folder on Google Drive!')
-      else setMsg('✗ Error saving to Google Drive.')
+      if (res.status === 401) { setDriveToken(null); setMsg('✗ Drive session expired. Please connect again.'); setDriveSaveStatus(null); return }
+      if (res.ok) {
+        setMsg(existingFileId ? '✓ File updated on Google Drive!' : '✓ File saved to "sim8085" folder on Google Drive!')
+        setDriveSaveStatus('success')
+        setTimeout(() => setDriveSaveStatus(null), 2000)
+      } else { setMsg('✗ Error saving to Google Drive.'); setDriveSaveStatus(null) }
     } catch(e) {
       setMsg('✗ Network error saving to Google Drive.')
+      setDriveSaveStatus(null)
     }
   }
 
@@ -3014,7 +3079,7 @@ function addTraceEntry(prevR) {
     setMsg(`Loading ${fileName}…`)
     setDriveFiles(null)
     try {
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: 'Bearer ' + driveToken } })
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${encodeURIComponent(driveToken)}`)
       if (res.status === 401) { setDriveToken(null); setMsg('✗ Drive session expired. Please connect again.'); return }
       if (!res.ok) throw new Error('Failed to fetch')
       const text = await res.text()
@@ -3273,8 +3338,18 @@ function addTraceEntry(prevR) {
           <button className="btn btn-reset" onClick={handleReset}>↺ Reset  <kbd>F6</kbd></button>
         </div>
 
-        <button className="btn" style={{ marginLeft: 'auto', color: 'var(--blue)', borderColor: 'var(--border2)' }} onClick={handleDriveConnectToggle} title={driveToken ? "Disconnect Google Drive" : "Connect to Google Drive"}>{driveToken ? '☁ Drive Connected' : '☁ Connect Drive'}</button>
-        {fileName && <span className="topbar-filename" style={{ marginLeft: 10 }} title={fileName}>File: {fileName}</span>}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
+          {driveToken && (
+            <>
+              <button className="btn" onClick={loadFromDrive} title="Load file from Google Drive">📂 Load</button>
+              <button className="btn" onClick={saveToDrive} disabled={driveSaveStatus === 'saving'} title="Save file to Google Drive">
+                {driveSaveStatus === 'saving' ? '⏳ Saving…' : driveSaveStatus === 'success' ? '✓ Saved' : '💾 Save'}
+              </button>
+            </>
+          )}
+          <button className="btn" style={{ color: 'var(--blue)', borderColor: 'var(--border2)' }} onClick={handleDriveConnectToggle} title={driveToken ? "Disconnect Google Drive" : "Connect to Google Drive"}>{driveToken ? '☁ Connected' : '☁ Connect Drive'}</button>
+        </div>
+        {fileName && <span className="topbar-filename" style={{ marginLeft: 4 }} title={fileName}>File: {fileName}</span>}
         <span className={`engine-chip engine-chip-${engineMode}`} title={engineSwitching ? 'Switching engine…' : `Engine: ${engineMode.toUpperCase()}`}>
           {engineSwitching ? '…' : `Engine: ${engineMode.toUpperCase()}`}
         </span>
