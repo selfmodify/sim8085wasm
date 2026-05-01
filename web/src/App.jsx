@@ -2268,7 +2268,7 @@ export default function App() {
         tp.pendingSteps = (tp.pendingSteps || 0) + data.steps
         const now = performance.now()
         tp.steps += data.steps; tp.ms += (now - (tp._last ?? now)); tp._last = now
-        if (tp.ms >= 500) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; }
+        if (tp.ms >= 100) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; }
         if (data.state) {
           if (tp.pendingSteps > 0) { setSteps(s => s + tp.pendingSteps); tp.pendingSteps = 0 }
           setMhz(tp.mhz || 0)
@@ -2595,6 +2595,8 @@ export default function App() {
       workerRef.current.postMessage({
         cmd: 'run',
         stepsPerTick,
+        isWarp: speed.warp,
+        isFast: speed.warp || speed.steps >= 1000,
         bps: [...bpsRef.current.entries()],
       })
       setMsg(speed.warp ? '⚡ Warp (Worker)…' : '▶ Running (Worker)…')
@@ -2630,19 +2632,18 @@ export default function App() {
       warpActiveRef.current = true
       lastUiRef.current = 0
       wasHaltWaitingRef.current = false
-      throughputRef.current = { steps: 0, ms: 0, mhz: 0, pendingSteps: 0 }
+      throughputRef.current = { steps: 0, ms: 0, mhz: 0, pendingSteps: 0, _last: performance.now() }
       const tick = () => {
         if (!warpActiveRef.current) return
-        const t0 = performance.now()
         const n = sim.simRun(500000)
-        const dt = performance.now() - t0
         const tp = throughputRef.current
-        tp.steps += n; tp.ms += dt; tp.pendingSteps = (tp.pendingSteps || 0) + n
-        if (tp.ms >= 500) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; }
+        const perfNow = performance.now()
+        tp.steps += n; tp.ms += (perfNow - (tp._last ?? perfNow)); tp._last = perfNow; tp.pendingSteps = (tp.pendingSteps || 0) + n
+        if (tp.ms >= 100) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; }
 
         const now = Date.now()
         const isHaltWaiting = sim.simIsHaltWaiting()
-        const doUi = (now - lastUiRef.current >= 1000) || (isHaltWaiting && !wasHaltWaitingRef.current)
+        const doUi = (now - lastUiRef.current >= 250) || (isHaltWaiting && !wasHaltWaitingRef.current)
         if (doUi) {
           if (tp.pendingSteps > 0) { setSteps(s => s + tp.pendingSteps); tp.pendingSteps = 0 }
           setMhz(tp.mhz || 0)
@@ -2680,18 +2681,17 @@ export default function App() {
     setMsg('▶ Running…')
     lastUiRef.current = 0
     wasHaltWaitingRef.current = false
-    throughputRef.current = { steps: 0, ms: 0, mhz: 0, pendingSteps: 0 }
+    throughputRef.current = { steps: 0, ms: 0, mhz: 0, pendingSteps: 0, _last: performance.now() }
     timerRef.current = setInterval(() => {
-      const t0 = performance.now()
       const n = sim.simRun(SPEEDS[speedRef.current].steps)
-      const dt = performance.now() - t0
       const tp = throughputRef.current
-      tp.steps += n; tp.ms += dt; tp.pendingSteps = (tp.pendingSteps || 0) + n
-      if (tp.ms >= 500) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; }
+      const perfNow = performance.now()
+      tp.steps += n; tp.ms += (perfNow - (tp._last ?? perfNow)); tp._last = perfNow; tp.pendingSteps = (tp.pendingSteps || 0) + n
+      if (tp.ms >= 100) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; }
       const isFast = SPEEDS[speedRef.current].steps >= 1000
       const now = Date.now()
       const isHaltWaiting = sim.simIsHaltWaiting()
-      const doUi = !isFast || (now - lastUiRef.current >= 1000) || (isHaltWaiting && !wasHaltWaitingRef.current)
+      const doUi = !isFast || (now - lastUiRef.current >= 250) || (isHaltWaiting && !wasHaltWaitingRef.current)
       if (doUi) {
         if (tp.pendingSteps > 0) { setSteps(s => s + tp.pendingSteps); tp.pendingSteps = 0 }
         setMhz(tp.mhz || 0)
@@ -3024,7 +3024,7 @@ function addTraceEntry(prevR) {
           </button>
           <label className="speed-label" title={SPEEDS[runSpeed].warp ? 'Warp: run until HLT, no mid-run UI updates' : `${SPEEDS[runSpeed].steps.toLocaleString()} steps/tick`}>
             Speed
-            <input type="range" min={0} max={7} value={runSpeed} className="speed-slider"
+        <input type="range" min={0} max={SPEEDS.length - 1} value={runSpeed} className="speed-slider"
               onChange={e => { const v = +e.target.value; setRunSpeed(v); speedRef.current = v; localStorage.setItem('sim8085_speed', v) }} />
             <span className="speed-val">{SPEEDS[runSpeed].label}</span>
           </label>

@@ -37,6 +37,10 @@ function wasmBuildPlugin() {
       const coreDir = path.resolve(import.meta.dirname, '../core')
       server.watcher.add(coreDir)
       server.watcher.on('change', async file => {
+        if (/\.(jsx?|css)$/.test(file)) {
+          console.log(`\n[vite] ⚡ Detected change in ${path.basename(file)} — Hot Updating browser...\n`)
+          return
+        }
         if (building || !/\.(c|h)$/.test(file)) return
         building = true
         console.log(`\n[wasm] ${path.basename(file)} changed — rebuilding...\n`)
@@ -56,10 +60,20 @@ function wasmBuildPlugin() {
 
 // Change base to '/your-repo-name/' for GitHub Pages, or '/' for Netlify/Vercel
 const d = new Date()
-const buildTime = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().slice(0, 16).replace('T', ' ')
+const yyyy = d.getFullYear()
+const mm = String(d.getMonth() + 1).padStart(2, '0')
+const dd = String(d.getDate()).padStart(2, '0')
+const hours = d.getHours()
+const mins = String(d.getMinutes()).padStart(2, '0')
+const ampm = hours >= 12 ? 'PM' : 'AM'
+const h12 = hours % 12 || 12
+const buildTime = `${yyyy}-${mm}-${dd} ${String(h12).padStart(2, '0')}:${mins} ${ampm}`
 
 export default defineConfig({
   plugins: [react(), wasmBuildPlugin()],
   base: '/sim8085wasm/',   // ← must match your repo name exactly
   define: { __BUILD_TIME__: JSON.stringify(buildTime) },
+  server: {
+    watch: { usePolling: true }
+  }
 })

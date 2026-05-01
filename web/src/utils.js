@@ -13,7 +13,6 @@ export const SPEEDS = [
   { label:'Fast',    steps:    1000 },
   { label:'Turbo',   steps:  100000 },
   { label:'Turbo+',  steps:  1000000 },
-  { label:'Turbo++', steps: 10000000 },
   { label:'Warp',    steps:        0, warp: true },
 ]
 

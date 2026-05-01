@@ -42,6 +42,8 @@ let lastUiMs = 0           // last time we sent a state snapshot with tick
 let lastTickMs = 0         // last time we sent a tick progress message
 let accumSteps = 0         // steps accumulated since last tick message
 let wasHaltWaiting = false
+let isWarp = false
+let isFast = false
 
 function getState() {
   return {
@@ -75,8 +77,8 @@ function runTick() {
   accumSteps += n
   const now = performance.now()
   const isHaltWaiting = sim.simIsHaltWaiting()
-  const doUi = (now - lastUiMs) >= 1000 || (isHaltWaiting && !wasHaltWaiting)
-  const doTick = (now - lastTickMs) >= 250 || doUi
+  const doUi = !isFast || (now - lastUiMs) >= 250 || (isHaltWaiting && !wasHaltWaiting) // Heavy UI state update
+  const doTick = !isFast || (now - lastTickMs) >= 100 || doUi // Lighter progress update
 
   if (doTick) {
     postMessage({ evt: 'tick', steps: accumSteps, state: doUi ? getState() : null })
@@ -107,7 +109,7 @@ function runTick() {
     if (!cond || evalCond(cond, r)) { stopLoop('bp'); return }
   }
 
-  tickId = setTimeout(runTick, 0)
+  tickId = setTimeout(runTick, isWarp ? 0 : 16)
 }
 
 function evalCond(expr, r) {
@@ -153,6 +155,8 @@ self.onmessage = function({ data }) {
     case 'run':
       if (running) break
       stepsPerTick = data.stepsPerTick || 1000
+      isWarp = !!data.isWarp
+      isFast = !!data.isFast
       bpMap = new Map(data.bps || [])
       running = true
       tickId = setTimeout(runTick, 0)
