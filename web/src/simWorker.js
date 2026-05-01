@@ -38,6 +38,7 @@ let running = false
 let tickId  = null
 let stepsPerTick = 1000
 let bpMap   = new Map()   // addr -> cond | null
+let lastUiMs = 0           // last time we sent a state snapshot with tick
 
 function getState() {
   return {
@@ -65,7 +66,10 @@ function stopLoop(reason) {
 function runTick() {
   if (!running) return
   const n = sim.simRun(stepsPerTick)
-  postMessage({ evt: 'tick', steps: n })
+  const now = performance.now()
+  const doUi = (now - lastUiMs) >= 16
+  if (doUi) lastUiMs = now
+  postMessage({ evt: 'tick', steps: n, state: doUi ? getState() : null })
 
   if (sim.simIsHaltWaiting()) {
     tickId = setTimeout(runTick, 10)

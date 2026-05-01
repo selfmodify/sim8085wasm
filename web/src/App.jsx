@@ -2268,6 +2268,14 @@ export default function App() {
         const tp = throughputRef.current
         tp.steps += data.steps; tp.ms += (now - (tp._last ?? now)); tp._last = now
         if (tp.ms >= 500) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; setMhz(tp.mhz) }
+        if (data.state) {
+          const s = data.state
+          setRegs(old => { setPrev(old); return s.regs })
+          setLeds(s.leds); setCycles(s.cycles)
+          setConsoleOutput(s.console); setOutputPorts(s.outputs)
+          setIntState(s.intState); setKeyQueue(s.keyQueue)
+          if (s.sod !== undefined) setSod(s.sod)
+        }
       } else if (evt === 'stopped') {
         workerRunning.current = false
         const s = data.state
