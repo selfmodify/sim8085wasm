@@ -1970,39 +1970,58 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExpor
         <span className="brand-chevron">☰</span> 8085
       </button>
       {open &&
-        <div className="bmenu-dropdown" onMouseLeave={() => setActiveSub(null)}>
+        <div className="bmenu-dropdown" style={{ overflow: 'visible' }} onMouseLeave={() => setActiveSub(null)}>
           <div className={`bmenu-item exmenu-cat ${activeSub === 'import' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('import')}>
             <span>⇡  Import</span>
             <span className="exmenu-arrow">▶</span>
-            {activeSub === 'import' &&
+            {activeSub === 'import' && (
               <div className="exmenu-sub">
                 <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.asm / .85 source</button>
                 <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.hex / .bin image</button>
               </div>
-            }
+            )}
           </div>
+
           <div className={`bmenu-item exmenu-cat ${activeSub === 'export' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('export')}>
             <span>⇣  Export</span>
             <span className="exmenu-arrow">▶</span>
-            {activeSub === 'export' &&
+            {activeSub === 'export' && (
               <div className="exmenu-sub">
                 <button className="exmenu-sub-item" onClick={() => { onExport(); setOpen(false); setActiveSub(null); }}>.asm source</button>
-                <button className="exmenu-sub-item" onClick={() => { onExportHex(); setOpen(false); setActiveSub(null); }}>.hex (Intel)</button>
-                <button className="exmenu-sub-item" onClick={() => { onExportBin(); setOpen(false); setActiveSub(null); }}>.bin (raw)</button>
+                <button className="exmenu-sub-item" onClick={() => { onExportHex(); setOpen(false); setActiveSub(null); }}>.hex (Intel HEX)</button>
+                <button className="exmenu-sub-item" onClick={() => { onExportBin(); setOpen(false); setActiveSub(null); }}>.bin (raw binary)</button>
               </div>
-            }
+            )}
           </div>
           {item('⎘  Copy share link', onShare)}
           <div className="bmenu-sep" />
           {item('🖩  Calculator', onCalc)}
-          {item('📖  Welcome guide', onShowWelcome)}
-          {item('⌨  Keyboard shortcuts  ?', onShowShortcuts)}
+
+          <div className={`bmenu-item exmenu-cat ${activeSub === 'help' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('help')}>
+            <span>❓  Help</span>
+            <span className="exmenu-arrow">▶</span>
+            {activeSub === 'help' && (
+              <div className="exmenu-sub">
+                <button className="exmenu-sub-item" onClick={() => { onShowWelcome(); setOpen(false); setActiveSub(null); }}>📖 Welcome guide</button>
+                <button className="exmenu-sub-item" onClick={() => { onShowShortcuts(); setOpen(false); setActiveSub(null); }}>⌨ Keyboard shortcuts</button>
+              </div>
+            )}
+          </div>
+
+          <div className={`bmenu-item exmenu-cat ${activeSub === 'community' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('community')}>
+            <span>🌐  Community</span>
+            <span className="exmenu-arrow">▶</span>
+            {activeSub === 'community' && (
+              <div className="exmenu-sub">
+                <button className="exmenu-sub-item" onClick={() => { window.open('https://github.com/selfmodify/sim8085wasm', '_blank'); setOpen(false); setActiveSub(null); }}>⭐ View on GitHub</button>
+                <button className="exmenu-sub-item" onClick={() => { window.open('https://github.com/selfmodify/sim8085wasm/issues/new', '_blank'); setOpen(false); setActiveSub(null); }}>🐛 Report a Bug</button>
+                <button className="exmenu-sub-item" onClick={() => { window.open('https://github.com/selfmodify/sim8085wasm/discussions', '_blank'); setOpen(false); setActiveSub(null); }}>💬 Ask a Question</button>
+              </div>
+            )}
+          </div>
+
           <div className="bmenu-sep" />
           {item(theme === 'light' ? '🌙  Dark theme' : '☀  Light theme', onTheme)}
-          {item('⭐  View on GitHub',  () => window.open('https://github.com/selfmodify/sim8085wasm', '_blank'))}
-          {item('🐛  Report a Bug',    () => window.open('https://github.com/selfmodify/sim8085wasm/issues/new', '_blank'))}
-          {item('💬  Ask a Question',  () => window.open('https://github.com/selfmodify/sim8085wasm/discussions', '_blank'))}
-          <div className="bmenu-sep" />
           <div className="bmenu-setting">
             <span className="bmenu-setting-label">RAM size</span>
             <select className="bmenu-setting-sel" value={memSize}
