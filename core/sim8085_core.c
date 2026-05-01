@@ -58,15 +58,15 @@ static const uint8_t g_tstates[256] = {
  /* 28-2F */ 4,10,16, 6, 4, 4, 7, 4,
  /* 30-37 */ 4,10,13, 6,10,10,10, 4,
  /* 38-3F */ 4,10,13, 6, 4, 4, 7, 4,
- /* 40-7F (MOV; 0x76=HLT) */
-    5, 5, 5, 5, 5, 5, 7, 5,
-    5, 5, 5, 5, 5, 5, 7, 5,
-    5, 5, 5, 5, 5, 5, 7, 5,
-    5, 5, 5, 5, 5, 5, 7, 5,
-    5, 5, 5, 5, 5, 5, 7, 5,
-    5, 5, 5, 5, 5, 5, 7, 5,
+ /* 40-7F (MOV r,r=4; MOV r,M/M,r=7; HLT=5) */
+    4, 4, 4, 4, 4, 4, 7, 4,
+    4, 4, 4, 4, 4, 4, 7, 4,
+    4, 4, 4, 4, 4, 4, 7, 4,
+    4, 4, 4, 4, 4, 4, 7, 4,
+    4, 4, 4, 4, 4, 4, 7, 4,
+    4, 4, 4, 4, 4, 4, 7, 4,
     7, 7, 7, 7, 7, 7, 5, 7,
-    5, 5, 5, 5, 5, 5, 7, 5,
+    4, 4, 4, 4, 4, 4, 7, 4,
  /* 80-BF (ALU reg/mem) */
     4, 4, 4, 4, 4, 4, 7, 4,
     4, 4, 4, 4, 4, 4, 7, 4,
@@ -464,7 +464,7 @@ static int _Sbi(void) {
 static int _Inr##reg(void) { \
     SetAuxCarry(ShouldSetAuxillaryFlag(get(),1,PLUS)); \
     set(SetTemp(get()+1) & LARGEST_INT); \
-    SetSign(GetTemp()&0x80?1:0); SetZero(GetTemp()==0?1:0); \
+    SetSign(GetTemp()&0x80?1:0); SetZero((GetTemp()&0xFF)==0?1:0); \
     SetParity(ComputeParity(GetTemp())); return INR_LEN; }
 DEF_INR(A,GetA,SetA) DEF_INR(B,GetB,SetB) DEF_INR(C,GetC,SetC) DEF_INR(D,GetD,SetD)
 DEF_INR(E,GetE,SetE) DEF_INR(H,GetH,SetH) DEF_INR(L,GetL,SetL)
@@ -499,9 +499,9 @@ static void SetBC(word v) { SetB(v>>8); SetC(v&0xFF); }
 static void SetDE(word v) { SetD(v>>8); SetE(v&0xFF); }
 static void SetHL(word v) { SetH(v>>8); SetL(v&0xFF); }
 DEF_INX(B,GetBC,SetBC) DEF_INX(D,GetDE,SetDE) DEF_INX(H,GetHL,SetHL)
-static int _InxSP(void) { SetSP(GetSP()+1); return INX_LEN; }
+static int _InxSP(void) { SetSP((GetSP()+1) & 0xFFFF); return INX_LEN; }
 DEF_DCX(B,GetBC,SetBC) DEF_DCX(D,GetDE,SetDE) DEF_DCX(H,GetHL,SetHL)
-static int _DcxSP(void) { SetSP(GetSP()-1); return DCX_LEN; }
+static int _DcxSP(void) { SetSP((GetSP()-1) & 0xFFFF); return DCX_LEN; }
 
 /* DAD */
 #define DEF_DAD(name,get_pair) \
@@ -540,10 +540,8 @@ static int _Ana##reg(void) { \
     SetParity(ComputeParity(GetA())); return ANA_LEN; }
 DEF_ANA(A,GetA) DEF_ANA(B,GetB) DEF_ANA(C,GetC) DEF_ANA(D,GetD)
 DEF_ANA(E,GetE) DEF_ANA(H,GetH) DEF_ANA(L,GetL)
-static int _AnaM(void) { return _AnaA(); /* reuse with M */ }
-/* overwrite _AnaM properly */
 #undef DEF_ANA
-static int _AnaM2(void) {
+static int _AnaM(void) {
     uchar v = GetMemByte(GetHL());
     SetAuxCarry(((GetA()|v)&0x08)?1:0);
     SetA(GetA()&v); SetCarry(0);
@@ -1019,7 +1017,7 @@ machine_op_struct mot[MAX_INSTRUCTIONS] = {
 /* A3 */ {_AnaE,   "ana  e",    str1, ANA_LEN},
 /* A4 */ {_AnaH,   "ana  h",    str1, ANA_LEN},
 /* A5 */ {_AnaL,   "ana  l",    str1, ANA_LEN},
-/* A6 */ {_AnaM2,  "ana  m",    str1, ANA_LEN},
+/* A6 */ {_AnaM,   "ana  m",    str1, ANA_LEN},
 /* A7 */ {_AnaA,   "ana  a",    str1, ANA_LEN},
 /* A8 */ {_XraB,   "xra  b",    str1, XRA_LEN},
 /* A9 */ {_XraC,   "xra  c",    str1, XRA_LEN},
