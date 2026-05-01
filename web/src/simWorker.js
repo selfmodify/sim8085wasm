@@ -39,6 +39,9 @@ let tickId  = null
 let stepsPerTick = 1000
 let bpMap   = new Map()   // addr -> cond | null
 let lastUiMs = 0           // last time we sent a state snapshot with tick
+let lastTickMs = 0         // last time we sent a tick progress message
+let accumSteps = 0         // steps accumulated since last tick message
+let wasHaltWaiting = false
 
 function getState() {
   return {
@@ -46,6 +49,7 @@ function getState() {
     leds:    sim.simGetAllLeds(),
     cycles:  sim.simGetCycles(),
     halted:  sim.simIsHalted(),
+    halt_waiting: sim.simIsHaltWaiting(),
     running: sim.simIsRunning(),
     error:   sim.simGetError(),
     console: sim.simGetConsoleOutput(),
@@ -68,13 +72,23 @@ function stopLoop(reason) {
 function runTick() {
   if (!running) return
   const n = sim.simRun(stepsPerTick)
+  accumSteps += n
   const now = performance.now()
-  const doUi = (now - lastUiMs) >= 200
-  if (doUi) lastUiMs = now
-  postMessage({ evt: 'tick', steps: n, state: doUi ? getState() : null })
+  const isHaltWaiting = sim.simIsHaltWaiting()
+  const doUi = (now - lastUiMs) >= 1000 || (isHaltWaiting && !wasHaltWaiting)
+  const doTick = (now - lastTickMs) >= 250 || doUi
 
-  if (sim.simIsHaltWaiting()) {
-    tickId = setTimeout(runTick, 10)
+  if (doTick) {
+    postMessage({ evt: 'tick', steps: accumSteps, state: doUi ? getState() : null })
+    if (doUi) lastUiMs = now
+    lastTickMs = now
+    accumSteps = 0
+  }
+  
+  wasHaltWaiting = isHaltWaiting
+
+  if (isHaltWaiting) {
+    tickId = setTimeout(runTick, 16)
     return
   }
 

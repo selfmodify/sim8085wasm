@@ -1,28 +1,24 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { spawn } from 'child_process'
+import { exec } from 'child_process'
 import { existsSync } from 'fs'
 import path from 'path'
 
-// Convert Windows path to WSL mount path (e.g. F:\foo → /mnt/f/foo)
-const winRoot = path.resolve(import.meta.dirname, '..')
-const wslRoot = winRoot
-  .replace(/^([A-Za-z]):/, (_, d) => `/mnt/${d.toLowerCase()}`)
-  .replace(/\\/g, '/')
-
 function runWasmBuild() {
   return new Promise((resolve, reject) => {
-    const cmd = [
-      'source /opt/emsdk/emsdk_env.sh',
-      `mkdir -p "${wslRoot}/build-wasm"`,
-      `cd "${wslRoot}/build-wasm"`,
-      '[ -f CMakeCache.txt ] || emcmake cmake ..',
-      'cmake --build .',
-    ].join(' && ')
-    const proc = spawn('wsl', ['-e', 'bash', '-c', cmd], { stdio: 'inherit' })
-    proc.on('close', code =>
-      code === 0 ? resolve() : reject(new Error(`WASM build failed (exit ${code})`))
-    )
+    // This more generic command works on any system (Windows, macOS, Linux)
+    // as long as `cmake` is in the PATH.
+    // Assumes you have already configured the build with `emcmake cmake ..`
+    // in the `build-wasm` directory.
+    exec('cmake --build ../build-wasm', (err, stdout, stderr) => {
+      if (err) {
+        console.error(stderr)
+        reject(new Error(`WASM build failed with exit code ${err.code}`))
+        return
+      }
+      console.log(stdout)
+      resolve()
+    })
   })
 }
 
@@ -46,9 +42,10 @@ function wasmBuildPlugin() {
         console.log(`\n[wasm] ${path.basename(file)} changed — rebuilding...\n`)
         try {
           await runWasmBuild()
+          console.log('\n[wasm] ✅ Build successful! Reloading browser...\n')
           server.ws.send({ type: 'full-reload' })
         } catch (e) {
-          console.error('[wasm] Rebuild failed:', e.message)
+          console.error('\n[wasm] ❌ Rebuild failed:', e.message, '\n')
         } finally {
           building = false
         }
@@ -58,7 +55,8 @@ function wasmBuildPlugin() {
 }
 
 // Change base to '/your-repo-name/' for GitHub Pages, or '/' for Netlify/Vercel
-const buildTime = new Date().toISOString().slice(0, 16).replace('T', ' ')
+const d = new Date()
+const buildTime = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().slice(0, 16).replace('T', ' ')
 
 export default defineConfig({
   plugins: [react(), wasmBuildPlugin()],

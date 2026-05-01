@@ -2232,6 +2232,7 @@ export default function App() {
   const timerRef      = useRef(null)
   const warpActiveRef = useRef(false)
   const lastUiRef     = useRef(0)
+  const wasHaltWaitingRef = useRef(false)
   const throughputRef = useRef({ steps: 0, ms: 0, mhz: 0 })
   const editorColRef = useRef(null)
   const rightColRef  = useRef(null)
@@ -2263,21 +2264,28 @@ export default function App() {
     w.onmessage = ({ data }) => {
       const { evt } = data
       if (evt === 'tick') {
-        setSteps(s => s + data.steps)
-        const now = performance.now()
         const tp = throughputRef.current
+        tp.pendingSteps = (tp.pendingSteps || 0) + data.steps
+        const now = performance.now()
         tp.steps += data.steps; tp.ms += (now - (tp._last ?? now)); tp._last = now
-        if (tp.ms >= 500) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; setMhz(tp.mhz) }
+        if (tp.ms >= 500) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; }
         if (data.state) {
+          if (tp.pendingSteps > 0) { setSteps(s => s + tp.pendingSteps); tp.pendingSteps = 0 }
+          setMhz(tp.mhz || 0)
           const s = data.state
           setRegs(old => { setPrev(old); return s.regs })
           setLeds(s.leds); setCycles(s.cycles)
           setConsoleOutput(s.console); setOutputPorts(s.outputs)
           setIntState(s.intState); setKeyQueue(s.keyQueue)
           if (s.sod !== undefined) setSod(s.sod)
+          if (s.halt_waiting) {
+            setMsg('⏸ HLT — awaiting interrupt…')
+          }
         }
       } else if (evt === 'stopped') {
         workerRunning.current = false
+        const tp = throughputRef.current
+        if (tp.pendingSteps > 0) { setSteps(s => s + tp.pendingSteps); tp.pendingSteps = 0 }
         const s = data.state
         // Sync main-thread sim with Worker's post-execution state
         if (s.ram) sim.simRestoreSnapshot({ regs: s.regs, ram: s.ram })
@@ -2345,6 +2353,7 @@ export default function App() {
       }
     }
     w.postMessage({ cmd: 'init' })
+    w.postMessage({ cmd: 'assemble', src: srcRef.current })
     return () => { w.terminate(); workerRef.current = null }
   }, [workerMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2580,7 +2589,7 @@ export default function App() {
     // Worker mode: delegate run to the Web Worker
     if (workerRef.current && !workerRunning.current) {
       workerRunning.current = true
-      throughputRef.current = { steps: 0, ms: 0, mhz: 0, _last: performance.now() }
+      throughputRef.current = { steps: 0, ms: 0, mhz: 0, pendingSteps: 0, _last: performance.now() }
       const speed = SPEEDS[speedRef.current]
       const stepsPerTick = speed.warp ? 500000 : speed.steps
       workerRef.current.postMessage({
@@ -2619,17 +2628,31 @@ export default function App() {
     if (SPEEDS[speedRef.current].warp) {
       setMsg('⚡ Warp…')
       warpActiveRef.current = true
+      lastUiRef.current = 0
+      wasHaltWaitingRef.current = false
+      throughputRef.current = { steps: 0, ms: 0, mhz: 0, pendingSteps: 0 }
       const tick = () => {
         if (!warpActiveRef.current) return
         const t0 = performance.now()
         const n = sim.simRun(500000)
         const dt = performance.now() - t0
         const tp = throughputRef.current
-        tp.steps += n; tp.ms += dt
-        if (tp.ms >= 500) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; setMhz(tp.mhz) }
-        setSteps(s => s + n)
-        if (sim.simIsHaltWaiting()) {
-          refresh(); refreshOutputPorts()
+        tp.steps += n; tp.ms += dt; tp.pendingSteps = (tp.pendingSteps || 0) + n
+        if (tp.ms >= 500) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; }
+
+        const now = Date.now()
+        const isHaltWaiting = sim.simIsHaltWaiting()
+        const doUi = (now - lastUiRef.current >= 1000) || (isHaltWaiting && !wasHaltWaitingRef.current)
+        if (doUi) {
+          if (tp.pendingSteps > 0) { setSteps(s => s + tp.pendingSteps); tp.pendingSteps = 0 }
+          setMhz(tp.mhz || 0)
+          refresh()
+          refreshOutputPorts()
+          lastUiRef.current = now
+        }
+        wasHaltWaitingRef.current = isHaltWaiting
+
+        if (isHaltWaiting) {
           setMsg('⏸ HLT — awaiting interrupt…')
           timerRef.current = setTimeout(tick, 16)
           return
@@ -2642,6 +2665,7 @@ export default function App() {
           if (atBp && watchHit < 0 && cond != null && !evalCondition(cond, r)) {
             sim.simStep(); timerRef.current = setTimeout(tick, 0); return
           }
+          if (tp.pendingSteps > 0) { setSteps(s => s + tp.pendingSteps); tp.pendingSteps = 0 }
           refresh(); refreshOutputPorts()
           warpActiveRef.current = false; timerRef.current = null
           finalizeTick(atBp)
@@ -2655,26 +2679,29 @@ export default function App() {
 
     setMsg('▶ Running…')
     lastUiRef.current = 0
-    throughputRef.current = { steps: 0, ms: 0, mhz: 0 }
+    wasHaltWaitingRef.current = false
+    throughputRef.current = { steps: 0, ms: 0, mhz: 0, pendingSteps: 0 }
     timerRef.current = setInterval(() => {
       const t0 = performance.now()
       const n = sim.simRun(SPEEDS[speedRef.current].steps)
       const dt = performance.now() - t0
       const tp = throughputRef.current
-      tp.steps += n; tp.ms += dt
-      if (tp.ms >= 500) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; setMhz(tp.mhz) }
-      setSteps(s => s + n)
+      tp.steps += n; tp.ms += dt; tp.pendingSteps = (tp.pendingSteps || 0) + n
+      if (tp.ms >= 500) { tp.mhz = tp.steps / tp.ms / 1000; tp.steps = 0; tp.ms = 0; }
       const isFast = SPEEDS[speedRef.current].steps >= 1000
       const now = Date.now()
-      const doUi = !isFast || (now - lastUiRef.current) >= 250
+      const isHaltWaiting = sim.simIsHaltWaiting()
+      const doUi = !isFast || (now - lastUiRef.current >= 1000) || (isHaltWaiting && !wasHaltWaitingRef.current)
       if (doUi) {
+        if (tp.pendingSteps > 0) { setSteps(s => s + tp.pendingSteps); tp.pendingSteps = 0 }
+        setMhz(tp.mhz || 0)
         refresh()
         refreshOutputPorts()
         if (!isFast) updateMemDiff()
         lastUiRef.current = now
       }
-      if (sim.simIsHaltWaiting()) {
-        if (!doUi) { refresh(); refreshOutputPorts() }
+      wasHaltWaitingRef.current = isHaltWaiting
+      if (isHaltWaiting) {
         setMsg('⏸ HLT — awaiting interrupt…')
         return
       }
@@ -2686,7 +2713,8 @@ export default function App() {
         if (atBp && watchHit2 < 0 && cond != null && !evalCondition(cond, r)) {
           sim.simStep(); return
         }
-        if (!doUi) { refresh(); refreshOutputPorts() }
+        if (tp.pendingSteps > 0) { setSteps(s => s + tp.pendingSteps); tp.pendingSteps = 0 }
+        refresh(); refreshOutputPorts()
         finalizeTick(atBp)
       }
     }, 16)
@@ -2699,6 +2727,9 @@ export default function App() {
       workerRef.current.postMessage({ cmd: 'stop' })
       return  // Worker will post 'stopped' event which finalizes UI
     }
+    const tp = throughputRef.current
+    if (tp.pendingSteps > 0) { setSteps(s => s + tp.pendingSteps); tp.pendingSteps = 0 }
+    wasHaltWaitingRef.current = false
     refresh()
     refreshOutputPorts()
     if (appState === 'running') setAppState('idle')
