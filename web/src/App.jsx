@@ -2055,11 +2055,12 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
             {activeSub === 'theme' && (
               <div className="exmenu-sub">
                 {[
-                  { id: 'dark',  label: '🌙  Dark'        },
-                  { id: 'dim',   label: '🌗  Dim'         },
-                  { id: 'light', label: '☀︎  Light'       },
-                  { id: 'amber', label: '🟠  Amber CRT'   },
-                  { id: 'green', label: '🟢  Green CRT'   },
+                  { id: 'dark',       label: '🌙  Dark'             },
+                  { id: 'dim',        label: '🌗  Dim'              },
+                  { id: 'light',      label: '☀︎  Light'            },
+                  { id: 'amber-mono', label: '🟡  Amber Monochrome' },
+                  { id: 'amber',      label: '🟠  Amber CRT'        },
+                  { id: 'green',      label: '🟢  Green CRT'        },
                 ].map(({ id, label }) => (
                   <button key={id} className="exmenu-sub-item"
                     style={{ color: theme === id ? 'var(--accent)' : undefined,
@@ -2457,10 +2458,11 @@ export default function App() {
   }, [theme])
   function toggleTheme() {
     setTheme(t =>
-      t === 'dark'  ? 'dim'   :
-      t === 'dim'   ? 'light' :
-      t === 'light' ? 'amber' :
-      t === 'amber' ? 'green' : 'dark'
+      t === 'dark'       ? 'dim'        :
+      t === 'dim'        ? 'light'      :
+      t === 'light'      ? 'amber-mono' :
+      t === 'amber-mono' ? 'amber'      :
+      t === 'amber'      ? 'green'      : 'dark'
     )
   }
 

@@ -81,6 +81,46 @@
   --shadow-led:   drop-shadow(0 0 5px rgba(224, 108, 117, 0.7));
 }
 
+:root[data-theme="amber-mono"] {
+  --bg:       #100800;
+  --bg1:      #180e00;
+  --bg2:      #211500;
+  --bg3:      #2a1c00;
+  --border:   #452900;
+  --border2:  #6b4000;
+  --accent:   #ffb000;
+  --accent2:  #d48a00;
+  --amber:    #ff7700;
+  --red:      #ff4422;
+  --blue:     #c89040;
+  --text:     #ffe580;
+  --text2:    #c07810;
+  --text3:    #7a4e08;
+  --led-on:   #ff8800;
+  --led-off:  rgba(255, 136, 0, 0.15);
+  --syn-keyword:   #ffcc44;
+  --syn-register:  #ff9900;
+  --syn-number:    #ffb000;
+  --syn-string:    #d4c070;
+  --syn-comment:   #6a4a10;
+  --syn-label:     #ffd060;
+  --syn-directive: #ffaa44;
+  --syn-pseudo:    #ff5522;
+  --tint-accent:      rgba(255, 176,   0, .07);
+  --tint-accent-hi:   rgba(255, 176,   0, .14);
+  --tint-accent-pc:   rgba(255, 176,   0, .22);
+  --tint-accent-flash:rgba(255, 176,   0, .32);
+  --tint-amber:       rgba(255, 119,   0, .12);
+  --tint-amber-sp:    rgba(255, 119,   0, .18);
+  --tint-red:         rgba(255,  68,  34, .10);
+  --tint-blue-code:   rgba(200, 144,  64, .15);
+  --tint-green-pre:   rgba(200, 160,  40, .15);
+  --shadow-pop:   0 4px 16px rgba(0,0,0,.65);
+  --shadow-menu:  0 8px 24px rgba(0,0,0,.75);
+  --shadow-modal: 0 12px 40px rgba(0,0,0,.85);
+  --shadow-led:   drop-shadow(0 0 6px rgba(255, 136, 0, 0.9));
+}
+
 :root[data-theme="amber"] {
   --bg:       #100800;
   --bg1:      #180e00;
