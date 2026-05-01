@@ -40,9 +40,10 @@ export function fmtCount(n) {
 export function evalCondition(expr, r) {
   try {
     const BC = (r.b<<8)|r.c, DE = (r.d<<8)|r.e, HL = (r.h<<8)|r.l
+    const S = (r.flags>>7)&1, Z = (r.flags>>6)&1, AC = (r.flags>>4)&1, P = (r.flags>>2)&1, CY = r.flags&1
     // eslint-disable-next-line no-new-func
-    return !!new Function('A','B','C','D','E','H','L','PC','SP','BC','DE','HL','FLAGS',
-      `return !!(${expr})`)(r.a,r.b,r.c,r.d,r.e,r.h,r.l,r.pc,r.sp,BC,DE,HL,r.flags)
+    return !!new Function('A','B','C','D','E','H','L','PC','SP','BC','DE','HL','FLAGS','S','Z','AC','P','CY',
+      `return !!(${expr})`)(r.a,r.b,r.c,r.d,r.e,r.h,r.l,r.pc,r.sp,BC,DE,HL,r.flags,S,Z,AC,P,CY)
   } catch { return true }
 }
 

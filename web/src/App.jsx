@@ -496,6 +496,7 @@ function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
         <span className="reg-name">{name}</span>
         <input autoFocus className="reg-edit-input"
           value={buf} onChange={e => setBuf(e.target.value)}
+          onFocus={e => e.target.select()}
           onBlur={commit}
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }} />
       </div>
@@ -532,6 +533,7 @@ function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
         <span className="reg-name">{name}</span>
         <input autoFocus className="reg-edit-input reg-pair-input"
           value={buf} onChange={e => setBuf(e.target.value)}
+          onFocus={e => e.target.select()}
           onBlur={commit}
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }} />
       </div>
@@ -660,6 +662,8 @@ function PairPanel({ regs, prev, onJump, onEdit, regBase, onRegBase, onMemoryEdi
             {editAddr
               ? <input autoFocus className="reg-edit-input pair-edit-input" value={buf}
                   onChange={e => setBuf(e.target.value.toUpperCase())}
+                  onFocus={e => e.target.select()}
+                  onFocus={e => e.target.select()}
                   onBlur={commitEdit}
                   onKeyDown={e => { if (e.key==='Enter') commitEdit(); if (e.key==='Escape') setEditing(null) }} />
               : <span className="pair-addr"
@@ -827,6 +831,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
         <div className="panel-hd-right">
           <input className="disasm-addr-input" placeholder="addr" value={addrInput}
             onChange={e => setAddrInput(e.target.value.toUpperCase())}
+            onFocus={e => e.target.select()}
             onKeyDown={e => {
               if (e.key === 'Enter') {
                 const v = parseInt(addrInput, 16)
@@ -1241,6 +1246,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
                         <td key={col} className="mem-cell editing">
                           <input autoFocus maxLength={2} value={editBuf}
                             onChange={e=>setEditBuf(e.target.value.toUpperCase())}
+                            onFocus={e => e.target.select()}
                             onBlur={()=>commit(addr,editBuf)}
                             onKeyDown={e=>{if(e.key==='Enter')commit(addr,editBuf);if(e.key==='Escape')setEditing(null)}}
                           />
@@ -2294,17 +2300,25 @@ export default function App() {
   const [regs, setRegs]         = useState({a:0,b:0,c:0,d:0,e:0,h:0,l:0,flags:0,pc:0x100,sp:0,flagS:0,flagZ:0,flagAC:0,flagP:0,flagCY:0,halted:false,hasError:false})
   const [prevRegs, setPrev]     = useState(null)
   const [leds, setLeds]         = useState(Array(8).fill(0))
-  const [bps, setBps]           = useState(new Map())   // Map<addr, string|null>
-  const [dataBps, setDataBps]   = useState(new Set())   // Set<addr> write watchpoints
+  const [bps, setBps]           = useState(() => {
+    try { return new Map(JSON.parse(localStorage.getItem('sim8085_bps')) || []) } catch { return new Map() }
+  })
+  const [dataBps, setDataBps]   = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('sim8085_databps')) || []) } catch { return new Set() }
+  })
   const [callStack, setCallStack] = useState([])          // [{callAddr, retAddr, targetAddr}]
   const callStackRef = useRef([])
   const [hitcnts, setHitcnts]   = useState(null)          // Map<addr, count> or null
   const [maxHit, setMaxHit]     = useState(0)
   const [trace, setTrace]       = useState([])
   const [changedAddrs, setChangedAddrs] = useState(new Set())
-  const [watches, setWatches]   = useState([])
+  const [watches, setWatches]   = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sim8085_watches')) || [] } catch { return [] }
+  })
   const [outputPorts, setOutputPorts] = useState([])      // [{port,val}] written by OUT
-  const [inputPresets, setInputPresets] = useState([])    // [{port,val}] preset for IN
+  const [inputPresets, setInputPresets] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sim8085_io_presets')) || [] } catch { return [] }
+  })
   const [keyQueue, setKeyQueue]   = useState([])          // chars queued for C=01H syscall
   const [intState, setIntState] = useState(() => sim.simGetIntState())
   const [sid, setSid] = useState(0)
@@ -2487,6 +2501,11 @@ export default function App() {
     setOutputPorts(sim.simGetOutputPorts())
   }
 
+  useEffect(() => { try { localStorage.setItem('sim8085_bps', JSON.stringify([...bps.entries()])) } catch {} }, [bps])
+  useEffect(() => { try { localStorage.setItem('sim8085_databps', JSON.stringify([...dataBps])) } catch {} }, [dataBps])
+  useEffect(() => { try { localStorage.setItem('sim8085_watches', JSON.stringify(watches)) } catch {} }, [watches])
+  useEffect(() => { try { localStorage.setItem('sim8085_io_presets', JSON.stringify(inputPresets)) } catch {} }, [inputPresets])
+
   function doAssemble(code) {
     try {
       stopRun()
@@ -2504,6 +2523,7 @@ export default function App() {
       sim.simInit()
       for (const addr of dataBps) sim.simSetDataBreakpoint(addr)
       for (const addr of bpsRef.current.keys()) sim.simSetBreakpoint(addr)
+      for (const p of inputPresets) sim.simSetInputPort(p.port, p.val)
       throughputRef.current = { steps: 0, ms: 0, mhz: 0 }
       const res = sim.simAssemble(code)
       setBuildId(id => id + 1)
@@ -2791,7 +2811,7 @@ function addTraceEntry(prevR) {
     if (!bps.has(addr)) return
     const cur = bps.get(addr) || ''
     const expr = window.prompt(
-      `Condition at ${hex4(addr)}H — use A B C D E H L PC SP BC DE HL FLAGS\n(e.g.  A==0   B>10   HL>=0x200)\nLeave empty for unconditional:`,
+      `Condition at ${hex4(addr)}H — use A B C D E H L PC SP BC DE HL FLAGS S Z AC P CY\n(e.g.  A==0   CY==1   HL>=0x200)\nLeave empty for unconditional:`,
       cur
     )
     if (expr === null) return
