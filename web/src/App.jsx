@@ -879,16 +879,15 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
               >
                 {bp ? (cond ? '◆' : '●') : '·'}
               </span>
-              {maxHit > 0 && hitcnts && hitcnts.has(row.addr) && (
-                <span className="disasm-heat" title={`${hitcnts.get(row.addr).toLocaleString()} hits`}
-                  style={{opacity: Math.max(0.15, hitcnts.get(row.addr) / maxHit)}} />
-              )}
+              <span className="disasm-heat"
+                title={maxHit > 0 && hitcnts?.has(row.addr) ? `${hitcnts.get(row.addr).toLocaleString()} hits` : undefined}
+                style={{opacity: maxHit > 0 && hitcnts?.has(row.addr) ? Math.max(0.15, hitcnts.get(row.addr) / maxHit) : 0}} />
               <span className="disasm-text">{row.text}</span>
               {cond && bp && <span className="disasm-cond">{cond}</span>}
               {row.cycles > 0 && <span className="disasm-cycles">{row.cycles}T</span>}
-              {maxHit > 0 && hitcnts?.has(row.addr) && (
-                <span className="disasm-hitcnt" title="Execution count">{fmtCount(hitcnts.get(row.addr))}</span>
-              )}
+              <span className="disasm-hitcnt" title={maxHit > 0 && hitcnts?.has(row.addr) ? "Execution count" : undefined}>
+                {maxHit > 0 && hitcnts?.has(row.addr) ? fmtCount(hitcnts.get(row.addr)) : ''}
+              </span>
               {cur && <span className="disasm-pc-arrow">◀</span>}
             </div>
             </div>
@@ -2762,7 +2761,7 @@ export default function App() {
         refresh(); refreshOutputPorts()
         finalizeTick(atBp)
       }
-    }, 16)
+    }, SPEEDS[speedRef.current].delay || 16)
   }
 
   function stopRun() {
@@ -3117,7 +3116,7 @@ function addTraceEntry(prevR) {
             disabled={!running && appState==='error'}>
             {running ? '■ Stop' : '▶ Run'}  <kbd>{running?'F9':'F9'}</kbd>
           </button>
-          <label className="speed-label" title={SPEEDS[runSpeed].warp ? 'Warp: run until HLT, no mid-run UI updates' : `${SPEEDS[runSpeed].steps.toLocaleString()} steps/tick`}>
+          <label className="speed-label" title={SPEEDS[runSpeed].warp ? 'Warp: run until HLT, no mid-run UI updates' : SPEEDS[runSpeed].delay ? `Auto: ${SPEEDS[runSpeed].steps} step every ${SPEEDS[runSpeed].delay}ms` : `${SPEEDS[runSpeed].steps.toLocaleString()} steps/tick`}>
             Speed
         <input type="range" min={0} max={SPEEDS.length - 1} value={runSpeed} className="speed-slider"
               onChange={e => {

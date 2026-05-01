@@ -7,6 +7,7 @@ export const b64decode = b64 => { try { return new TextDecoder().decode(Uint8Arr
 export const BASE_CYCLE = ['hex', 'dec', 'bin']
 
 export const SPEEDS = [
+  { label:'Auto',    steps:       1, delay: 500 },
   { label:'Crawl',   steps:       1 },
   { label:'Slow',    steps:      20 },
   { label:'Med',     steps:     200 },
