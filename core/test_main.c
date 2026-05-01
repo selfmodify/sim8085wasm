@@ -106,6 +106,50 @@ static void test_arithmetic(void) {
     TEST("ADI FF+01=00H"); ASSERT_EQ(r.a, 0x00, "result");
     TEST("Zero flag");     ASSERT_EQ(r.flag_z, 1, "Z flag");
     TEST("Carry set");     ASSERT_EQ(r.flag_cy, 1, "CY flag");
+
+    sim_init();
+    assemble_and_check(
+        "org 100\n"
+        "kickoff 100\n"
+        "mvi a,0fH\n"
+        "stc\n"
+        "aci 00\n"
+        "hlt\n",
+        "ACI half-carry generation"
+    );
+    sim_run(100);
+    r = sim_get_registers();
+    TEST("ACI 0F+00+CY=10H"); ASSERT_EQ(r.a, 0x10, "result");
+    TEST("Auxiliary carry");  ASSERT_EQ(r.flag_ac, 1, "AC flag");
+
+    sim_init();
+    assemble_and_check(
+        "org 100\n"
+        "kickoff 100\n"
+        "mvi a,10H\n"
+        "stc\n"
+        "sbi 00\n"
+        "hlt\n",
+        "SBI half-borrow generation"
+    );
+    sim_run(100);
+    r = sim_get_registers();
+    TEST("SBI 10-00-CY=0FH"); ASSERT_EQ(r.a, 0x0F, "result");
+    TEST("Auxiliary carry");  ASSERT_EQ(r.flag_ac, 1, "AC flag");
+
+    sim_init();
+    assemble_and_check(
+        "org 100\n"
+        "kickoff 100\n"
+        "mvi a,0aH\n"
+        "daa\n"
+        "hlt\n",
+        "DAA half-carry generation"
+    );
+    sim_run(100);
+    r = sim_get_registers();
+    TEST("DAA 0A+06=10H");   ASSERT_EQ(r.a, 0x10, "result");
+    TEST("Auxiliary carry"); ASSERT_EQ(r.flag_ac, 1, "AC flag");
 }
 
 /* -----------------------------------------------------------------------
@@ -177,6 +221,24 @@ static void test_stack(void) {
 
     Sim8085Registers r = sim_get_registers();
     TEST("POP restores A=99H"); ASSERT_EQ(r.a, 0x99, "A after POP PSW");
+
+    sim_init();
+    assemble_and_check(
+        "org 100\n"
+        "kickoff 100\n"
+        "lxi sp,200\n"
+        "lxi d,0BEEFH\n"
+        "push d\n"
+        "mvi c,00\n"
+        "call 5\n"
+        "pop h\n"
+        "hlt\n",
+        "CALL 5 SDK trap"
+    );
+    sim_run(100);
+    r = sim_get_registers();
+    TEST("CALL 5 untouched H"); ASSERT_EQ(r.h, 0xBE, "H register");
+    TEST("CALL 5 untouched L"); ASSERT_EQ(r.l, 0xEF, "L register");
 }
 
 /* -----------------------------------------------------------------------
@@ -318,6 +380,42 @@ static void test_stack_wrap(void) {
 }
 
 /* -----------------------------------------------------------------------
+ * Test 10: logic & quirks
+ * --------------------------------------------------------------------- */
+static void test_logic_quirks(void) {
+    printf("\n[Logic & quirks]\n");
+
+    sim_init();
+    assemble_and_check(
+        "org 100\n"
+        "kickoff 100\n"
+        "mvi a,00H\n"
+        "ani 08H\n"
+        "hlt\n",
+        "ANI AC quirk"
+    );
+    sim_run(100);
+    Sim8085Registers r = sim_get_registers();
+    TEST("ANI sets AC from bit 3"); ASSERT_EQ(r.flag_ac, 1, "AC flag");
+
+    sim_init();
+    assemble_and_check(
+        "org 100\n"
+        "kickoff 100\n"
+        "ei\n"
+        "nop\n"
+        "mvi a,0BH\n"
+        "sim\n"
+        "rim\n"
+        "hlt\n",
+        "RIM flag packing"
+    );
+    sim_run(100);
+    r = sim_get_registers();
+    TEST("RIM IFF and Masks"); ASSERT_EQ(r.a, 0x0B, "A register");
+}
+
+/* -----------------------------------------------------------------------
  * main
  * --------------------------------------------------------------------- */
 int main(void) {
@@ -327,6 +425,7 @@ int main(void) {
 
     test_registers();
     test_arithmetic();
+    test_logic_quirks();
     test_memory();
     test_branches();
     test_stack();

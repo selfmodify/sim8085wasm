@@ -80,8 +80,8 @@ function setFlags(result, auxCarry, keepCarry) {
     f = (f & ~0x01) | (result > 0xFF || result < 0 ? 0x01 : 0); // CY
   regs.flags = f;
 }
-function auxCarryAdd(a, b) { return ((a & 0xF) + (b & 0xF)) > 0xF; }
-function auxCarrySub(a, b) { return ((a & 0xF) - (b & 0xF)) < 0; }
+function auxCarryAdd(a, b, cy=0) { return ((a & 0xF) + (b & 0xF) + cy) > 0xF; }
+function auxCarrySub(a, b, cy=0) { return ((a & 0xF) - (b & 0xF) - cy) < 0; }
 function getCarry()    { return regs.flags & 0x01; }
 function getZero()     { return (regs.flags >> 6) & 1; }
 function getSign()     { return (regs.flags >> 7) & 1; }
@@ -139,12 +139,12 @@ function stepOne() {
   const op = memR(pc);
   hitcnt[pc]++;
 
+  cycles += TSTATES[op] || 0;
+
   // CALL 5 intercept
   if (op === 0xCD && memR16(pc+1) === 0x0005) {
-    push16((pc + 3) & 0xFFFF);
     systemCall();
-    regs.pc = pop16();
-    cycles += TSTATES[0xCD]
+    regs.pc = (pc + 3) & 0xFFFF;
     return !(status & (HALTED|QUIT|SEVERE_ERROR));
   }
 
@@ -153,7 +153,7 @@ function stepOne() {
 
   switch(op) {
     case 0x00: inc=1; break; // NOP
-    case 0x76: regs.pc = (pc + 1) & 0xFFFF; cycles += TSTATES[0x76]; status |= HALTED; return false; // HLT — halt-wait; resumes on interrupt
+    case 0x76: regs.pc = (pc + 1) & 0xFFFF; status |= HALTED; return false; // HLT — halt-wait; resumes on interrupt
 
     // ── MOV r,r ──────────────────────────────────────────────────────
     case 0x40: case 0x49: case 0x52: case 0x5B: case 0x64: case 0x6D: case 0x7F:
@@ -271,15 +271,15 @@ function stepOne() {
     case 0xC6: v=memR(pc+1); r=regs.a+v; setFlags(r,auxCarryAdd(regs.a,v),false); regs.a=r&0xFF; inc=2; break;
 
     // ── ADC ───────────────────────────────────────────────────────────
-    case 0x88: v=regs.b+getCarry(); r=regs.a+v; setFlags(r,auxCarryAdd(regs.a,v),false); regs.a=r&0xFF; break;
-    case 0x89: v=regs.c+getCarry(); r=regs.a+v; setFlags(r,auxCarryAdd(regs.a,v),false); regs.a=r&0xFF; break;
-    case 0x8A: v=regs.d+getCarry(); r=regs.a+v; setFlags(r,auxCarryAdd(regs.a,v),false); regs.a=r&0xFF; break;
-    case 0x8B: v=regs.e+getCarry(); r=regs.a+v; setFlags(r,auxCarryAdd(regs.a,v),false); regs.a=r&0xFF; break;
-    case 0x8C: v=regs.h+getCarry(); r=regs.a+v; setFlags(r,auxCarryAdd(regs.a,v),false); regs.a=r&0xFF; break;
-    case 0x8D: v=regs.l+getCarry(); r=regs.a+v; setFlags(r,auxCarryAdd(regs.a,v),false); regs.a=r&0xFF; break;
-    case 0x8E: v=memR(getHL())+getCarry(); r=regs.a+v; setFlags(r,auxCarryAdd(regs.a,v),false); regs.a=r&0xFF; break;
-    case 0x8F: v=regs.a+getCarry(); r=regs.a+v; setFlags(r,auxCarryAdd(regs.a,v),false); regs.a=r&0xFF; break;
-    case 0xCE: v=memR(pc+1)+getCarry(); r=regs.a+v; setFlags(r,auxCarryAdd(regs.a,v),false); regs.a=r&0xFF; inc=2; break;
+    case 0x88: { const v=regs.b, c=getCarry(); r=regs.a+v+c; setFlags(r,auxCarryAdd(regs.a,v,c),false); regs.a=r&0xFF; break; }
+    case 0x89: { const v=regs.c, c=getCarry(); r=regs.a+v+c; setFlags(r,auxCarryAdd(regs.a,v,c),false); regs.a=r&0xFF; break; }
+    case 0x8A: { const v=regs.d, c=getCarry(); r=regs.a+v+c; setFlags(r,auxCarryAdd(regs.a,v,c),false); regs.a=r&0xFF; break; }
+    case 0x8B: { const v=regs.e, c=getCarry(); r=regs.a+v+c; setFlags(r,auxCarryAdd(regs.a,v,c),false); regs.a=r&0xFF; break; }
+    case 0x8C: { const v=regs.h, c=getCarry(); r=regs.a+v+c; setFlags(r,auxCarryAdd(regs.a,v,c),false); regs.a=r&0xFF; break; }
+    case 0x8D: { const v=regs.l, c=getCarry(); r=regs.a+v+c; setFlags(r,auxCarryAdd(regs.a,v,c),false); regs.a=r&0xFF; break; }
+    case 0x8E: { const v=memR(getHL()), c=getCarry(); r=regs.a+v+c; setFlags(r,auxCarryAdd(regs.a,v,c),false); regs.a=r&0xFF; break; }
+    case 0x8F: { const v=regs.a, c=getCarry(); r=regs.a+v+c; setFlags(r,auxCarryAdd(regs.a,v,c),false); regs.a=r&0xFF; break; }
+    case 0xCE: { const v=memR(pc+1), c=getCarry(); r=regs.a+v+c; setFlags(r,auxCarryAdd(regs.a,v,c),false); regs.a=r&0xFF; inc=2; break; }
 
     // ── SUB ───────────────────────────────────────────────────────────
     case 0x90: r=regs.a-regs.b; setFlags(r,auxCarrySub(regs.a,regs.b),false); regs.a=r&0xFF; break;
@@ -293,15 +293,15 @@ function stepOne() {
     case 0xD6: v=memR(pc+1); r=regs.a-v; setFlags(r,auxCarrySub(regs.a,v),false); regs.a=r&0xFF; inc=2; break;
 
     // ── SBB ───────────────────────────────────────────────────────────
-    case 0x98: v=regs.b+getCarry(); r=regs.a-v; setFlags(r,auxCarrySub(regs.a,v),false); regs.a=r&0xFF; break;
-    case 0x99: v=regs.c+getCarry(); r=regs.a-v; setFlags(r,auxCarrySub(regs.a,v),false); regs.a=r&0xFF; break;
-    case 0x9A: v=regs.d+getCarry(); r=regs.a-v; setFlags(r,auxCarrySub(regs.a,v),false); regs.a=r&0xFF; break;
-    case 0x9B: v=regs.e+getCarry(); r=regs.a-v; setFlags(r,auxCarrySub(regs.a,v),false); regs.a=r&0xFF; break;
-    case 0x9C: v=regs.h+getCarry(); r=regs.a-v; setFlags(r,auxCarrySub(regs.a,v),false); regs.a=r&0xFF; break;
-    case 0x9D: v=regs.l+getCarry(); r=regs.a-v; setFlags(r,auxCarrySub(regs.a,v),false); regs.a=r&0xFF; break;
-    case 0x9E: v=memR(getHL())+getCarry(); r=regs.a-v; setFlags(r,auxCarrySub(regs.a,v),false); regs.a=r&0xFF; break;
-    case 0x9F: v=getCarry(); r=-v; setFlags(r,auxCarrySub(0,v),false); regs.a=r&0xFF; break;
-    case 0xDE: v=memR(pc+1)+getCarry(); r=regs.a-v; setFlags(r,auxCarrySub(regs.a,v),false); regs.a=r&0xFF; inc=2; break;
+    case 0x98: { const v=regs.b, c=getCarry(); r=regs.a-v-c; setFlags(r,auxCarrySub(regs.a,v,c),false); regs.a=r&0xFF; break; }
+    case 0x99: { const v=regs.c, c=getCarry(); r=regs.a-v-c; setFlags(r,auxCarrySub(regs.a,v,c),false); regs.a=r&0xFF; break; }
+    case 0x9A: { const v=regs.d, c=getCarry(); r=regs.a-v-c; setFlags(r,auxCarrySub(regs.a,v,c),false); regs.a=r&0xFF; break; }
+    case 0x9B: { const v=regs.e, c=getCarry(); r=regs.a-v-c; setFlags(r,auxCarrySub(regs.a,v,c),false); regs.a=r&0xFF; break; }
+    case 0x9C: { const v=regs.h, c=getCarry(); r=regs.a-v-c; setFlags(r,auxCarrySub(regs.a,v,c),false); regs.a=r&0xFF; break; }
+    case 0x9D: { const v=regs.l, c=getCarry(); r=regs.a-v-c; setFlags(r,auxCarrySub(regs.a,v,c),false); regs.a=r&0xFF; break; }
+    case 0x9E: { const v=memR(getHL()), c=getCarry(); r=regs.a-v-c; setFlags(r,auxCarrySub(regs.a,v,c),false); regs.a=r&0xFF; break; }
+    case 0x9F: { const v=regs.a, c=getCarry(); r=regs.a-v-c; setFlags(r,auxCarrySub(regs.a,v,c),false); regs.a=r&0xFF; break; }
+    case 0xDE: { const v=memR(pc+1), c=getCarry(); r=regs.a-v-c; setFlags(r,auxCarrySub(regs.a,v,c),false); regs.a=r&0xFF; inc=2; break; }
 
     // ── INR/DCR ───────────────────────────────────────────────────────
     case 0x04: r=regs.b+1; { const ac=auxCarryAdd(regs.b,1); regs.b=r&0xFF; setFlags(r,ac,true); } break;
@@ -339,25 +339,27 @@ function stepOne() {
 
     // ── DAA ───────────────────────────────────────────────────────────
     case 0x27: {
-      let a=regs.a, corr=0, cy=getCarry();
-      if (getAuxCarry()||(a&0xF)>9) corr|=0x06;
-      if (cy||a>0x99) { corr|=0x60; cy=1; }
-      a=(a+corr)&0xFF;
+      let a=regs.a, corr=0, cy=getCarry(), ac=getAuxCarry();
+      if (ac || (a & 0xF) > 9) corr |= 0x06;
+      if (cy || a > 0x99) { corr |= 0x60; cy = 1; }
+      let res = a + corr;
+      let newAC = ((a & 0x0F) + (corr & 0x0F)) > 0x0F;
       regs.flags=(regs.flags&~1)|cy;
-      setFlags(a,false,true);
-      regs.a=a; break;
+      setFlags(res, newAC, true);
+      regs.a = res & 0xFF;
+      break;
     }
 
     // ── ANA/ORA/XRA/CMP ───────────────────────────────────────────────
-    case 0xA0: regs.a&=regs.b; setFlags(regs.a,false,false); regs.flags&=~1; break;
-    case 0xA1: regs.a&=regs.c; setFlags(regs.a,false,false); regs.flags&=~1; break;
-    case 0xA2: regs.a&=regs.d; setFlags(regs.a,false,false); regs.flags&=~1; break;
-    case 0xA3: regs.a&=regs.e; setFlags(regs.a,false,false); regs.flags&=~1; break;
-    case 0xA4: regs.a&=regs.h; setFlags(regs.a,false,false); regs.flags&=~1; break;
-    case 0xA5: regs.a&=regs.l; setFlags(regs.a,false,false); regs.flags&=~1; break;
-    case 0xA6: regs.a&=memR(getHL()); setFlags(regs.a,false,false); regs.flags&=~1; break;
-    case 0xA7: setFlags(regs.a,false,false); regs.flags&=~1; break;
-    case 0xE6: regs.a&=memR(pc+1); setFlags(regs.a,false,false); regs.flags&=~1; inc=2; break;
+    case 0xA0: { const ac=((regs.a|regs.b)&0x08)!==0; regs.a&=regs.b; setFlags(regs.a,ac,false); regs.flags&=~1; break; }
+    case 0xA1: { const ac=((regs.a|regs.c)&0x08)!==0; regs.a&=regs.c; setFlags(regs.a,ac,false); regs.flags&=~1; break; }
+    case 0xA2: { const ac=((regs.a|regs.d)&0x08)!==0; regs.a&=regs.d; setFlags(regs.a,ac,false); regs.flags&=~1; break; }
+    case 0xA3: { const ac=((regs.a|regs.e)&0x08)!==0; regs.a&=regs.e; setFlags(regs.a,ac,false); regs.flags&=~1; break; }
+    case 0xA4: { const ac=((regs.a|regs.h)&0x08)!==0; regs.a&=regs.h; setFlags(regs.a,ac,false); regs.flags&=~1; break; }
+    case 0xA5: { const ac=((regs.a|regs.l)&0x08)!==0; regs.a&=regs.l; setFlags(regs.a,ac,false); regs.flags&=~1; break; }
+    case 0xA6: { const v=memR(getHL()), ac=((regs.a|v)&0x08)!==0; regs.a&=v; setFlags(regs.a,ac,false); regs.flags&=~1; break; }
+    case 0xA7: { const ac=((regs.a|regs.a)&0x08)!==0; setFlags(regs.a,ac,false); regs.flags&=~1; break; }
+    case 0xE6: { const v=memR(pc+1), ac=((regs.a|v)&0x08)!==0; regs.a&=v; setFlags(regs.a,ac,false); regs.flags&=~1; inc=2; break; }
     case 0xB0: regs.a|=regs.b; setFlags(regs.a,false,false); regs.flags&=~0x11; break;
     case 0xB1: regs.a|=regs.c; setFlags(regs.a,false,false); regs.flags&=~0x11; break;
     case 0xB2: regs.a|=regs.d; setFlags(regs.a,false,false); regs.flags&=~0x11; break;
@@ -864,19 +866,19 @@ function checkInterrupts() {
   if (rst75ff && !(intMask & 0x04)) {
     rst75ff = false
     status &= ~HALTED
-    push16(regs.pc); iff = false
+    push16(regs.pc); iff = false; iffNext = false
     regs.pc = 0x003C; return
   }
   // RST 6.5 — level, maskable (mask bit 1)
   if (intLines.rst65 && !(intMask & 0x02)) {
     status &= ~HALTED
-    push16(regs.pc); iff = false
+    push16(regs.pc); iff = false; iffNext = false
     regs.pc = 0x0034; return
   }
   // RST 5.5 — level, maskable (mask bit 0)
   if (intLines.rst55 && !(intMask & 0x01)) {
     status &= ~HALTED
-    push16(regs.pc); iff = false
+    push16(regs.pc); iff = false; iffNext = false
     regs.pc = 0x002C; return
   }
   // INTR — level, maskable, RST n vector on data bus
@@ -884,7 +886,7 @@ function checkInterrupts() {
     const vec = intLines.intrVec
     if ((vec & 0xC7) === 0xC7) {   // valid RST n opcode
       status &= ~HALTED
-      push16(regs.pc); iff = false
+      push16(regs.pc); iff = false; iffNext = false
       regs.pc = vec & 0x38
     }
   }

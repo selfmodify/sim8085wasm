@@ -407,18 +407,21 @@ static int _Adi(void) {
 
 #define DEF_ADC(reg,get) \
 static int _Adc##reg(void) { \
-    SetAuxCarry(ShouldSetAuxillaryFlag(GetA(),get()+GetCarry(),PLUS)); \
-    SetA(SetTemp(GetA()+get()+GetCarry()) & LARGEST_INT); \
+    int cy = GetCarry(); int src = get(); \
+    SetAuxCarry(((GetA() & 0xF) + (src & 0xF) + cy) > 0xF ? 1 : 0); \
+    SetA(SetTemp(GetA()+src+cy) & LARGEST_INT); \
     Set8085Flag(); return ADC_LEN; }
 DEF_ADC(A,GetA) DEF_ADC(B,GetB) DEF_ADC(C,GetC) DEF_ADC(D,GetD)
 DEF_ADC(E,GetE) DEF_ADC(H,GetH) DEF_ADC(L,GetL)
 static int _AdcM(void) {
-    SetAuxCarry(ShouldSetAuxillaryFlag(GetA(),GetMemByte(GetHL())+GetCarry(),PLUS));
-    SetA(SetTemp(GetA()+GetMemByte(GetHL())+GetCarry()) & LARGEST_INT);
+    int cy = GetCarry(); int src = GetMemByte(GetHL());
+    SetAuxCarry(((GetA() & 0xF) + (src & 0xF) + cy) > 0xF ? 1 : 0);
+    SetA(SetTemp(GetA()+src+cy) & LARGEST_INT);
     Set8085Flag(); return ADC_LEN; }
 static int _Aci(void) {
-    SetAuxCarry(ShouldSetAuxillaryFlag(GetA(),GetMemByte(GetIP()+1)+GetCarry(),PLUS));
-    SetTemp(GetA()+GetMemByte(GetIP()+1)+GetCarry());
+    int cy = GetCarry(); int src = GetMemByte(GetIP()+1);
+    SetAuxCarry(((GetA() & 0xF) + (src & 0xF) + cy) > 0xF ? 1 : 0);
+    SetTemp(GetA()+src+cy);
     SetA(GetTemp() & LARGEST_INT); Set8085Flag(); return ACI_LEN; }
 
 #define DEF_SUB(reg,get) \
@@ -439,18 +442,21 @@ static int _Sui(void) {
 
 #define DEF_SBB(reg,get) \
 static int _Sbb##reg(void) { \
-    SetAuxCarry(ShouldSetAuxillaryFlag(GetA(),get()+GetCarry(),MINUS)); \
-    SetA(SetTemp(GetA()-get()-GetCarry()) & LARGEST_INT); \
+    int cy = GetCarry(); int src = get(); \
+    SetAuxCarry(((GetA() & 0xF) - (src & 0xF) - cy) < 0 ? 1 : 0); \
+    SetA(SetTemp(GetA()-src-cy) & LARGEST_INT); \
     Set8085Flag(); return SBB_LEN; }
 DEF_SBB(A,GetA) DEF_SBB(B,GetB) DEF_SBB(C,GetC) DEF_SBB(D,GetD)
 DEF_SBB(E,GetE) DEF_SBB(H,GetH) DEF_SBB(L,GetL)
 static int _SbbM(void) {
-    SetAuxCarry(ShouldSetAuxillaryFlag(GetA(),GetMemByte(GetHL())+GetCarry(),MINUS));
-    SetA(SetTemp(GetA()-GetMemByte(GetHL())-GetCarry()) & LARGEST_INT);
+    int cy = GetCarry(); int src = GetMemByte(GetHL());
+    SetAuxCarry(((GetA() & 0xF) - (src & 0xF) - cy) < 0 ? 1 : 0);
+    SetA(SetTemp(GetA()-src-cy) & LARGEST_INT);
     Set8085Flag(); return SBB_LEN; }
 static int _Sbi(void) {
-    SetAuxCarry(ShouldSetAuxillaryFlag(GetA(),GetMemByte(GetIP()+1)+GetCarry(),MINUS));
-    SetTemp(GetA()-GetMemByte(GetIP()+1)-GetCarry());
+    int cy = GetCarry(); int src = GetMemByte(GetIP()+1);
+    SetAuxCarry(((GetA() & 0xF) - (src & 0xF) - cy) < 0 ? 1 : 0);
+    SetTemp(GetA()-src-cy);
     SetA(GetTemp() & LARGEST_INT); Set8085Flag(); return SBI_LEN; }
 
 /* INR/DCR */
@@ -510,15 +516,19 @@ static int _DadSP(void) {
 
 /* DAA */
 static int _Daa(void) {
-    int a = GetA(), cy = GetCarry(), ac = GetAuxCarry();
+    int a = GetA();
+    int cy = GetCarry();
+    int ac = GetAuxCarry();
     int correction = 0;
     if (ac || (a & 0x0F) > 9) { correction |= 0x06; }
-    if (cy || a > 0x99)       { correction |= 0x60; SetCarry(1); }
-    a += correction;
-    SetA(a & 0xFF);
-    SetSign(a & 0x80 ? 1 : 0);
-    SetZero((a & 0xFF) == 0 ? 1 : 0);
-    SetParity(ComputeParity(a));
+    if (cy || a > 0x99)       { correction |= 0x60; cy = 1; }
+    int res = a + correction;
+    SetAuxCarry(((a & 0x0F) + (correction & 0x0F)) > 0x0F ? 1 : 0);
+    SetCarry(cy);
+    SetA(res & 0xFF);
+    SetSign(res & 0x80 ? 1 : 0);
+    SetZero((res & 0xFF) == 0 ? 1 : 0);
+    SetParity(ComputeParity(res));
     return DAA_LEN; }
 
 /* --- Logical: ANA/ORA/XRA/CMP --- */
@@ -688,10 +698,10 @@ static int _Out(void) {
 static int _Rim(void) {
     interrupt_struct *is = &INTR();
     uchar a = (is->int_mask & 0x07)        /* bits 0-2: mask state */
-            | (is->rst_5_5_ff ? 0x08 : 0)  /* bit 3: RST 5.5 pending */
-            | (is->rst_6_5_ff ? 0x10 : 0)  /* bit 4: RST 6.5 pending */
-            | (is->rst_7_5_ff ? 0x20 : 0)  /* bit 5: RST 7.5 pending */
-            | (is->ei         ? 0x40 : 0)  /* bit 6: IFF */
+            | (is->ei         ? 0x08 : 0)  /* bit 3: IFF (Interrupt Enable) */
+            | (is->rst_5_5_ff ? 0x10 : 0)  /* bit 4: RST 5.5 pending */
+            | (is->rst_6_5_ff ? 0x20 : 0)  /* bit 5: RST 6.5 pending */
+            | (is->rst_7_5_ff ? 0x40 : 0)  /* bit 6: RST 7.5 pending */
             | (g_sid          ? 0x80 : 0); /* bit 7: SID */
     SetA(a);
     return RIM_LEN;
