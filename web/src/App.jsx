@@ -2450,7 +2450,7 @@ export default function App() {
   const [consolePort,   setConsolePort]   = useState(() => sim.simGetConsolePort())
   const [mobileTab,      setMobileTab]      = useState('editor')
   const [activeView,     setActiveView]     = useState('simulator') // 'simulator' | 'challenges'
-  const [theme, setTheme] = useState(() => localStorage.getItem('sim8085_theme') || 'dark')
+  const [theme, setTheme] = useState(() => localStorage.getItem('sim8085_theme') || 'green')
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('sim8085_theme', theme)
