@@ -708,15 +708,13 @@ function FlagPanel({ regs }) {
 }
 
 // ── Disassembly panel ────────────────────────────────────────────────────
-function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondition, onGotoLine, buildId, pcFlash, onRunTo, jumpRef, symbols, onJumpMem, hitcnts, maxHit }) {
+function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondition, onGotoLine, buildId, pcFlash, onRunTo, symbols, onJumpMem, hitcnts, maxHit }) {
   const [viewStart, setViewStart] = useState(() => regs.pc)
   const [ctxMenu, setCtxMenu]     = useState(null)   // {addr, x, y}
   const [followPC, setFollowPC]   = useState(true)
   const [addrInput, setAddrInput] = useState('')
   const [showBpList, setShowBpList] = useState(false)
   const curRowRef = useRef(null)
-
-  useEffect(() => { if (jumpRef) jumpRef.current = setViewStart }, [jumpRef])
 
   const addrToLabel = useMemo(() => {
     const m = new Map()
@@ -2309,7 +2307,6 @@ export default function App() {
   const lineAddrRef  = useRef(new Map())  // lineNumber → address (reverse of addrLineMap)
   const fileInputRef   = useRef(null)
   const oneShotBpsRef  = useRef(new Set())
-  const disasmJumpRef  = useRef(null)
   const memWatchMemRef = useRef(null)
   const [addrLineMap, setAddrLineMap] = useState(new Map())
   const srcRef      = useRef(src)
@@ -3061,7 +3058,6 @@ function addTraceEntry(prevR) {
           <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} onClearAllBps={clearAllBps} buildId={buildId} pcFlash={pcFlash}
             onSetCondition={openConditionDialog}
             onRunTo={runToAddr}
-            jumpRef={disasmJumpRef}
             symbols={symbols}
             onJumpMem={setMemStart}
             hitcnts={hitcnts} maxHit={maxHit}

@@ -12,8 +12,6 @@
 
 let MAIN_MEMORY = 64 * 1024;
 const DEFAULT_IP  = 0x100;
-const DEFAULT_SP  = 0x000;
-const HLT_OP     = 0x76;
 
 // Status bits
 const HALTED       = 0x0400;
@@ -174,7 +172,7 @@ function stepOne() {
   }
 
   let inc = 1;
-  let r, v, w, a16, lo, hi;
+  let r, v, a16, lo, hi;
 
   switch(op) {
     case 0x00: inc=1; break; // NOP

@@ -52,12 +52,6 @@ typedef struct {
     int     bytes_emitted; /* number of bytes assembled */
 } Sim8085AssembleResult;
 
-typedef struct {
-    int  field_type; /* 0=status, 1=addr, 2=data */
-    int  index;
-    int  value;      /* 7-segment encoded value */
-} Sim8085LedUpdate;
-
 /* -----------------------------------------------------------------------
  * API function declarations
  * --------------------------------------------------------------------- */

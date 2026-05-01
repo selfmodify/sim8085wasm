@@ -27,14 +27,12 @@
 machine_ptr  _8085  = NULL;
 machine_ptr   m     = NULL;
 unsigned long data  = 0;
-unsigned long addr  = 0;
 long          X     = 0;
 uchar         code  = 0;
 unsigned      r1    = 0;
 unsigned      r2    = 0;
 lex_struct    state;
 symbol_table  table;
-int           GERROR_COUNT = MAX_ERRORS;
 
 /* Last assembler error message (for the web API) */
 static char   g_last_error[512] = "";
