@@ -2129,7 +2129,10 @@ function WelcomeModal({ onClose }) {
           ))}
         </div>
         <div className="welcome-footer">
-          <span className="welcome-tip">💡 Start with Examples → I/O → LED Count to see the display in action, or Examples → Interrupts → TRAP to try the interrupt system.</span>
+          <span className="welcome-tip">
+            💡 Start with Examples → I/O → LED Count to see the display in action, or Examples → Interrupts → TRAP to try the interrupt system.<br/>
+            <a href="./privacy.html" target="_blank" rel="noreferrer" style={{ color: 'inherit', display: 'inline-block', marginTop: 6 }}>Privacy Policy</a>
+          </span>
           <button className="btn welcome-btn" onClick={onClose}>Got it, let's go →</button>
         </div>
       </div>
@@ -2299,17 +2302,17 @@ function DriveLoadModal({ files, loading, onClose, onSelect }) {
     <div className="help-overlay" onClick={onClose}>
       <div className="shortcuts-modal" onClick={e => e.stopPropagation()} style={{ width: 420 }}>
         <div className="help-hd">
-          <span className="help-mnem">Load from Drive</span>
+          <span className="help-mnem">Load from "sim8085" Folder</span>
           <button className="help-close" onClick={onClose}>✕</button>
         </div>
         <div className="shortcuts-body" style={{ padding: 0, maxHeight: '50vh' }}>
           {loading ? (
-            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text3)' }}>Loading files…</div>
+            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text3)' }}>Loading files from "sim8085" folder…</div>
           ) : files.length === 0 ? (
             <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text3)' }}>No files found in the "sim8085" folder.</div>
           ) : files.map(f => (
             <button key={f.id} className="bmenu-item" style={{ width: '100%', borderBottom: '1px solid var(--border)' }} onClick={() => onSelect(f.id, f.name)}>
-              📄 {f.name}
+              📄 <span style={{ opacity: 0.5, marginRight: 4 }}>sim8085/</span>{f.name}
             </button>
           ))}
         </div>
@@ -3052,7 +3055,7 @@ function addTraceEntry(prevR) {
   }
 
   async function performLoad(token) {
-    setMsg('Fetching files from Google Drive…')
+    setMsg('Fetching files from "sim8085" folder on Google Drive…')
     setDriveLoading(true)
     setDriveFiles([])
     try {
