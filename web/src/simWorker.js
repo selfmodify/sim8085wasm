@@ -113,11 +113,23 @@ self.onmessage = function({ data }) {
       postMessage({ evt: 'ready' })
       break
 
-    case 'assemble':
+    case 'assemble': {
       sim.simInit()
       const res = sim.simAssemble(data.src)
-      postMessage({ evt: 'assembled', result: res })
+      if (res.ok) {
+        const ram = sim.simGetFullMemory()
+        postMessage({
+          evt: 'assembled', result: res,
+          assembledRam: ram,
+          symbols: sim.simGetSymbols(),
+          programRegion: sim.simGetProgramRegion(),
+          presetAddrs: [...sim.simGetPresetAddrs()],
+        }, [ram.buffer])
+      } else {
+        postMessage({ evt: 'assembled', result: res })
+      }
       break
+    }
 
     case 'step':
       sim.simStep()

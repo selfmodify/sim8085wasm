@@ -2322,12 +2322,22 @@ export default function App() {
           setAddrLineMap(new Map()); lineAddrRef.current = new Map(); setSymbols({}); setProgramRegion(null); setPresetAddrs(new Set())
           setAppState('error'); setMsg(`✗ ${res.errorMsg}`)
         } else {
-          // Sync main-thread sim so DisasmPanel/MemPanel read correct code
+          // Sync main-thread sim from Worker's assembled bytes (avoids re-assembly failures)
           sim.simInit()
-          sim.simAssemble(srcRef.current)
+          if (data.assembledRam) {
+            sim.simRestoreSnapshot({
+              regs: { a:0,b:0,c:0,d:0,e:0,h:0,l:0,flags:0,pc:res.entryPoint||0x100,sp:0 },
+              ram: data.assembledRam,
+            })
+          } else {
+            sim.simAssemble(srcRef.current)
+          }
           setErrorLine(null); setAppState('idle')
           const alm = buildAddrLineMap(srcRef.current); setAddrLineMap(alm)
           const rev = new Map(); for (const [addr, ln] of alm) rev.set(ln, addr); lineAddrRef.current = rev
+          setSymbols(data.symbols ?? sim.simGetSymbols())
+          setProgramRegion(data.programRegion ?? sim.simGetProgramRegion())
+          setPresetAddrs(data.presetAddrs ? new Set(data.presetAddrs) : sim.simGetPresetAddrs())
           const t = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})
           setMsg(`✓ ${res.bytesEmitted}B at ${hex4(res.entryPoint)}H — ready  ${t}`)
         }
