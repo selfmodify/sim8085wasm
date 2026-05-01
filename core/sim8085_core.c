@@ -27,6 +27,7 @@
 machine_ptr  _8085  = NULL;
 machine_ptr   m     = NULL;
 unsigned long data  = 0;
+int           g_memory_size = 65536;
 long          X     = 0;
 uchar         code  = 0;
 unsigned      r1    = 0;
@@ -186,7 +187,7 @@ int InitMachine(machine_ptr mp) {
  * Memory access (safe, bounds-checked)
  * --------------------------------------------------------------------- */
 word SetIP(unsigned i) {
-    if (i >= MAIN_MEMORY) {
+    if (i >= (unsigned)g_memory_size) {
         SET_STATUS(IP_BEYOND_MEMORY);
         return KIT->cpu.r.ip;
     }
@@ -194,7 +195,8 @@ word SetIP(unsigned i) {
 }
 
 uchar GetMemByte(unsigned a) {
-    if (a >= MAIN_MEMORY) {
+    a &= 0xFFFF;
+    if (a >= (unsigned)g_memory_size) {
         SET_STATUS(READ_FAULT | SEVERE_ERROR);
         return 0;
     }
@@ -202,15 +204,15 @@ uchar GetMemByte(unsigned a) {
 }
 
 word GetMemWord(unsigned a) {
-    if (a + 1 >= MAIN_MEMORY) {
-        SET_STATUS(READ_FAULT | SEVERE_ERROR);
-        return 0;
-    }
-    return KIT->cpu.ram[a] + ((word)KIT->cpu.ram[a + 1] << 8);
+    a &= 0xFFFF;
+    uchar lo = GetMemByte(a);
+    uchar hi = GetMemByte((a + 1) & 0xFFFF);
+    return lo | ((word)hi << 8);
 }
 
 uchar SetMemByte(unsigned a, uchar val) {
-    if (a >= MAIN_MEMORY) {
+    a &= 0xFFFF;
+    if (a >= (unsigned)g_memory_size) {
         SET_STATUS(WRITE_FAULT | SEVERE_ERROR);
         return 0;
     }
@@ -218,12 +220,9 @@ uchar SetMemByte(unsigned a, uchar val) {
 }
 
 word SetMemWord(unsigned a, word val) {
-    if (a + 1 >= MAIN_MEMORY) {
-        SET_STATUS(WRITE_FAULT | SEVERE_ERROR);
-        return 0;
-    }
-    KIT->cpu.ram[a]     = (uchar)(val & 0xFF);
-    KIT->cpu.ram[a + 1] = (uchar)(val >> 8);
+    a &= 0xFFFF;
+    SetMemByte(a, (uchar)(val & 0xFF));
+    SetMemByte((a + 1) & 0xFFFF, (uchar)(val >> 8));
     return val;
 }
 

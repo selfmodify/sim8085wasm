@@ -93,10 +93,10 @@ function getDE() { return (regs.d << 8) | regs.e; }
 function setHL(v) { regs.h = (v >> 8) & 0xFF; regs.l = v & 0xFF; }
 function setBC(v) { regs.b = (v >> 8) & 0xFF; regs.c = v & 0xFF; }
 function setDE(v) { regs.d = (v >> 8) & 0xFF; regs.e = v & 0xFF; }
-function memR(a)    { return a < MAIN_MEMORY ? ram[a] : 0; }
-function memR16(a)  { return memR(a) | (memR(a+1) << 8); }
-function memW(a,v)  { if (a < MAIN_MEMORY) { ram[a] = v & 0xFF; if (dataBPs.has(a) && dataWatchHit < 0) dataWatchHit = a; } }
-function memW16(a,v){ memW(a, v & 0xFF); memW(a+1, (v>>8) & 0xFF); }
+function memR(a)    { a &= 0xFFFF; return a < MAIN_MEMORY ? ram[a] : 0; }
+function memR16(a)  { return memR(a) | (memR((a+1) & 0xFFFF) << 8); }
+function memW(a,v)  { a &= 0xFFFF; if (a < MAIN_MEMORY) { ram[a] = v & 0xFF; if (dataBPs.has(a) && dataWatchHit < 0) dataWatchHit = a; } }
+function memW16(a,v){ memW(a, v & 0xFF); memW((a+1) & 0xFFFF, (v>>8) & 0xFF); }
 function push16(v)  { regs.sp = (regs.sp - 2) & 0xFFFF; memW16(regs.sp, v); }
 function pop16()    { const v = memR16(regs.sp); regs.sp = (regs.sp + 2) & 0xFFFF; return v; }
 

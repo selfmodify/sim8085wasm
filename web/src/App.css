@@ -378,6 +378,8 @@ body {
 }
 .btn-asm   { border-color: #3a5080; color: #80b0ff }
 .btn-asm:hover:not(:disabled) { background: #1a2540; border-color: var(--blue) }
+.btn-asm.btn-asm-dirty { border-color: var(--amber); color: var(--amber) }
+.btn-asm.btn-asm-dirty:hover:not(:disabled) { background: var(--tint-amber); border-color: var(--amber) }
 .btn-step  { border-color: #3a5040; color: var(--accent) }
 .btn-step:hover:not(:disabled) { background: #1a2520 }
 .btn-run   { border-color: #3a6040; color: var(--accent); font-weight: 600 }

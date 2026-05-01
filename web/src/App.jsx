@@ -2360,6 +2360,7 @@ export default function App() {
   const memWatchMemRef = useRef(null)
   const [addrLineMap, setAddrLineMap] = useState(new Map())
   const srcRef      = useRef(src)
+  const lastBuiltSrcRef = useRef(src)
   const speedRef    = useRef((() => { const s = parseInt(localStorage.getItem('sim8085_speed'),10); return s>=0&&s<SPEEDS.length?s:3 })())
   const historyRef  = useRef([])
   const bpsRef      = useRef(new Map())
@@ -2523,6 +2524,7 @@ export default function App() {
         setPresetAddrs(sim.simGetPresetAddrs())
         const t = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})
         setMsg(`✓ ${res.bytesEmitted}B at ${hex4(res.entryPoint)}H — ready  ${t}`)
+        lastBuiltSrcRef.current = code
       }
     } catch (err) {
       setAppState('error')
@@ -3024,6 +3026,7 @@ function addTraceEntry(prevR) {
   }
 
   const running = appState === 'running'
+  const isDirty = src !== lastBuiltSrcRef.current
 
   return (
     <div className="app">
@@ -3048,7 +3051,9 @@ function addTraceEntry(prevR) {
         <div className="toolbar">
           <ExampleMenu onLoad={loadExample} />
           <input type="file" ref={fileInputRef} style={{display:'none'}} accept=".asm,.85,.s,.txt,.hex,.bin" onChange={importFile} />
-          <button className="btn btn-asm"   onClick={() => doAssemble(srcRef.current)}>⚙ Build  <kbd>F5</kbd></button>
+          <button className={`btn btn-asm${isDirty ? ' btn-asm-dirty' : ''}`} onClick={() => doAssemble(srcRef.current)} title={isDirty ? "Unsaved changes — click to rebuild" : "Code is up to date"}>
+            ⚙ Build{isDirty ? ' •' : ''}  <kbd>F5</kbd>
+          </button>
           <button className="btn btn-step"  onClick={doStep}  disabled={running || appState==='error'}>↓ Step  <kbd>F7</kbd></button>
           <button className="btn btn-back"  onClick={doStepBack} disabled={running || appState==='error' || histLen === 0} title={`Undo last step (${histLen} available)`}>⟲ Back{histLen > 0 ? ` (${histLen})` : ''}</button>
           <button className={`btn ${running ? 'btn-stop':'btn-run'}`} onClick={handleRun}
@@ -3085,6 +3090,7 @@ function addTraceEntry(prevR) {
           <div className="panel editor-panel">
             <div className="panel-hd">
             <span className="panel-icon">✏️</span>EDITOR
+            {isDirty && <span style={{ color: 'var(--amber)', textTransform: 'none', marginLeft: 8, letterSpacing: 0, fontWeight: 600 }}>• out of sync</span>}
             <div className="panel-hd-right">
               <button className="reg-base-btn" onClick={formatCode} title="Auto-format code alignment">Format</button>
               <span className="editor-hint">; semicolons for comments</span>

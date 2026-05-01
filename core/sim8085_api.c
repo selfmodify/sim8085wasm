@@ -342,8 +342,7 @@ EXPORT int sim_get_key_queue(char *buf, int max_len) {
 /* -----------------------------------------------------------------------
  * Memory size
  * --------------------------------------------------------------------- */
-
-static int g_memory_size = MAIN_MEMORY;
+extern int g_memory_size;
 
 EXPORT void sim_set_memory_size(int bytes) {
     if (bytes == 16*1024 || bytes == 32*1024 || bytes == 64*1024)

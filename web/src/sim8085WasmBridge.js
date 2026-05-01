@@ -103,12 +103,16 @@ export function simRun(maxSteps = 1e5) {
   if (!M) return 0;
   jsDataWatchHit = -1;
   if (jsDBP.size === 0) return M._sim_run(maxSteps);
-  // With watchpoints: snapshot watched values, run, then check for changes
+  // With watchpoints active, we must step one instruction at a time to catch the exact write
   const addrs = [...jsDBP];
-  const before = addrs.map(a => M._sim_read_byte(a));
-  const steps  = M._sim_run(maxSteps);
-  for (let i = 0; i < addrs.length; i++) {
-    if (M._sim_read_byte(addrs[i]) !== before[i]) { jsDataWatchHit = addrs[i]; break; }
+  let steps = 0;
+  while (steps < maxSteps) {
+    const before = addrs.map(a => M._sim_read_byte(a));
+    if (!M._sim_step()) break;
+    steps++;
+    for (let i = 0; i < addrs.length; i++) {
+      if (M._sim_read_byte(addrs[i]) !== before[i]) { jsDataWatchHit = addrs[i]; return steps; }
+    }
   }
   return steps;
 }
