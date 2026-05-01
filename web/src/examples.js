@@ -1339,7 +1339,7 @@ done:
 
   'Algorithms': {
     'Fibonacci': `; Fibonacci sequence — stores 16 values starting at 200H.
-; F(0)=0, F(1)=1, F(2)=1, F(3)=2 … F(15)=EFH (wraps at 256)
+; F(0)=0, F(1)=1, F(2)=1, F(3)=2 … F(15)=62H (wraps at 256)
     org 100H
     kickoff 100H
     lxi  h, 200H
@@ -1348,8 +1348,7 @@ done:
     inx  h
     mvi  a, 01H
     mov  m, a           ; F(1) = 1
-    inx  h
-    mvi  b, 0EH         ; compute 14 more terms
+    mvi  b, 0EH         ; compute 14 more terms (F(2)..F(15))
 fib:
     dcx  h
     mov  a, m           ; A = F(n-1)
