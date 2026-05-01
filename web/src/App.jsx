@@ -2964,8 +2964,13 @@ function addTraceEntry(prevR) {
   }
 
   function connectDrive(onSuccess) {
-    if (!window.google) {
-      setMsg('✗ Google Drive script blocked. Please disable your adblocker or shields.')
+    if (!window.google || !window.google.accounts) {
+      setMsg('Loading Google Drive script…')
+      const s = document.createElement('script')
+      s.src = 'https://accounts.google.com/gsi/client'
+      s.onload = () => connectDrive(onSuccess)
+      s.onerror = () => setMsg('✗ Google script blocked by browser or network firewall.')
+      document.head.appendChild(s)
       return
     }
     const CLIENT_ID = '467288235889-r6gbjd0ou6ubuiktrnaj54bee6iggr01.apps.googleusercontent.com'
