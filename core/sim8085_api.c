@@ -64,23 +64,6 @@ EXPORT void sim_init(void) {
     g_console_buf[0] = '\0';
 }
 
-EXPORT void sim_reset(void) {
-    if (!KIT) { sim_init(); return; }
-    /* Preserve memory but reset CPU state */
-    uint8_t *mem_backup = (uint8_t *)malloc(MAIN_MEMORY);
-    if (mem_backup) {
-        memcpy(mem_backup, KIT->cpu.ram, MAIN_MEMORY);
-        InitMachine(m);
-        memcpy(KIT->cpu.ram, mem_backup, MAIN_MEMORY);
-        free(mem_backup);
-    } else {
-        InitMachine(m);
-    }
-    memset(g_leds, 0, sizeof(g_leds));
-    g_console_len = 0;
-    g_console_buf[0] = '\0';
-}
-
 /* -----------------------------------------------------------------------
  * Assembly
  * --------------------------------------------------------------------- */
@@ -218,10 +201,6 @@ EXPORT void sim_write_byte(uint16_t addr, uint8_t val) {
     KIT->cpu.ram[addr] = val;
 }
 
-EXPORT uint16_t sim_get_pc(void)     { return KIT ? GetIP()        : 0; }
-EXPORT uint16_t sim_get_sp(void)     { return KIT ? GetSP()        : 0; }
-EXPORT uint16_t sim_get_status(void) { return KIT ? GET_STATUS()   : 0; }
-
 /* -----------------------------------------------------------------------
  * Breakpoints
  * --------------------------------------------------------------------- */
@@ -242,35 +221,14 @@ EXPORT int sim_set_breakpoint(uint16_t addr) {
     return 1;
 }
 
-EXPORT void sim_clear_breakpoint(uint16_t addr) {
-    if (!KIT) return;
-    int x = IsABreakPoint(addr);
-    if (x < 0) return;
-    int i;
-    for (i = x; i < (int)BREAK_PT_CTR()-1; i++)
-        BREAK_POINT(i) = BREAK_POINT(i+1);
-    --BREAK_PT_CTR();
-}
-
 EXPORT void sim_clear_all_breakpoints(void) {
     if (!KIT) return;
     BREAK_PT_CTR() = 0;
 }
 
-EXPORT int sim_is_breakpoint(uint16_t addr) {
-    return KIT ? (IsABreakPoint(addr) >= 0 ? 1 : 0) : 0;
-}
-
 /* -----------------------------------------------------------------------
  * LED display
  * --------------------------------------------------------------------- */
-
-EXPORT int sim_get_led(int field_type, int index) {
-    if (field_type == 0 && index < 2) return g_leds[index];
-    if (field_type == 1 && index < 4) return g_leds[2 + index];
-    if (field_type == 2 && index < 2) return g_leds[6 + index];
-    return 0;
-}
 
 EXPORT void sim_get_all_leds(int *out_buf) {
     if (!out_buf) return;
@@ -391,8 +349,6 @@ EXPORT void sim_set_memory_size(int bytes) {
     if (bytes == 16*1024 || bytes == 32*1024 || bytes == 64*1024)
         g_memory_size = bytes;
 }
-
-EXPORT int sim_get_memory_size(void) { return g_memory_size; }
 
 /* -----------------------------------------------------------------------
  * Snapshot / step-back
@@ -540,15 +496,12 @@ EXPORT uint32_t sim_get_cycles_hi(void) { return (uint32_t)(sim_get_cycles() >> 
 EXPORT void     sim_reset_cycles(void)  { sim_set_cycles(0); }
 
 /* Profiler — execution hit counts per address */
-EXPORT uint32_t sim_get_hitcnt_at(uint16_t addr)      { return sim_get_hitcnt(addr); }
 EXPORT void     sim_get_hitcnt_range(uint16_t start, uint16_t len, uint32_t *out) {
     if (!out) return;
     for (uint16_t i = 0; i < len; i++) out[i] = sim_get_hitcnt((uint16_t)(start + i));
 }
-EXPORT void     sim_reset_profile_api(void) { sim_reset_profile(); }
 
 /* SID/SOD serial pins */
-EXPORT uint8_t  sim_get_sid_api(void)      { return sim_get_sid(); }
 EXPORT void     sim_set_sid_api(int v)     { sim_set_sid((uint8_t)(v & 1)); }
 EXPORT uint8_t  sim_get_sod_api(void)      { return sim_get_sod(); }
 

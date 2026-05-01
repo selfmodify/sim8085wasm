@@ -13,7 +13,6 @@
  *   sim.init();
  *   const result = sim.assemble(sourceCode);
  *   if (result.ok) {
- *     sim.reset();
  *     sim.step();               // execute one instruction
  *     sim.run(10000);           // run up to N instructions
  *     const regs = sim.getRegisters();
@@ -68,7 +67,6 @@ extern "C" {
 
 /* Lifecycle */
 void sim_init(void);
-void sim_reset(void);
 
 /* Assembly */
 Sim8085AssembleResult sim_assemble(const char *source);
@@ -82,18 +80,12 @@ Sim8085Registers sim_get_registers(void);
 void sim_get_memory(uint16_t start, uint16_t length, uint8_t *out_buf);
 uint8_t  sim_read_byte(uint16_t addr);
 void     sim_write_byte(uint16_t addr, uint8_t val);
-uint16_t sim_get_pc(void);
-uint16_t sim_get_sp(void);
-uint16_t sim_get_status(void);
 
 /* Breakpoints */
 int  sim_set_breakpoint(uint16_t addr);    /* returns 1=set, 2=toggled off */
-void sim_clear_breakpoint(uint16_t addr);
 void sim_clear_all_breakpoints(void);
-int  sim_is_breakpoint(uint16_t addr);
 
 /* LED display */
-int  sim_get_led(int field_type, int index);   /* get 7-segment value */
 void sim_get_all_leds(int *out_buf);           /* fills 8 ints: 2 status + 4 addr + 2 data */
 
 /* Disassembly */
@@ -127,7 +119,6 @@ int  sim_get_key_queue(char *buf, int max_len); /* returns chars written */
 
 /* Memory size */
 void sim_set_memory_size(int bytes);
-int  sim_get_memory_size(void);
 
 /* Snapshot / step-back */
 void sim_get_full_memory(uint8_t *out_buf);                          /* out_buf must be MAIN_MEMORY bytes */

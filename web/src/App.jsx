@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, GutterMarker, gutter } from '@codemirror/view'
 import { EditorState, StateEffect, StateField, RangeSetBuilder } from '@codemirror/state'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { search, searchKeymap } from '@codemirror/search'
 import { oneDarkTheme } from '@codemirror/theme-one-dark'
 import * as sim from './simProxy.js'
@@ -121,7 +121,7 @@ const PANEL_HELP_TEXT = {
 • Key is stored in this browser only — never sent elsewhere
 • Click ⚙ to enter or change your API key`,
 
-  'MEMORY': `• Hex dump of the full 16 KB RAM
+  'MEMORY': `• Hex dump of the full configured RAM
 • Green cell = program counter (PC)
 • Amber cell = stack pointer (SP)
 • Blue cells = assembled program region
@@ -138,7 +138,10 @@ const PANEL_HELP_TEXT = {
 ⊞ Fill range:
 • Enter start address, end address, fill value
 • Cells in range preview highlighted before filling
-• Press Fill range to write the byte across the range`,
+• Press Fill range to write the byte across the range
+
+⬇ Export range:
+• Download any selected memory range to a raw .bin file`,
 
   'REGISTERS': `• Live 8085 register values (A, B, C, D, E, H, L, PC, SP)
 • Click any value to edit it inline
@@ -326,7 +329,7 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
           lineNumbers(),
           highlightActiveLine(),
           search({ top: true }),
-          keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+          keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
           oneDarkTheme,
           asm8085Lang.extension,
           asm8085Highlighting,
@@ -724,7 +727,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
   const lines = useMemo(() => {
     const out = []
     let addr = viewStart
-    for (let i = 0; i < 100 && addr < 0x4000; i++) {
+    for (let i = 0; i < 100 && addr <= 0xFFFF; i++) {
       const d = sim.simDisassemble(addr)
       out.push({ addr, ...d })
       addr += Math.max(1, d.len)
@@ -743,7 +746,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
   useEffect(() => {
     const idx = []
     let addr = 0
-    while (addr <= 0x3FFF) { idx.push(addr); const d = sim.simDisassemble(addr); addr += Math.max(1, d.len) }
+    while (addr <= 0xFFFF) { idx.push(addr); const d = sim.simDisassemble(addr); addr += Math.max(1, d.len) }
     addrIdxRef.current = idx
   }, [buildId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -800,7 +803,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
       } else if (e.key === 'Home') {
         e.preventDefault(); setViewStart(0)
       } else if (e.key === 'End') {
-        e.preventDefault(); setViewStart(0x3F00)
+        e.preventDefault(); setViewStart(0xFF00)
       }
     }
     window.addEventListener('keydown', handler)
@@ -819,7 +822,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
             onKeyDown={e => {
               if (e.key === 'Enter') {
                 const v = parseInt(addrInput, 16)
-                if (!isNaN(v)) { setViewStart(v & 0x3FFF); setFollowPC(false) }
+                if (!isNaN(v)) { setViewStart(v & 0xFFFF); setFollowPC(false) }
                 setAddrInput('')
               }
               if (e.key === 'Escape') setAddrInput('')
@@ -931,6 +934,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
 // ── Memory dump panel ────────────────────────────────────────────────────
 function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion, presetAddrs }) {
   const [mem, setMem] = useState(new Uint8Array(128))
+  const [followPC, setFollowPC] = useState(false)
   const [editing, setEditing] = useState(null)
   const [editBuf, setEditBuf] = useState('')
   const [rows, setRows] = useState(8)
@@ -938,12 +942,15 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
   const [cursor, setCursor] = useState(memStart)
   const [showSearch, setShowSearch] = useState(false)
   const [showFill, setShowFill]     = useState(false)
+  const [showExport, setShowExport] = useState(false)
   const [searchVal, setSearchVal]   = useState('')
   const [searchMatches, setSearchMatches] = useState([])
   const [searchIdx, setSearchIdx]   = useState(0)
   const [fillFrom, setFillFrom]     = useState('')
   const [fillTo, setFillTo]         = useState('')
   const [fillVal, setFillVal]       = useState('')
+  const [exportFrom, setExportFrom] = useState('')
+  const [exportTo, setExportTo]     = useState('')
   const [searchRan, setSearchRan]   = useState(false)
   const addrFocused = useRef(false)
   const COLS = 16
@@ -951,18 +958,34 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
   const panelRef  = useRef(null)
 
   const searchMatchSet  = useMemo(() => new Set(searchMatches), [searchMatches])
-  const fillPreviewSet  = useMemo(() => {
-    if (!showFill) return new Set()
-    const from = parseInt(fillFrom, 16), to = parseInt(fillTo, 16)
+  const previewSet = useMemo(() => {
+    let fromStr, toStr
+    if (showFill) { fromStr = fillFrom; toStr = fillTo }
+    else if (showExport) { fromStr = exportFrom; toStr = exportTo }
+    else return new Set()
+    const from = parseInt(fromStr, 16), to = parseInt(toStr, 16)
     if (isNaN(from) || isNaN(to)) return new Set()
-    const start = Math.min(from, to) & 0x3FFF
-    const end   = Math.min(Math.max(from, to) & 0x3FFF, 0x3FFF)
+    const start = Math.min(from, to) & 0xFFFF
+    const end   = Math.min(Math.max(from, to) & 0xFFFF, 0xFFFF)
     const s = new Set()
     for (let a = start; a <= end; a++) s.add(a)
     return s
-  }, [showFill, fillFrom, fillTo])
+  }, [showFill, fillFrom, fillTo, showExport, exportFrom, exportTo])
 
   useEffect(() => { if (!addrFocused.current) setAddrBuf(hex4(memStart)) }, [memStart])
+
+  function manualJump(addr) {
+    setFollowPC(false)
+    onJump(addr)
+  }
+
+  useEffect(() => {
+    if (!followPC) return
+    const visEnd = memStart + COLS * rows - 1
+    if (regs.pc < memStart || regs.pc > visEnd) {
+      onJump((regs.pc >> 4) << 4)
+    }
+  }, [regs.pc, followPC, memStart, rows, onJump])
 
   // When viewport jumps externally (address input, ◀/▶), clamp cursor into view
   useEffect(() => {
@@ -1011,9 +1034,9 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
     setCursor(next)
     const visEnd = memStart + COLS * rows - 1
     if (next < memStart) {
-      onJump((next >> 4) << 4)
+      manualJump((next >> 4) << 4)
     } else if (next > visEnd) {
-      onJump(Math.max(0, ((next >> 4) << 4) - COLS * (rows - 1)))
+      manualJump(Math.max(0, ((next >> 4) << 4) - COLS * (rows - 1)))
     }
   }
 
@@ -1031,22 +1054,22 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
   function runSearch() {
     const v = parseInt(searchVal, 16)
     if (isNaN(v)) return
-    const allMem = sim.simGetMemory(0, 0x4000)
+    const allMem = sim.simGetMemory(0, 0x10000)
     const matches = []
-    for (let i = 0; i < 0x4000; i++) {
+    for (let i = 0; i < allMem.length; i++) {
       if (allMem[i] === (v & 0xFF)) matches.push(i)
     }
     setSearchMatches(matches)
     setSearchIdx(0)
     setSearchRan(true)
-    if (matches.length > 0) onJump(matches[0] & 0xFFF0)
+    if (matches.length > 0) manualJump(matches[0] & 0xFFF0)
   }
 
   function searchNav(dir) {
     if (searchMatches.length === 0) return
     const idx = (searchIdx + dir + searchMatches.length) % searchMatches.length
     setSearchIdx(idx)
-    onJump(searchMatches[idx] & 0xFFF0)
+    manualJump(searchMatches[idx] & 0xFFF0)
   }
 
   function runFill() {
@@ -1054,9 +1077,31 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
     const to   = parseInt(fillTo, 16)
     const val  = parseInt(fillVal, 16)
     if (isNaN(from) || isNaN(to) || isNaN(val)) return
-    const start = Math.min(from, to) & 0x3FFF
-    const end   = Math.min(Math.max(from, to) & 0x3FFF, 0x3FFF)
+    const start = Math.min(from, to) & 0xFFFF
+    const end   = Math.min(Math.max(from, to) & 0xFFFF, 0xFFFF)
     for (let a = start; a <= end; a++) sim.simWriteByte(a, val & 0xFF)
+    refresh()
+  }
+
+  function runExport() {
+    const from = parseInt(exportFrom, 16)
+    const to   = parseInt(exportTo, 16)
+    if (isNaN(from) || isNaN(to)) return
+    const start = Math.min(from, to) & 0xFFFF
+    const end   = Math.min(Math.max(from, to) & 0xFFFF, 0xFFFF)
+    const len = end - start + 1
+    const buf = sim.simGetMemory(start, len)
+    const blob = new Blob([buf], { type: 'application/octet-stream' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `memory_${hex4(start)}-${hex4(end)}.bin`
+    document.body.appendChild(a); a.click()
+    document.body.removeChild(a); URL.revokeObjectURL(url)
+  }
+
+  function clearMemory() {
+    if (!window.confirm('Clear all memory? This will overwrite everything with 00H.')) return
+    for (let i = 0; i <= 0xFFFF; i++) sim.simWriteByte(i, 0)
     refresh()
   }
 
@@ -1067,8 +1112,13 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
         <span className="panel-icon">💾</span>MEMORY
         <div className="panel-hd-right">
         <span className="mem-ctrl">
-          <button className="mem-btn" title="Back 4 pages" onClick={() => onJump(Math.max(0, memStart - COLS*rows*4))}>«</button>
-          <button className="mem-btn" onClick={() => onJump(Math.max(0, memStart - COLS*rows))}>◀</button>
+          <button className={`mem-btn${followPC ? ' mem-btn-active' : ''}`} style={{ width: 42 }}
+            title={followPC ? 'Following PC — click to unlock' : 'Not following PC — click to lock'}
+            onClick={() => setFollowPC(f => !f)}>
+            {followPC ? 'PC↓' : 'PC·'}
+          </button>
+          <button className="mem-btn" title="Back 4 pages" onClick={() => manualJump(Math.max(0, memStart - COLS*rows*4))}>«</button>
+          <button className="mem-btn" onClick={() => manualJump(Math.max(0, memStart - COLS*rows))}>◀</button>
           <input
             className="mem-cur-addr"
             value={addrBuf}
@@ -1078,20 +1128,24 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
             onFocus={e => { addrFocused.current = true; e.target.select() }}
             onBlur={() => { addrFocused.current = false; setAddrBuf(hex4(memStart)) }}
             onKeyDown={e => {
-              if (e.key === 'Enter') { const v = parseInt(addrBuf, 16); if (!isNaN(v)) onJump(v & 0xFFF0); e.target.blur() }
+              if (e.key === 'Enter') { const v = parseInt(addrBuf, 16); if (!isNaN(v)) manualJump(v & 0xFFF0); e.target.blur() }
               if (e.key === 'Escape') { setAddrBuf(hex4(memStart)); e.target.blur() }
             }}
           />
-          <button className="mem-btn" onClick={() => onJump(Math.min(0x3F00, memStart + COLS*rows))}>▶</button>
-          <button className="mem-btn" title="Forward 4 pages" onClick={() => onJump(Math.min(0x3F00, memStart + COLS*rows*4))}>»</button>
+        <button className="mem-btn" onClick={() => manualJump(Math.min(0xFFF0, memStart + COLS*rows))}>▶</button>
+        <button className="mem-btn" title="Forward 4 pages" onClick={() => manualJump(Math.min(0xFFF0, memStart + COLS*rows*4))}>»</button>
         </span>
         <span style={{width:8, flexShrink:0}} />
         <button className={`mem-btn${showSearch ? ' mem-btn-active' : ''}`}
           title="Find byte in memory (toggle)"
-          onClick={() => { setShowSearch(s => !s); setShowFill(false) }}>🔍</button>
+          onClick={() => { setShowSearch(s => !s); setShowFill(false); setShowExport(false) }}>🔍</button>
         <button className={`mem-btn${showFill ? ' mem-btn-active' : ''}`}
           title="Fill memory range (toggle)"
-          onClick={() => { setShowFill(s => !s); setShowSearch(false) }}>⊞</button>
+          onClick={() => { setShowFill(s => !s); setShowSearch(false); setShowExport(false) }}>⊞</button>
+        <button className={`mem-btn${showExport ? ' mem-btn-active' : ''}`}
+          title="Export memory range (toggle)"
+          onClick={() => { setShowExport(s => !s); setShowSearch(false); setShowFill(false) }}>⬇</button>
+      <button className="mem-btn" title="Clear all memory" onClick={clearMemory}>🗑</button>
         <PanelHelp panel="MEMORY" wide />
         </div>
       </div>
@@ -1128,18 +1182,32 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
           <button className="mem-btn" onClick={runFill}>Fill range</button>
         </div>
       )}
+      {showExport && (
+        <div className="mem-toolbar mem-toolbar-fill">
+          <span className="mem-toolbar-lbl">EXPORT</span>
+          <input className="mem-toolbar-input" placeholder="0000" maxLength={4} style={{width:46}}
+            autoFocus
+            value={exportFrom} onChange={e => setExportFrom(e.target.value.toUpperCase())} title="Start address" />
+          <span className="mem-toolbar-lbl">–</span>
+          <input className="mem-toolbar-input" placeholder="00FF" maxLength={4} style={{width:46}}
+            value={exportTo} onChange={e => setExportTo(e.target.value.toUpperCase())} title="End address" />
+          <button className="mem-btn" onClick={runExport}>Download .bin</button>
+        </div>
+      )}
       <div className="mem-scroll" ref={scrollRef}
-        onWheel={e => { e.preventDefault(); const delta = e.deltaY > 0 ? COLS : -COLS; onJump(Math.max(0, Math.min(0x3F00, memStart + delta))) }}>
+        onWheel={e => { e.preventDefault(); const delta = e.deltaY > 0 ? COLS : -COLS; manualJump(Math.max(0, Math.min(0xFFF0, memStart + delta))) }}>
         <table className="mem-tbl">
           <thead>
             <tr>
               <th className="mem-th-addr"></th>
               {Array.from({length:COLS},(_,i)=><th key={i} className="mem-th">{hex2(i)}</th>)}
+              <th className="mem-th-ascii" style={{ paddingLeft: 16, textAlign: 'left' }}>ASCII</th>
             </tr>
           </thead>
           <tbody>
             {Array.from({length:rows},(_,row)=>{
               const base = memStart + row*COLS
+              let ascii = ''
               return (
                 <tr key={row}>
                   <td className="mem-row-addr">{hex4(base)}</td>
@@ -1153,7 +1221,8 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
                     const isPreset   = !isPC && !isSP && !isCode && presetAddrs?.has(addr)
                     const isMatchCur = searchMatches.length > 0 && addr === searchMatches[searchIdx]
                     const isMatch    = !isMatchCur && searchMatchSet.has(addr)
-                    const isFillPrev = !isPC && !isSP && !isMatchCur && !isMatch && fillPreviewSet.has(addr)
+                    const isFillPrev = !isPC && !isSP && !isMatchCur && !isMatch && previewSet.has(addr)
+                    ascii += (val >= 0x20 && val <= 0x7E) ? String.fromCharCode(val) : '.'
                     if (editing === addr)
                       return (
                         <td key={col} className="mem-cell editing">
@@ -1173,6 +1242,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
                       >{hex2(val)}</td>
                     )
                   })}
+                  <td className="mem-cell-ascii" style={{ paddingLeft: 16, letterSpacing: '1px', opacity: 0.6, whiteSpace: 'pre' }}>{ascii}</td>
                 </tr>
               )
             })}
@@ -1395,7 +1465,6 @@ function StackPanel({ regs, regBase, onRegBase }) {
     const out = []
     for (let i = 0; i < 64; i++) {
       const a = (regs.sp + i*2) & 0xFFFF
-      if (a >= 0x4000) break
       out.push({ addr: a, val: sim.simReadByte(a) | (sim.simReadByte(a+1)<<8) })
     }
     return out
@@ -1493,10 +1562,13 @@ function TracePanel({ trace, onClear }) {
                 <span className="trace-delta">
                   {e.changedKeys.map(k => {
                     const FLAG_SHORT = { flagS:'S', flagZ:'Z', flagAC:'AC', flagP:'P', flagCY:'CY' }
+                    const isFlag = !!FLAG_SHORT[k]
+                    const is16 = TRACE_REG16.has(k)
                     const name = FLAG_SHORT[k] ?? k.toUpperCase()
-                    const val  = FLAG_SHORT[k] ? e.regs[k] : fmtTraceVal(k, e.regs[k])
-                    return `${name}=${val}`
-                  }).join(' ')}
+                    const val  = isFlag ? e.regs[k] : fmtTraceVal(k, e.regs[k])
+                    const color = isFlag ? '#ff8a66' : is16 ? '#c792ea' : '#82aaff'
+                    return <span key={k} style={{ color, marginRight: 7 }}>{name}={val}</span>
+                  })}
                 </span>
               }
             </div>
@@ -1896,6 +1968,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExpor
       {open && (
         <div className="bmenu-dropdown">
           {item('⇡  Import .asm / .85', onImport)}
+          {item('⇡  Import .hex / .bin  (memory image)', onImport)}
           {item('⇣  Export .asm', onExport)}
           {item('⇣  Export .hex  (Intel HEX)', onExportHex)}
           {item('⇣  Export .bin  (raw binary)', onExportBin)}
@@ -2732,12 +2805,22 @@ function addTraceEntry(prevR) {
     }
 
     if (ext === 'bin') {
+      const inputAddr = window.prompt(`Enter hex start address for ${file.name}:`, '0100')
+      if (inputAddr === null) {
+        e.target.value = ''
+        return
+      }
+      let startAddr = parseInt(inputAddr.replace(/h$/i, ''), 16)
+      if (isNaN(startAddr) || startAddr < 0 || startAddr > 0xFFFF) {
+        startAddr = 0x100
+        alert('Invalid hex address. Defaulting to 0100H.')
+      }
       const reader = new FileReader()
       reader.onload = ev => {
         const bytes = new Uint8Array(ev.target.result)
         sim.simInit()
-        bytes.forEach((b, i) => sim.simWriteByte(0x100 + i, b))
-        setMsg(`✓ Loaded ${bytes.length} bytes from ${file.name} at 0100H`)
+        bytes.forEach((b, i) => sim.simWriteByte(startAddr + i, b))
+        setMsg(`✓ Loaded ${bytes.length} bytes from ${file.name} at ${hex4(startAddr)}H`)
         setAppState('idle'); setBuildId(id => id + 1)
         setFileName(file.name); localStorage.setItem('sim8085_filename', file.name)
         e.target.value = ''
@@ -2858,6 +2941,41 @@ function addTraceEntry(prevR) {
     setIntState(sim.simGetIntState())
   }
 
+  function formatCode() {
+    const formatted = srcRef.current.split('\n').map(line => {
+      let comment = ''
+      let code = line
+      let inStr = false, qChar = null
+      for (let i = 0; i < code.length; i++) {
+        const c = code[i]
+        if (!inStr && (c === '"' || c === "'")) { inStr = true; qChar = c }
+        else if (inStr && c === qChar) { inStr = false }
+        else if (!inStr && c === ';') { comment = code.slice(i); code = code.slice(0, i); break }
+      }
+      code = code.trim()
+      if (!code) return line.trim() ? '        ' + comment : ''
+
+      let label = ''
+      const lMatch = code.match(/^([A-Za-z_][A-Za-z0-9_]*:)\s*(.*)/)
+      if (lMatch) { label = lMatch[1]; code = lMatch[2] }
+      if (!code) return label + (comment ? '  ' + comment : '')
+
+      const parts = code.match(/^(\S+)\s*(.*)/)
+      const mnem = parts[1].toUpperCase()
+      const ops = (parts[2] || '').replace(/\s+/g, ' ').trim()
+
+      let out = label ? label.padEnd(8, ' ') : '        '
+      if (out.length > 8) out += '\n        '
+      out += mnem
+      if (ops) out = (out.length >= 16 ? out + ' ' : out.padEnd(16, ' ')) + ops
+      if (comment) out = (out.length >= 32 ? out + '  ' : out.padEnd(32, ' ')) + comment
+      return out.trimEnd()
+    }).join('\n')
+    setSrc(formatted)
+    srcRef.current = formatted
+    setMsg('✓ Code formatted')
+  }
+
   const running = appState === 'running'
 
   return (
@@ -2921,6 +3039,7 @@ function addTraceEntry(prevR) {
             <div className="panel-hd">
             <span className="panel-icon">✏️</span>EDITOR
             <div className="panel-hd-right">
+              <button className="reg-base-btn" onClick={formatCode} title="Auto-format code alignment">Format</button>
               <span className="editor-hint">; semicolons for comments</span>
               <PanelHelp panel="EDITOR" />
             </div>

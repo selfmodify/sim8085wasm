@@ -941,15 +941,6 @@ export function simClearInputPort(port)    { ioIn[port & 0xFF] = 0; }
 export function simGetOutputPorts() {
   return [...ioOutTouched].sort((a,b)=>a-b).map(p => ({ port: p, val: ioOut[p] }))
 }
-export function simGetInputPort(port) { return ioIn[port & 0xFF]; }
-
-export function simReset() {
-  regs = { a:0, b:0, c:0, d:0, e:0, h:0, l:0, flags:0, pc:DEFAULT_IP, sp:0 };
-  status = 0;
-  leds.fill(0);
-  iff = false; iffNext = false; rst75ff = false; trapPend = false;
-  // intMask and intLines preserved across reset (like ioIn presets)
-}
 
 export function simAssemble(source) {
   return assemble(source);
@@ -998,22 +989,16 @@ export function simGetMemory(start, length) {
 
 export function simReadByte(addr)      { return ram[addr & 0xFFFF] ?? 0; }
 export function simWriteByte(addr, v)  { ram[addr & 0xFFFF] = v & 0xFF; }
-export function simGetPC()             { return regs.pc; }
-export function simGetSP()             { return regs.sp; }
 
 export function simSetBreakpoint(addr) {
   if (breakpoints.has(addr)) { breakpoints.delete(addr); return 2; }
   breakpoints.add(addr); return 1;
 }
-export function simClearBreakpoint(addr)  { breakpoints.delete(addr); }
 export function simClearAllBreakpoints() { breakpoints.clear(); }
-export function simIsBreakpoint(addr)    { return breakpoints.has(addr); }
-export function simGetBreakpoints()      { return [...breakpoints]; }
 
 export function simSetDataBreakpoint(addr)   { if (dataBPs.has(addr)) { dataBPs.delete(addr); return 2; } dataBPs.add(addr); return 1; }
 export function simClearDataBreakpoint(addr) { dataBPs.delete(addr); }
 export function simClearAllDataBreakpoints() { dataBPs.clear(); dataWatchHit = -1; }
-export function simIsDataBreakpoint(addr)    { return dataBPs.has(addr); }
 export function simGetDataBreakpoints()      { return [...dataBPs]; }
 export function simGetDataWatchHit()         { return dataWatchHit; }
 
@@ -1025,9 +1010,7 @@ export function simGetError()         { return lastError; }
 export function simGetSymbols()       { return {...lastSymbols} }
 export function simGetCycles()        { return cycles }
 export function simSetCycles(n)       { cycles = n }
-export function simGetHitcnt(addr)    { return hitcnt[addr & 0xFFFF] }
 export function simGetHitcntRange(start, len) { return hitcnt.slice(start, start + len) }
-export function simResetProfile()     { hitcnt.fill(0) }
 export function simGetConsoleOutput() { return consoleBuf }
 export function simClearConsoleOutput() { consoleBuf = '' }
 export function simSetConsolePort(n)  { consolePort = n & 0xFF }
@@ -1039,7 +1022,6 @@ export function simSetMemorySize(n) {
   MAIN_MEMORY = n
   ram = new Uint8Array(n)
 }
-export function simGetMemorySize() { return MAIN_MEMORY }
 
 export function simAssertInterrupt(type, vec) {
   switch (type) {
@@ -1071,7 +1053,6 @@ export function simGetIntState() {
            intr: intLines.intr,   intrVec: intLines.intrVec }
 }
 
-export function simGetSID()       { return sidValue }
 export function simSetSID(v)      { sidValue = v & 1 }
 export function simGetSOD()       { return sodValue }
 
