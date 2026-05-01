@@ -2497,9 +2497,12 @@ export default function App() {
   const [regBase, setRegBase]       = useState('hex')    // 'hex'|'dec'|'bin'
   const [statusLog, setStatusLog]   = useState([])
   const [histLen, setHistLen]       = useState(0)        // for disabling Step Back button
-  const timerRef      = useRef(null)
-  const warpActiveRef = useRef(false)
-  const lastUiRef     = useRef(0)
+  const timerRef            = useRef(null)
+  const warpActiveRef       = useRef(false)
+  const warpWorkerRef       = useRef(null)
+  const workerReadyPromise  = useRef(null)
+  const warpWorkerActiveRef = useRef(false)
+  const lastUiRef           = useRef(0)
   const wasHaltWaitingRef = useRef(false)
   const throughputRef = useRef({ steps: 0, ms: 0, mhz: 0 })
   const editorColRef = useRef(null)
@@ -2760,13 +2763,28 @@ export default function App() {
     refresh()
   }
 
+  function ensureWarpWorker() {
+    if (workerReadyPromise.current) return workerReadyPromise.current
+    const worker = new Worker(import.meta.env.BASE_URL + 'sim.worker.js')
+    warpWorkerRef.current = worker
+    workerReadyPromise.current = new Promise((resolve, reject) => {
+      const onReady = ({ data }) => {
+        if (data.type === 'ready') { worker.removeEventListener('message', onReady); resolve() }
+        if (data.type === 'error') { worker.removeEventListener('message', onReady); reject(new Error(data.error)) }
+      }
+      worker.addEventListener('message', onReady)
+    })
+    worker.postMessage({ cmd: 'init', baseUrl: import.meta.env.BASE_URL })
+    return workerReadyPromise.current
+  }
+
   function startRun() {
     if (timerRef.current) return
     setAppState('running')
 
-    function finalizeTick(atBp) {
+    function finalizeTick(atBp, over = {}) {
       const r = sim.simGetRegisters()
-      const watchHit = sim.simGetDataWatchHit ? sim.simGetDataWatchHit() : -1
+      const watchHit = over.watchHit !== undefined ? over.watchHit : (sim.simGetDataWatchHit ? sim.simGetDataWatchHit() : -1)
       if (oneShotBpsRef.current.size > 0) {
         const next = new Map(bpsRef.current)
         for (const addr of oneShotBpsRef.current) next.delete(addr)
@@ -2783,8 +2801,10 @@ export default function App() {
         setAppState('idle')
         setMsg(`⏹ Breakpoint at ${hex4(r.pc)}H`)
       } else {
-        setAppState(sim.simIsHalted() ? 'halted' : 'error')
-        setMsg(sim.simIsHalted() ? '■ Program halted.' : `✗ ${sim.simGetError()}`)
+        const isHalted = over.isHalted !== undefined ? over.isHalted : sim.simIsHalted()
+        const errMsg   = over.errorMsg  !== undefined ? over.errorMsg  : sim.simGetError()
+        setAppState(isHalted ? 'halted' : 'error')
+        setMsg(isHalted ? '■ Program halted.' : `✗ ${errMsg}`)
       }
     }
 
@@ -2794,6 +2814,59 @@ export default function App() {
       lastUiRef.current = 0
       wasHaltWaitingRef.current = false
       throughputRef.current = { steps: 0, ms: 0, mhz: 0, pendingSteps: 0, _last: performance.now() }
+
+      if (getEngineMode() === 'wasm') {
+        ensureWarpWorker().then(() => {
+          if (!warpActiveRef.current) return  // stopped before worker was ready
+          const ram = sim.simGetFullMemory()
+          const snap = {
+            regs:        sim.simGetRegisters(),
+            ram,
+            memSize:     memSizeRef.current,
+            breakpoints: [...bpsRef.current.entries()],
+            dataBps:     [...dataBps],
+            inputPorts:  sim.simGetAllInputPorts(),
+            consolePort: sim.simGetConsolePort(),
+            keyQueue:    sim.simGetKeyQueue(),
+          }
+          warpWorkerActiveRef.current = true
+          warpWorkerRef.current.onmessage = ({ data: d }) => {
+            if (!warpWorkerActiveRef.current && d.type !== 'stopped') return
+            if (d.type === 'stateUpdate') {
+              if (d.pendingSteps > 0) setSteps(s => s + d.pendingSteps)
+              setMhz(d.mhz || 0)
+              setRegs(old => { setPrev(old); return d.regs })
+              setLeds(d.leds)
+              setCycles(d.cycles)
+              setIntState(d.intState)
+              setKeyQueue(d.keyQueue)
+              setConsoleOutput(d.consoleOutput)
+              setSod(d.sod)
+              setOutputPorts(d.outputPorts)
+            } else if (d.type === 'haltWaiting') {
+              setMsg('⏸ HLT — awaiting interrupt…')
+            } else if (d.type === 'stopped') {
+              warpWorkerActiveRef.current = false
+              sim.simRestoreSnapshot({ regs: d.regs, ram: d.ram })
+              if (d.reason === 'stopped') {
+                refresh(); refreshOutputPorts()
+              } else {
+                finalizeTick(d.atBp, { watchHit: d.watchHit, isHalted: d.isHalted, errorMsg: d.errorMsg })
+              }
+              // Override any stale WASM reads with accurate worker-measured values
+              setCycles(d.cycles)
+              setLeds(d.leds)
+              setConsoleOutput(d.consoleOutput)
+              setIntState(d.intState)
+              setSod(d.sod)
+              setOutputPorts(d.outputPorts)
+              setKeyQueue(d.keyQueue)
+            }
+          }
+          warpWorkerRef.current.postMessage({ cmd: 'startWarp', snap }, [ram.buffer])
+        })
+        return
+      }
 
       const channel = new MessageChannel()
 
@@ -2907,6 +2980,12 @@ export default function App() {
 
   function stopRun() {
     warpActiveRef.current = false
+    if (warpWorkerActiveRef.current) {
+      warpWorkerRef.current?.postMessage({ cmd: 'stop' })
+      wasHaltWaitingRef.current = false
+      if (appState === 'running') setAppState('idle')
+      return
+    }
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     const tp = throughputRef.current
     if (tp.pendingSteps > 0) { setSteps(s => s + tp.pendingSteps); tp.pendingSteps = 0 }
@@ -3364,10 +3443,18 @@ function addTraceEntry(prevR) {
   }
 
   function assertInterrupt(type, vec) {
+    if (warpWorkerActiveRef.current) {
+      warpWorkerRef.current?.postMessage({ cmd: 'assertInterrupt', intType: type })
+      return
+    }
     sim.simAssertInterrupt(type, vec)
     setIntState(sim.simGetIntState())
   }
   function deassertInterrupt(type) {
+    if (warpWorkerActiveRef.current) {
+      warpWorkerRef.current?.postMessage({ cmd: 'deassertInterrupt', intType: type })
+      return
+    }
     sim.simDeassertInterrupt(type)
     setIntState(sim.simGetIntState())
   }

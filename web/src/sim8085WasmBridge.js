@@ -320,7 +320,8 @@ export function simClearInputPort(port) {
   jsInputPorts[p] = 0;
   if (M) M._sim_clear_input_port(p);
 }
-export function simGetInputPort(port) { return jsInputPorts[port & 0xFF]; }
+export function simGetInputPort(port)    { return jsInputPorts[port & 0xFF]; }
+export function simGetAllInputPorts()    { return jsInputPorts.slice(); }
 export function simGetOutputPorts() {
   if (!M) return [];
   const ptr = alloc(256);
