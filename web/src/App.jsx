@@ -1218,7 +1218,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
             <tr>
               <th className="mem-th-addr"></th>
               {Array.from({length:COLS},(_,i)=><th key={i} className="mem-th">{hex2(i)}</th>)}
-              <th className="mem-th-ascii" style={{ paddingLeft: 16, textAlign: 'left' }}>ASCII</th>
+              <th className="mem-th-ascii mobile-hidden" style={{ paddingLeft: 16, textAlign: 'left' }}>ASCII</th>
             </tr>
           </thead>
           <tbody>
@@ -1260,7 +1260,7 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
                       >{hex2(val)}</td>
                     )
                   })}
-                  <td className="mem-cell-ascii" style={{ paddingLeft: 16, letterSpacing: '1px', opacity: 0.6, whiteSpace: 'pre' }}>{ascii}</td>
+                  <td className="mem-cell-ascii mobile-hidden" style={{ paddingLeft: 16, letterSpacing: '1px', opacity: 0.6, whiteSpace: 'pre' }}>{ascii}</td>
                 </tr>
               )
             })}
@@ -2024,6 +2024,8 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExpor
               <div className="exmenu-sub">
                 <button className="exmenu-sub-item" onClick={() => { onShowWelcome(); setOpen(false); setActiveSub(null); }}>📖 Welcome guide</button>
                 <button className="exmenu-sub-item" onClick={() => { onShowShortcuts(); setOpen(false); setActiveSub(null); }}>⌨ Keyboard shortcuts</button>
+                <button className="exmenu-sub-item" onClick={() => { window.open('./privacy.html', '_blank'); setOpen(false); setActiveSub(null); }}>🔒 Privacy Policy</button>
+                <button className="exmenu-sub-item" onClick={() => { window.open('./terms.html', '_blank'); setOpen(false); setActiveSub(null); }}>📜 Terms of Service</button>
               </div>
             )}
           </div>
@@ -2290,12 +2292,27 @@ export default function App() {
     try {
       const hash = location.hash
       if (hash.startsWith('#code=')) { const d = b64decode(hash.slice(6)); if (d) return d }
+      if (hash.startsWith('#example=')) {
+        const exName = decodeURIComponent(hash.slice(9)).replace(/_/g, ' ')
+        for (const cat in EXAMPLES) {
+          if (EXAMPLES[cat][exName]) return EXAMPLES[cat][exName]
+        }
+      }
       const saved = localStorage.getItem('sim8085_program')
       if (saved) return saved
     } catch {}
     return EXAMPLES['I/O']['LED Count']
   })
-  const [fileName, setFileName]  = useState(() => localStorage.getItem('sim8085_filename') || '')
+  const [fileName, setFileName]  = useState(() => {
+    try {
+      const hash = location.hash
+      if (hash.startsWith('#example=')) {
+        const exName = decodeURIComponent(hash.slice(9)).replace(/_/g, ' ')
+        for (const cat in EXAMPLES) { if (EXAMPLES[cat][exName]) return exName }
+      }
+    } catch {}
+    return localStorage.getItem('sim8085_filename') || ''
+  })
   const [regs, setRegs]         = useState({a:0,b:0,c:0,d:0,e:0,h:0,l:0,flags:0,pc:0x100,sp:0,flagS:0,flagZ:0,flagAC:0,flagP:0,flagCY:0,halted:false,hasError:false})
   const [prevRegs, setPrev]     = useState(null)
   const [leds, setLeds]         = useState(Array(8).fill(0))
@@ -2887,6 +2904,43 @@ function addTraceEntry(prevR) {
     document.body.removeChild(a); URL.revokeObjectURL(url)
   }
 
+  function saveToDrive() {
+    if (!window.google) {
+      setMsg('✗ Google Identity Services script failed to load.')
+      return
+    }
+    // Replace with your actual Google Cloud OAuth Client ID
+    const CLIENT_ID = '467288235889-r6gbjd0ou6ubuiktrnaj54bee6iggr01.apps.googleusercontent.com'
+    
+    const client = window.google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: 'https://www.googleapis.com/auth/drive.file',
+      callback: async (tokenResponse) => {
+        if (tokenResponse && tokenResponse.access_token) {
+          setMsg('Saving to Google Drive…')
+          const name = (fileName.replace(/\.(asm|85|s|txt)$/i,'') || 'program') + '.asm'
+          const metadata = { name, mimeType: 'text/plain' }
+          const form = new FormData()
+          form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }))
+          form.append('file', new Blob([srcRef.current], { type: 'text/plain' }))
+          
+          try {
+            const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+              method: 'POST',
+              headers: { Authorization: 'Bearer ' + tokenResponse.access_token },
+              body: form
+            })
+            if (res.ok) setMsg('✓ File saved to Google Drive!')
+            else setMsg('✗ Error saving to Google Drive.')
+          } catch(e) {
+            setMsg('✗ Network error saving to Google Drive.')
+          }
+        }
+      }
+    })
+    client.requestAccessToken()
+  }
+
   function importFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -3134,7 +3188,8 @@ function addTraceEntry(prevR) {
           <button className="btn btn-reset" onClick={handleReset}>↺ Reset  <kbd>F6</kbd></button>
         </div>
 
-        {fileName && <span className="topbar-filename" title={fileName}>File: {fileName}</span>}
+        <button className="btn" style={{ marginLeft: 'auto', color: 'var(--blue)', borderColor: 'var(--border2)' }} onClick={saveToDrive} title="Connect and save to Google Drive">☁ Save to Drive</button>
+        {fileName && <span className="topbar-filename" style={{ marginLeft: 10 }} title={fileName}>File: {fileName}</span>}
         <span className={`engine-chip engine-chip-${engineMode}`} title={engineSwitching ? 'Switching engine…' : `Engine: ${engineMode.toUpperCase()}`}>
           {engineSwitching ? '…' : `Engine: ${engineMode.toUpperCase()}`}
         </span>
