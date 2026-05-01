@@ -1,0 +1,16 @@
+{
+  "name": "sim8085 Simulator",
+  "short_name": "sim8085",
+  "description": "Intel 8085 Microprocessor Simulator",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0d0f14",
+  "theme_color": "#0d0f14",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

@@ -1524,4 +1524,12 @@ body {
   /* Editor: fixed height so LED/help panels below it are reachable */
   .editor-panel { flex: 0 0 auto; min-height: 300px }
   .editor-inner { height: 300px; min-height: 0 }
+
+  /* Ensure mobile tap targets are at least 44x44px */
+  .btn, .mobile-tab, .exmenu-trigger, .bmenu-trigger { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .mem-btn, .reg-base-btn, .help-close, .panel-help-btn, .calc-float-close, .watch-rm, .watch-brk, .bp-list-del, .int-btn {
+    min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .exmenu-cat, .bmenu-item, .exmenu-sub-item, .ctx-menu-item { min-height: 44px; display: flex; align-items: center; }
+  .speed-slider { height: 44px; }
 }
