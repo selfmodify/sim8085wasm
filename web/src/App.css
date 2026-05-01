@@ -1532,4 +1532,28 @@ body {
   }
   .exmenu-cat, .bmenu-item, .exmenu-sub-item, .ctx-menu-item { min-height: 44px; display: flex; align-items: center; }
   .speed-slider { height: 44px; }
+
+  /* Fix layout collapses on mobile by replacing flex with fixed heights */
+  .disasm-panel { flex: 0 0 auto !important; height: 450px; }
+  .trace-panel  { flex: 0 0 auto !important; height: 250px; }
+  .watch-panel  { flex: 0 0 auto !important; height: 250px; }
+  .mem-panel    { flex: 0 0 auto !important; height: 280px; }
+
+  /* Disable resize handles on touch screens */
+  .mem-resize-handle, .chat-resize-handle, .stack-resize-handle, .help-resize-handle { display: none; }
+
+  /* Stack the memory and watch sections vertically */
+  .mem-watch-row { flex-direction: column; height: auto; overflow: visible; }
+  .mem-watch-divider { display: none; }
+  .mem-watch-mem, .mem-watch-watch { 
+    flex: 0 0 auto !important; width: 100% !important; min-height: 0; overflow: visible;
+  }
+
+  /* Simplify the status bar */
+  .topbar-filename, .statusbar-label, .sc-cycles, .sc-mhz, .sbar-sep { display: none; }
+  .sbar-counter.sc-steps { min-width: auto; text-align: left; }
+
+  /* Fix welcome modal */
+  .welcome-grid { grid-template-columns: 1fr; }
+  .welcome-footer { flex-direction: column; align-items: stretch; text-align: center; gap: 16px; }
 }
