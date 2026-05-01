@@ -347,7 +347,10 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 1;
+  padding: 6px 14px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 
@@ -791,7 +794,7 @@ body {
 .disasm-cond { font-size: 10px; color: var(--amber); font-family: var(--mono); opacity: .8; margin-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px }
 
 /* ── Memory ───────────────────────────────────────────────────────── */
-.mem-panel { flex: 0 0 auto; outline: none }
+.mem-panel { flex: 1 1 auto; min-height: 0; outline: none }
 .mem-panel:focus-visible { outline: 1px solid var(--border2); outline-offset: -1px }
 .mem-resize-handle {
   height: 5px;
@@ -900,6 +903,56 @@ body {
   background: var(--bg1);
   border-top: 1px solid var(--border);
 }
+
+/* ── Top-level View Tabs ────────────────────────────────────────── */
+.view-tabs {
+  display: flex;
+  gap: 6px;
+  margin-left: 20px;
+  align-items: center;
+}
+.view-tab {
+  position: relative;
+  background: transparent;
+  border: none;
+  color: var(--text3);
+  padding: 8px 18px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all .15s;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+.view-tab:hover:not(.active) {
+  background: var(--bg2);
+  color: var(--text);
+}
+.view-tab.active {
+  background: var(--bg3);
+  color: var(--accent);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.view-tab.active::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+/* ── Challenges View ───────────────────────────────────────────── */
+.challenges-view { flex: 1; overflow-y: auto; background: var(--bg); padding: 40px 20px; display: flex; flex-direction: column; align-items: center; }
+.challenges-container { max-width: 900px; width: 100%; display: flex; flex-direction: column; gap: 20px; }
+.challenge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 16px; }
+.challenge-card { background: var(--bg1); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; cursor: pointer; transition: all .15s; display: flex; flex-direction: column; gap: 8px; }
+.challenge-card:hover { border-color: var(--accent2); background: var(--bg2); transform: translateY(-2px); box-shadow: var(--shadow-pop); }
+.challenge-title { color: var(--accent); font-size: 15px; font-weight: 600; font-family: var(--mono); }
+.challenge-desc { color: var(--text2); font-size: 13px; line-height: 1.5; font-family: var(--sans); }
+
 
 /* ── Calculator (floating window) ────────────────────────────────── */
 .calc-float {
@@ -1467,7 +1520,7 @@ body {
 @media (max-width: 700px) {
   /* Topbar: let toolbar wrap so buttons don't clip */
   .topbar { height: auto; min-height: 48px; padding: 6px 10px; flex-wrap: wrap; gap: 6px }
-  .toolbar { flex-wrap: wrap; gap: 4px }
+  .toolbar { flex-wrap: wrap; gap: 4px; padding: 6px 10px; }
   /* Hide keyboard shortcut hints and speed label text to save space */
   .btn kbd { display: none }
   .speed-val { display: none }
@@ -1543,7 +1596,7 @@ body {
   .mem-resize-handle, .chat-resize-handle, .stack-resize-handle, .help-resize-handle { display: none; }
 
   /* Stack the memory and watch sections vertically */
-  .mem-watch-row { flex-direction: column; height: auto; overflow: visible; }
+  .mem-watch-row { flex-direction: column; height: auto !important; overflow: visible; }
   .mem-watch-divider { display: none; }
   .mem-watch-mem, .mem-watch-watch { 
     flex: 0 0 auto !important; width: 100% !important; min-height: 0; overflow: visible;

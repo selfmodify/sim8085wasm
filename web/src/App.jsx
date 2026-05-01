@@ -90,7 +90,8 @@ const PANEL_HELP_TEXT = {
 • Ctrl+click any mnemonic → full instruction docs
 • Ctrl+F → find / replace bar
 • Right-click an assembled line → run execution up to that line
-• Pseudo-ops: SETBYTE, SETWORD, ASSERT, KICKOFF (highlighted red)`,
+• Directives: EQU, DB, DW, DS (highlighted purple)
+• Pseudo-ops: KICKOFF, SETBYTE, SETWORD, ASSERT (highlighted red)`,
 
   'INSTRUCTION HELP': `• Shows docs for the instruction under your cursor
 • Updates live as you type or move the cursor
@@ -1019,9 +1020,10 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
   function onHandleMouseDown(e) {
     e.preventDefault()
     const startY = e.clientY
-    const startH = panelRef.current.getBoundingClientRect().height
+    const targetEl = panelRef.current.closest('.mem-watch-row') || panelRef.current
+    const startH = targetEl.getBoundingClientRect().height
     function onMove(ev) {
-      panelRef.current.style.height = Math.max(80, startH + (startY - ev.clientY)) + 'px'
+      targetEl.style.height = Math.max(80, startH + (startY - ev.clientY)) + 'px'
     }
     function onUp() {
       document.removeEventListener('mousemove', onMove)
@@ -1959,7 +1961,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, onExport, onExportHex, onExportBin, onSaveToDrive, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveToGist, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme }) {
   const [open, setOpen] = useState(false);
   const [activeSub, setActiveSub] = useState(null);
   const wrapRef = useRef(null)
@@ -1998,7 +2000,8 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
               <div className="exmenu-sub">
                 <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.asm / .85 source</button>
                 <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.hex / .bin image</button>
-                <button className="exmenu-sub-item" onClick={() => { onLoadFromDrive(); setOpen(false); setActiveSub(null); }}>☁ Load from Drive</button>
+                <button className="exmenu-sub-item" onClick={() => { onLoadFromDrive(); setOpen(false); setActiveSub(null); }}>☁ Load from Google Drive</button>
+                <button className="exmenu-sub-item" onClick={() => { onLoadFromGist(); setOpen(false); setActiveSub(null); }}>🐙 Load from GitHub Gist</button>
               </div>
             )}
           </div>
@@ -2011,7 +2014,8 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
                 <button className="exmenu-sub-item" onClick={() => { onExport(); setOpen(false); setActiveSub(null); }}>.asm source</button>
                 <button className="exmenu-sub-item" onClick={() => { onExportHex(); setOpen(false); setActiveSub(null); }}>.hex (Intel HEX)</button>
                 <button className="exmenu-sub-item" onClick={() => { onExportBin(); setOpen(false); setActiveSub(null); }}>.bin (raw binary)</button>
-                <button className="exmenu-sub-item" onClick={() => { onSaveToDrive(); setOpen(false); setActiveSub(null); }}>☁ Save to Drive</button>
+                <button className="exmenu-sub-item" onClick={() => { onSaveToDrive(); setOpen(false); setActiveSub(null); }}>☁ Save to Google Drive</button>
+                <button className="exmenu-sub-item" onClick={() => { onSaveToGist(); setOpen(false); setActiveSub(null); }}>🐙 Save to GitHub Gist</button>
               </div>
             )}
           </div>
@@ -2321,6 +2325,37 @@ function DriveLoadModal({ files, loading, onClose, onSelect }) {
   )
 }
 
+// ── Educational Challenges View ──────────────────────────────────────────
+function ChallengesView({ onSelect }) {
+  const CHALLENGES = [
+    { id: 'c1', title: '1. The Basics: Addition', desc: 'Write a program to add the byte at 0200H to the byte at 0201H and store the 8-bit result in 0202H.', setup: '    setbyte 200H, 15H\n    setbyte 201H, 20H' },
+    { id: 'c2', title: '2. Array Maximum', desc: 'Find the maximum value in an array of 8 bytes starting at 0200H. Store the result at 0210H.', setup: '    setbyte 200H, 34H\n    setbyte 201H, 78H\n    setbyte 202H, 12H\n    setbyte 203H, 9AH\n    setbyte 204H, 56H\n    setbyte 205H, 0BH\n    setbyte 206H, 0EFH\n    setbyte 207H, 23H' },
+    { id: 'c3', title: '3. Multiplication', desc: 'Multiply the byte at 0200H by the byte at 0201H. Store the 16-bit result at 0202H.', setup: '    setbyte 200H, 0CH\n    setbyte 201H, 0AH' },
+    { id: 'c4', title: '4. String Length', desc: 'Count the length of a null-terminated ASCII string starting at 0200H. Store the byte count at 0210H.', setup: '    db "Hello", 00H' },
+  ]
+  return (
+    <div className="challenges-view">
+      <div className="challenges-container">
+        <div style={{display:'flex', alignItems:'center', gap: 12, marginBottom: 10}}>
+          <span style={{fontSize: 32}}>🏆</span>
+          <div>
+            <h1 style={{color: 'var(--text)', fontFamily:'var(--mono)', fontSize: 24, letterSpacing: 1}}>EDUCATIONAL CHALLENGES</h1>
+            <p style={{color: 'var(--text2)', fontSize: 14}}>Select a challenge to load its initial state into the simulator. Automatic test verification is coming soon!</p>
+          </div>
+        </div>
+        <div className="challenge-grid">
+          {CHALLENGES.map(c => (
+            <div key={c.id} className="challenge-card" onClick={() => onSelect(c)}>
+              <div className="challenge-title">{c.title}</div>
+              <div className="challenge-desc">{c.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Root app ─────────────────────────────────────────────────────────────
 export default function App() {
   const [src, setSrc]           = useState(() => {
@@ -2393,6 +2428,7 @@ export default function App() {
   const [consoleOutput, setConsoleOutput] = useState('')
   const [consolePort,   setConsolePort]   = useState(() => sim.simGetConsolePort())
   const [mobileTab,      setMobileTab]      = useState('editor')
+  const [activeView,     setActiveView]     = useState('simulator') // 'simulator' | 'challenges'
   const [theme, setTheme] = useState(() => localStorage.getItem('sim8085_theme') || 'dark')
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -2503,7 +2539,16 @@ export default function App() {
     document.addEventListener('mouseup', onUp)
   }
 
-  useEffect(() => { sim.simInit(); doAssemble(src) }, [])
+  useEffect(() => {
+    sim.simInit()
+    const hash = window.location.hash
+    if (hash.startsWith('#gist=')) {
+      loadFromGist(hash.slice(6))
+      window.history.replaceState(null, '', window.location.pathname)
+    } else {
+      doAssemble(src)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const hotkeysRef = useRef(null)
   useEffect(() => { hotkeysRef.current = { doAssemble, handleReset, doStep, handleRun, running, appState } })
@@ -3097,6 +3142,47 @@ function addTraceEntry(prevR) {
     } catch(e) { setMsg(`✗ Error loading file: ${e.message}`) }
   }
 
+  async function loadFromGist(presetId) {
+    const input = typeof presetId === 'string' ? presetId : window.prompt('Enter a GitHub Gist ID or URL:')
+    if (!input) return
+    const match = input.match(/[0-9a-f]{20,}/i) || input.match(/^[a-zA-Z0-9_-]+$/)
+    const gistId = match ? match[0] : input.trim()
+    if (!gistId) return
+    setMsg('Fetching GitHub Gist…')
+    try {
+      const res = await fetch(`https://api.github.com/gists/${gistId}`)
+      if (!res.ok) throw new Error('Gist not found or private')
+      const data = await res.json()
+      const file = Object.values(data.files).find(f => f.filename.endsWith('.asm') || f.filename.endsWith('.85')) || Object.values(data.files)[0]
+      if (!file) throw new Error('No valid files found in Gist')
+      srcRef.current = file.content; setSrc(file.content); doAssemble(file.content)
+      setFileName(file.filename); localStorage.setItem('sim8085_filename', file.filename)
+      setMsg(`✓ Loaded ${file.filename} from GitHub Gist`)
+    } catch(e) { setMsg(`✗ Error loading GitHub Gist: ${e.message}`) }
+  }
+
+  async function saveToGist() {
+    let token = localStorage.getItem('sim8085_github_token')
+    if (!token) {
+      token = window.prompt('To save to GitHub, enter a Personal Access Token with the "gist" scope:\n(You can generate one at github.com/settings/tokens)')
+      if (!token) return
+      localStorage.setItem('sim8085_github_token', token.trim())
+    }
+    setMsg('Saving to GitHub Gist…')
+    const name = (fileName.replace(/\.(asm|85|s|txt)$/i,'') || 'program') + '.asm'
+    try {
+      const res = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: { 'Authorization': `token ${token.trim()}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: 'sim8085 assembly snippet', public: true, files: { [name]: { content: srcRef.current } } })
+      })
+      const data = await res.json()
+      if (!res.ok) { if (res.status === 401) localStorage.removeItem('sim8085_github_token'); throw new Error(data.message || 'API error') }
+      navigator.clipboard.writeText(data.html_url).catch(() => {})
+      setMsg(`✓ Saved to GitHub Gist! URL copied to clipboard.`)
+    } catch(e) { setMsg(`✗ Error saving GitHub Gist: ${e.message}`) }
+  }
+
   function importFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -3291,6 +3377,16 @@ function addTraceEntry(prevR) {
     setMsg('✓ Code formatted')
   }
 
+  function loadChallenge(c) {
+    const code = `; Challenge: ${c.title}\n; ${c.desc}\n\n    org 100H\n    kickoff 100H\n${c.setup ? c.setup + '\n' : ''}\n    ; Your code here...\n\n    hlt\n`
+    srcRef.current = code
+    setSrc(code)
+    doAssemble(code)
+    setFileName(c.title + '.asm')
+    localStorage.setItem('sim8085_filename', c.title + '.asm')
+    setActiveView('simulator')
+  }
+
   const running = appState === 'running'
   const isDirty = src !== lastBuiltSrcRef.current
 
@@ -3304,46 +3400,22 @@ function addTraceEntry(prevR) {
             onShowShortcuts={() => setShowShortcuts(true)}
             onImport={() => fileInputRef.current.click()}
             onLoadFromDrive={loadFromDrive}
+            onLoadFromGist={loadFromGist}
             onExport={exportFile}
             onExportHex={exportHex}
             onExportBin={exportBin}
             onSaveToDrive={saveToDrive}
+            onSaveToGist={saveToGist}
             onShare={shareURL}
             onCalc={() => setShowCalc(c => !c)}
             memSize={memSize} onMemSize={changeMemSize}
             engineMode={engineMode} onEngineSwitch={handleEngineSwitch}
             engineSwitching={engineSwitching}
             theme={theme} onTheme={toggleTheme} />
-        </div>
-
-        <div className="toolbar">
-          <ExampleMenu onLoad={loadExample} />
-          <input type="file" ref={fileInputRef} style={{display:'none'}} accept=".asm,.85,.s,.txt,.hex,.bin" onChange={importFile} />
-          <button className={`btn btn-asm${isDirty ? ' btn-asm-dirty' : ''}`} onClick={() => doAssemble(srcRef.current)} title={isDirty ? "Unsaved changes — click to rebuild" : "Code is up to date"}>
-            ⚙ Build{isDirty ? ' •' : ''}  <kbd>F5</kbd>
-          </button>
-          <button className="btn btn-step"  onClick={doStep}  disabled={running || appState==='error'}>↓ Step  <kbd>F7</kbd></button>
-          <button className="btn btn-back"  onClick={doStepBack} disabled={running || appState==='error' || histLen === 0} title={`Undo last step (${histLen} available)`}>⟲ Back{histLen > 0 ? ` (${histLen})` : ''}</button>
-          <button className={`btn ${running ? 'btn-stop':'btn-run'}`} onClick={handleRun}
-            disabled={!running && appState==='error'}>
-            {running ? '■ Stop' : '▶ Run'}  <kbd>{running?'F9':'F9'}</kbd>
-          </button>
-          <label className="speed-label" title={SPEEDS[runSpeed].warp ? 'Warp: run until HLT, no mid-run UI updates' : SPEEDS[runSpeed].delay ? `Auto: ${SPEEDS[runSpeed].steps} step every ${SPEEDS[runSpeed].delay}ms` : `${SPEEDS[runSpeed].steps.toLocaleString()} steps/tick`}>
-            Speed
-        <input type="range" min={0} max={SPEEDS.length - 1} value={runSpeed} className="speed-slider"
-              onChange={e => {
-                const v = +e.target.value;
-                setRunSpeed(v);
-                speedRef.current = v;
-                localStorage.setItem('sim8085_speed', v);
-                if (timerRef.current || warpActiveRef.current) {
-                  stopRun();
-                  startRun();
-                }
-              }} />
-            <span className="speed-val">{SPEEDS[runSpeed].label}</span>
-          </label>
-          <button className="btn btn-reset" onClick={handleReset}>↺ Reset  <kbd>F6</kbd></button>
+          <div className="view-tabs">
+            <button className={`view-tab${activeView === 'simulator' ? ' active' : ''}`} onClick={() => setActiveView('simulator')}>Simulator</button>
+            <button className={`view-tab${activeView === 'challenges' ? ' active' : ''}`} onClick={() => setActiveView('challenges')}>Challenges</button>
+          </div>
         </div>
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
@@ -3371,9 +3443,33 @@ function addTraceEntry(prevR) {
         ))}
       </div>
 
-      {/* ── Workspace ── */}
-      <div className="workspace">
-        {/* Editor column */}
+      {/* ── Simulator View ── */}
+      <div style={{ display: activeView === 'simulator' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        <div className="toolbar">
+          <ExampleMenu onLoad={loadExample} />
+          <input type="file" ref={fileInputRef} style={{display:'none'}} accept=".asm,.85,.s,.txt,.hex,.bin" onChange={importFile} />
+          <button className={`btn btn-asm${isDirty ? ' btn-asm-dirty' : ''}`} onClick={() => doAssemble(srcRef.current)} title={isDirty ? "Unsaved changes — click to rebuild" : "Code is up to date"}>
+            ⚙ Build{isDirty ? ' •' : ''}  <kbd>F5</kbd>
+          </button>
+          <button className="btn btn-step"  onClick={doStep}  disabled={running || appState==='error'}>↓ Step  <kbd>F7</kbd></button>
+          <button className="btn btn-back"  onClick={doStepBack} disabled={running || appState==='error' || histLen === 0} title={`Undo last step (${histLen} available)`}>⟲ Back{histLen > 0 ? ` (${histLen})` : ''}</button>
+          <button className={`btn ${running ? 'btn-stop':'btn-run'}`} onClick={handleRun} disabled={!running && appState==='error'}>
+            {running ? '■ Stop' : '▶ Run'}  <kbd>{running?'F9':'F9'}</kbd>
+          </button>
+          <label className="speed-label" title={SPEEDS[runSpeed].warp ? 'Warp: run until HLT, no mid-run UI updates' : SPEEDS[runSpeed].delay ? `Auto: ${SPEEDS[runSpeed].steps} step every ${SPEEDS[runSpeed].delay}ms` : `${SPEEDS[runSpeed].steps.toLocaleString()} steps/tick`}>
+            Speed
+            <input type="range" min={0} max={SPEEDS.length - 1} value={runSpeed} className="speed-slider"
+              onChange={e => {
+                const v = +e.target.value; setRunSpeed(v); speedRef.current = v; localStorage.setItem('sim8085_speed', v);
+                if (timerRef.current || warpActiveRef.current) { stopRun(); startRun() }
+              }} />
+            <span className="speed-val">{SPEEDS[runSpeed].label}</span>
+          </label>
+          <button className="btn btn-reset" onClick={handleReset}>↺ Reset  <kbd>F6</kbd></button>
+        </div>
+
+        <div className="workspace">
+          {/* Editor column */}
         <div className={`col col-editor${mobileTab!=='editor' ? ' mobile-hidden' : ''}`} ref={editorColRef}>
           <div className="panel editor-panel">
             <div className="panel-hd">
@@ -3466,6 +3562,12 @@ function addTraceEntry(prevR) {
           <TracePanel trace={trace} onClear={() => setTrace([])} />
         </div>
       </div>
+      </div>
+
+      {activeView === 'challenges' && (
+        <ChallengesView onSelect={loadChallenge} />
+      )}
+
       <div className="statusbar">
         <span className="statusbar-label">LAST EVENT</span>
         <div className="statusbar-events">
