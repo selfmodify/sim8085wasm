@@ -81,6 +81,86 @@
   --shadow-led:   drop-shadow(0 0 5px rgba(224, 108, 117, 0.7));
 }
 
+:root[data-theme="amber"] {
+  --bg:       #100800;
+  --bg1:      #180e00;
+  --bg2:      #211500;
+  --bg3:      #2a1c00;
+  --border:   #452900;
+  --border2:  #6b4000;
+  --accent:   #ffb000;
+  --accent2:  #d48a00;
+  --amber:    #ff7700;
+  --red:      #ff4422;
+  --blue:     #c89040;
+  --text:     #ffe580;
+  --text2:    #c07810;
+  --text3:    #7a4e08;
+  --led-on:   #ff8800;
+  --led-off:  rgba(255, 136, 0, 0.15);
+  --syn-keyword:   #ffcc44;
+  --syn-register:  #ff9900;
+  --syn-number:    #ffb000;
+  --syn-string:    #d4c070;
+  --syn-comment:   #6a4a10;
+  --syn-label:     #ffd060;
+  --syn-directive: #ffaa44;
+  --syn-pseudo:    #ff5522;
+  --tint-accent:      rgba(255, 176,   0, .07);
+  --tint-accent-hi:   rgba(255, 176,   0, .14);
+  --tint-accent-pc:   rgba(255, 176,   0, .22);
+  --tint-accent-flash:rgba(255, 176,   0, .32);
+  --tint-amber:       rgba(255, 119,   0, .12);
+  --tint-amber-sp:    rgba(255, 119,   0, .18);
+  --tint-red:         rgba(255,  68,  34, .10);
+  --tint-blue-code:   rgba(200, 144,  64, .15);
+  --tint-green-pre:   rgba(200, 160,  40, .15);
+  --shadow-pop:   0 4px 16px rgba(0,0,0,.65);
+  --shadow-menu:  0 8px 24px rgba(0,0,0,.75);
+  --shadow-modal: 0 12px 40px rgba(0,0,0,.85);
+  --shadow-led:   drop-shadow(0 0 6px rgba(255, 136, 0, 0.9));
+}
+
+:root[data-theme="green"] {
+  --bg:       #000d02;
+  --bg1:      #021206;
+  --bg2:      #031808;
+  --bg3:      #051e0a;
+  --border:   #0c381a;
+  --border2:  #165a28;
+  --accent:   #00ff41;
+  --accent2:  #00cc33;
+  --amber:    #7fff40;
+  --red:      #ff4040;
+  --blue:     #40ffaa;
+  --text:     #aaffe0;
+  --text2:    #48b858;
+  --text3:    #1e6030;
+  --led-on:   #00ff41;
+  --led-off:  rgba(0, 255, 65, 0.15);
+  --syn-keyword:   #40ffaa;
+  --syn-register:  #7fff40;
+  --syn-number:    #00ff41;
+  --syn-string:    #98e870;
+  --syn-comment:   #1e6030;
+  --syn-label:     #60ffc0;
+  --syn-directive: #38dd80;
+  --syn-pseudo:    #ff6060;
+  --tint-accent:      rgba(  0, 255,  65, .06);
+  --tint-accent-hi:   rgba(  0, 255,  65, .13);
+  --tint-accent-pc:   rgba(  0, 255,  65, .22);
+  --tint-accent-flash:rgba(  0, 255,  65, .32);
+  --tint-amber:       rgba(127, 255,  64, .10);
+  --tint-amber-sp:    rgba(127, 255,  64, .16);
+  --tint-red:         rgba(255,  64,  64, .10);
+  --tint-blue-code:   rgba( 64, 255, 170, .14);
+  --tint-green-pre:   rgba( 56, 220, 100, .14);
+  --shadow-pop:   0 4px 16px rgba(0,0,0,.65);
+  --shadow-menu:  0 8px 24px rgba(0,0,0,.75);
+  --shadow-modal: 0 12px 40px rgba(0,0,0,.85);
+  --shadow-led:   drop-shadow(0 0 6px rgba(0, 255, 65, 0.9));
+}
+
 :root {
   --bg:       #0d0f14;
   --bg1:      #141720;
@@ -202,6 +282,71 @@ body {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
+  /* Retro CRT Glow Effect */
+  box-shadow: 0 0 25px 8px var(--tint-accent); /* Increased glow intensity */
+  position: relative; /* Needed for pseudo-element scanlines */
+}
+
+/* Retro CRT Scanline Overlay */
+.app::after {
+  content: '';
+  position: absolute;
+  inset: 0; /* Cover the entire app */
+  pointer-events: none; /* Allow clicks/interaction underneath */
+  background-image: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.1) 50%); /* Subtle dark scanlines */
+  background-size: 100% 2px; /* 1px transparent, 1px dark line, repeating every 2px */
+  opacity: 0.3; /* Increased intensity */
+  z-index: 1000; /* Ensure overlay is on top of content but under modals */
+}
+
+/* ── CRT phosphor themes: amber + green ───────────────────────────── */
+
+/* Black browser chrome so rounded corners look like a bezel */
+:root[data-theme="amber"] html,
+:root[data-theme="green"]  html { background: #000 }
+
+/* Rounded screen shape + stronger outer glow */
+:root[data-theme="amber"] .app,
+:root[data-theme="green"]  .app {
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 2px rgba(0,0,0,.9),
+    0 0 40px 12px var(--tint-accent),
+    0 0 80px 20px var(--tint-accent);
+}
+
+/* Vignette — darkens edges to simulate CRT curvature */
+:root[data-theme="amber"] .app::before,
+:root[data-theme="green"]  .app::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 50%, transparent 50%, rgba(0,0,0,.72) 100%);
+  z-index: 998;
+}
+
+/* Heavier scanlines */
+:root[data-theme="amber"] .app::after,
+:root[data-theme="green"]  .app::after {
+  background-image: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,.4) 50%);
+  background-size: 100% 3px;
+  opacity: 0.55;
+}
+
+/* Phosphor bloom on register values and accent-coloured text */
+:root[data-theme="amber"] .t-mono-val,
+:root[data-theme="green"]  .t-mono-val {
+  text-shadow: 0 0 10px currentColor, 0 0 3px currentColor;
+}
+:root[data-theme="amber"] .fg-accent,
+:root[data-theme="green"]  .fg-accent {
+  text-shadow: 0 0 7px currentColor;
+}
+:root[data-theme="amber"] .brand-chip,
+:root[data-theme="green"]  .brand-chip {
+  box-shadow: 0 0 16px var(--accent), 0 0 5px var(--accent);
 }
 
 /* ── Topbar ───────────────────────────────────────────────────────── */

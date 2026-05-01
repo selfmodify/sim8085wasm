@@ -2049,7 +2049,14 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
           </div>
 
           <div className="bmenu-sep" />
-          {item(theme === 'dark' ? '🌗  Dim theme' : theme === 'dim' ? '☀  Light theme' : '🌙  Dark theme', onTheme)}
+          {item(
+            theme === 'dark'  ? '🌗  Dim theme'   :
+            theme === 'dim'   ? '☀︎  Light theme' :
+            theme === 'light' ? '🟠  Amber CRT'   :
+            theme === 'amber' ? '🟢  Green CRT'   :
+                                '🌙  Dark theme',
+            onTheme
+          )}
           <div className="bmenu-setting">
             <span className="bmenu-setting-label">RAM size</span>
             <select className="bmenu-setting-sel" value={memSize}
@@ -2434,7 +2441,14 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('sim8085_theme', theme)
   }, [theme])
-  function toggleTheme() { setTheme(t => t === 'dark' ? 'dim' : t === 'dim' ? 'light' : 'dark') }
+  function toggleTheme() {
+    setTheme(t =>
+      t === 'dark'  ? 'dim'   :
+      t === 'dim'   ? 'light' :
+      t === 'light' ? 'amber' :
+      t === 'amber' ? 'green' : 'dark'
+    )
+  }
 
   const [driveFiles, setDriveFiles] = useState(null)
   const [driveToken, setDriveToken] = useState(() => {
