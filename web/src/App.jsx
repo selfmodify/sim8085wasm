@@ -1940,19 +1940,25 @@ function ExampleMenu({ onLoad }) {
 
 // ── Brand menu ───────────────────────────────────────────────────────────
 function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExportHex, onExportBin, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
+  const [activeSub, setActiveSub] = useState(null);
   const wrapRef = useRef(null)
 
   useEffect(() => {
     if (!open) return
-    const handler = e => { if (!wrapRef.current?.contains(e.target)) setOpen(false) }
+    const handler = e => {
+      if (!wrapRef.current?.contains(e.target)) {
+        setOpen(false)
+        setActiveSub(null)
+      }
+    }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
   function item(label, action) {
     return (
-      <button className="bmenu-item" onClick={() => { action(); setOpen(false) }}>
+      <button className="bmenu-item" onClick={() => { action(); setOpen(false); setActiveSub(null) }}>
         {label}
       </button>
     )
@@ -1963,13 +1969,29 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExpor
       <button className="brand-chip bmenu-trigger" onClick={() => setOpen(o => !o)} title="Menu">
         <span className="brand-chevron">☰</span> 8085
       </button>
-      {open && (
-        <div className="bmenu-dropdown">
-          {item('⇡  Import .asm / .85', onImport)}
-          {item('⇡  Import .hex / .bin  (memory image)', onImport)}
-          {item('⇣  Export .asm', onExport)}
-          {item('⇣  Export .hex  (Intel HEX)', onExportHex)}
-          {item('⇣  Export .bin  (raw binary)', onExportBin)}
+      {open &&
+        <div className="bmenu-dropdown" onMouseLeave={() => setActiveSub(null)}>
+          <div className={`bmenu-item exmenu-cat ${activeSub === 'import' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('import')}>
+            <span>⇡  Import</span>
+            <span className="exmenu-arrow">▶</span>
+            {activeSub === 'import' &&
+              <div className="exmenu-sub">
+                <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.asm / .85 source</button>
+                <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.hex / .bin image</button>
+              </div>
+            }
+          </div>
+          <div className={`bmenu-item exmenu-cat ${activeSub === 'export' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('export')}>
+            <span>⇣  Export</span>
+            <span className="exmenu-arrow">▶</span>
+            {activeSub === 'export' &&
+              <div className="exmenu-sub">
+                <button className="exmenu-sub-item" onClick={() => { onExport(); setOpen(false); setActiveSub(null); }}>.asm source</button>
+                <button className="exmenu-sub-item" onClick={() => { onExportHex(); setOpen(false); setActiveSub(null); }}>.hex (Intel)</button>
+                <button className="exmenu-sub-item" onClick={() => { onExportBin(); setOpen(false); setActiveSub(null); }}>.bin (raw)</button>
+              </div>
+            }
+          </div>
           {item('⎘  Copy share link', onShare)}
           <div className="bmenu-sep" />
           {item('🖩  Calculator', onCalc)}
@@ -2014,7 +2036,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onExport, onExpor
             <div>Web port: 2026</div>
           </div>
         </div>
-      )}
+      }
     </div>
   )
 }
