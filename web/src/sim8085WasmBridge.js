@@ -14,7 +14,7 @@
  */
 
 import { TSTATES } from './utils.js'
-import { simInit as jsInit, simAssemble as jsAssemble, simGetSymbols as jsGetSymbols, simGetProgramRegion as jsGetProgramRegion, simGetPresetAddrs as jsGetPresetAddrs } from './sim8085Bridge.js'
+import { simInit as jsInit, simAssemble as jsAssemble, simGetSymbols as jsGetSymbols, simGetProgramRegion as jsGetProgramRegion, simGetPresetAddrs as jsGetPresetAddrs, simGetFullMemory as jsGetFullMemory } from './sim8085Bridge.js'
 
 let M = null;   // resolved Emscripten module
 
@@ -80,23 +80,24 @@ export function simReset() {
 // ── Assembly ──────────────────────────────────────────────────────────────
 export function simAssemble(source) {
   if (!M) return { ok: false, errorMsg: 'WASM not ready', errors: ['WASM not ready'] };
-  const ptr = writeStr(source);
-  const ok  = M._wasm_assemble(ptr);
-  free(ptr);
+
+  // Fully clear the WASM engine's internal state, cycles, and profiler
+  M._sim_init();
+  M._sim_reset_profile();
+  M._sim_reset_cycles();
 
   jsInit();
-  jsAssemble(source);
+  const res = jsAssemble(source);
 
-  if (ok) {
-    return {
-      ok: true,
-      entryPoint:   M._wasm_asm_entry_point(),
-      bytesEmitted: M._wasm_asm_bytes_emitted(),
-      errors: [],
-    };
+  if (res.ok) {
+    const ram = jsGetFullMemory();
+    const ramPtr = alloc(ram.length);
+    heapWrite(ramPtr, ram);
+    M._sim_restore_snapshot(0, 0, ramPtr, ram.length); // Inject the compiled JS memory directly into WASM
+    free(ramPtr);
+    M._wasm_restore_regs(0, 0, 0, 0, 0, 0, 0, 0, res.entryPoint, 0);
   }
-  const msg = cstr(M._wasm_asm_error_msg());
-  return { ok: false, errorMsg: msg, errors: [msg] };
+  return res;
 }
 
 // ── Execution ─────────────────────────────────────────────────────────────
