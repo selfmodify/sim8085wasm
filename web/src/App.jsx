@@ -3,7 +3,6 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, Gutte
 import { EditorState, StateEffect, StateField, RangeSetBuilder, Compartment } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { search, searchKeymap } from '@codemirror/search'
-import { oneDarkTheme } from '@codemirror/theme-one-dark'
 import * as sim from './simProxy.js'
 import { getEngineMode, switchEngine } from './simProxy.js'
 import { EXAMPLES } from './examples.js'
@@ -332,16 +331,20 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
           highlightActiveLine(),
           search({ top: true }),
           keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
-          themeConf.current.of(theme === 'light' ? [] : oneDarkTheme),
+          themeConf.current.of(EditorView.theme({}, { dark: theme !== 'light' })),
           asm8085Lang.extension,
           asm8085Highlighting,
           errorLineField,
           errorGutterState,
           errorGutterExt,
           EditorView.theme({
-            '&': { height:'100%', fontFamily:'"JetBrains Mono","Fira Code",monospace', fontSize:'15px' },
+            '&': { height:'100%', fontFamily:'"JetBrains Mono","Fira Code",monospace', fontSize:'15px', color:'var(--text)', backgroundColor:'transparent' },
             '.cm-scroller': { overflow:'auto' },
-            '.cm-content': { padding:'8px 0', minHeight:'100%' },
+            '.cm-content': { padding:'8px 0', minHeight:'100%', caretColor:'var(--accent)' },
+            '&.cm-focused .cm-cursor': { borderLeftColor:'var(--accent)' },
+            '&.cm-focused .cm-selectionBackground, ::selection': { backgroundColor:'var(--bg3)' },
+            '.cm-activeLine, .cm-activeLineGutter': { backgroundColor:'var(--bg2)' },
+            '.cm-gutters': { backgroundColor:'transparent', color:'var(--text3)', borderRight:'1px solid var(--border)' },
             '.cm-error-line': { background: 'rgba(255,60,60,0.18)' },
             '.cm-error-gutter': { width: '14px' },
             '.cm-error-gutter-marker': { color: 'var(--red)', fontSize: '10px', lineHeight: '1.6', cursor: 'default' },
@@ -420,7 +423,7 @@ function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, 
   useEffect(() => {
     if (viewRef.current) {
       viewRef.current.dispatch({
-        effects: themeConf.current.reconfigure(theme === 'light' ? [] : oneDarkTheme)
+        effects: themeConf.current.reconfigure(EditorView.theme({}, { dark: theme !== 'light' }))
       })
     }
   }, [theme])
@@ -1990,7 +1993,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveToGist, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveToGist, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast }) {
   const [open, setOpen] = useState(false);
   const [activeSub, setActiveSub] = useState(null);
   const wrapRef = useRef(null)
@@ -2090,6 +2093,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
                   { id: 'amber-mono', label: '🟡  Amber Monochrome' },
                   { id: 'gray-crt',   label: '⬜  Gray Retro CRT'   },
                   { id: 'green',      label: '🟢  Green CRT'        },
+                  { id: 'turbo-dos',  label: '🟦  Turbo DOS'        },
                 ].map(({ id, label }) => (
                   <button key={id} className="exmenu-sub-item"
                     style={{ color: theme === id ? 'var(--accent)' : undefined,
@@ -2101,6 +2105,22 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
               </div>
             )}
           </div>
+          {['amber-mono', 'gray-crt', 'green', 'turbo-dos'].includes(theme) && (
+            <>
+              <div className="bmenu-setting">
+                <span className="bmenu-setting-label">CRT Brightness</span>
+                <input type="range" min="0.2" max="2.5" step="0.1" value={crtBrightness}
+                  onChange={e => onCrtBrightness(+e.target.value)} className="speed-slider" style={{width:'80px'}}
+                  onDoubleClick={() => onCrtBrightness(1)} title="Double-click to reset" />
+              </div>
+              <div className="bmenu-setting">
+                <span className="bmenu-setting-label">CRT Contrast</span>
+                <input type="range" min="0.2" max="3.0" step="0.1" value={crtContrast}
+                  onChange={e => onCrtContrast(+e.target.value)} className="speed-slider" style={{width:'80px'}}
+                  onDoubleClick={() => onCrtContrast(1)} title="Double-click to reset" />
+              </div>
+            </>
+          )}
           <div className="bmenu-setting">
             <span className="bmenu-setting-label">RAM size</span>
             <select className="bmenu-setting-sel" value={memSize}
@@ -2408,6 +2428,38 @@ function ChallengesView({ onSelect }) {
   )
 }
 
+// ── Community Gallery View ───────────────────────────────────────────────
+const COMMUNITY_SCRIPTS = [
+  { id: 'example_gist_id_1', title: 'Traffic Light Controller', author: 'sim8085', desc: 'Simulates a 4-way traffic light sequence using output ports and delay loops.' },
+  { id: 'example_gist_id_2', title: 'Prime Number Generator', author: 'sim8085', desc: 'Calculates prime numbers and stores them sequentially in memory starting at 0500H.' },
+  { id: 'example_gist_id_3', title: 'Stepping Motor Driver', author: 'sim8085', desc: 'Outputs a 4-phase stepping motor sequence to Port 01H with a configurable delay.' },
+] // Replace these placeholder IDs with real GitHub Gist IDs!
+
+function CommunityView({ onSelect }) {
+  return (
+    <div className="challenges-view">
+      <div className="challenges-container">
+        <div style={{display:'flex', alignItems:'center', gap: 12, marginBottom: 10}}>
+          <span style={{fontSize: 32}}>🌐</span>
+          <div>
+            <h1 style={{color: 'var(--text)', fontFamily:'var(--mono)', fontSize: 24, letterSpacing: 1}}>COMMUNITY GALLERY</h1>
+            <p style={{color: 'var(--text2)', fontSize: 14}}>Discover and run popular 8085 assembly scripts shared by the community via GitHub Gists.</p>
+          </div>
+        </div>
+        <div className="challenge-grid">
+          {COMMUNITY_SCRIPTS.map(g => (
+            <div key={g.id} className="challenge-card" onClick={() => onSelect(g.id)}>
+              <div className="challenge-title">{g.title}</div>
+              <div style={{fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: -4}}>by @{g.author}</div>
+              <div className="challenge-desc">{g.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Root app ─────────────────────────────────────────────────────────────
 export default function App() {
   const [src, setSrc]           = useState(() => {
@@ -2486,6 +2538,8 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('sim8085_theme', theme)
   }, [theme])
+  const [crtBrightness, setCrtBrightness] = useState(() => parseFloat(localStorage.getItem('sim8085_crt_b') || '1'))
+  const [crtContrast, setCrtContrast]     = useState(() => parseFloat(localStorage.getItem('sim8085_crt_c') || '1'))
   function toggleTheme() {
     setTheme(t =>
       t === 'dark'       ? 'dim'        :
@@ -3325,6 +3379,7 @@ function addTraceEntry(prevR) {
       srcRef.current = file.content; setSrc(file.content); doAssemble(file.content)
       setFileName(file.filename); localStorage.setItem('sim8085_filename', file.filename)
       setMsg(`✓ Loaded ${file.filename} from GitHub Gist`)
+      setActiveView('simulator')
     } catch(e) { setMsg(`✗ Error loading GitHub Gist: ${e.message}`) }
   }
 
@@ -3568,9 +3623,10 @@ function addTraceEntry(prevR) {
 
   const running = appState === 'running'
   const isDirty = src !== lastBuiltSrcRef.current
+  const isRetroTheme = ['amber-mono', 'gray-crt', 'green', 'turbo-dos'].includes(theme)
 
   return (
-    <div className="app">
+    <div className="app" style={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}>
       {/* ── Topbar ── */}
       <div className="topbar">
         <div className="brand">
@@ -3590,10 +3646,13 @@ function addTraceEntry(prevR) {
             memSize={memSize} onMemSize={changeMemSize}
             engineMode={engineMode} onEngineSwitch={handleEngineSwitch}
             engineSwitching={engineSwitching}
-            theme={theme} onTheme={toggleTheme} onSetTheme={setTheme} />
+            theme={theme} onTheme={toggleTheme} onSetTheme={setTheme}
+            crtBrightness={crtBrightness} onCrtBrightness={v => { setCrtBrightness(v); localStorage.setItem('sim8085_crt_b', v) }}
+            crtContrast={crtContrast} onCrtContrast={v => { setCrtContrast(v); localStorage.setItem('sim8085_crt_c', v) }} />
           <div className="view-tabs">
             <button className={`view-tab${activeView === 'simulator' ? ' active' : ''}`} onClick={() => setActiveView('simulator')}>Simulator</button>
             <button className={`view-tab${activeView === 'challenges' ? ' active' : ''}`} onClick={() => setActiveView('challenges')}>Challenges</button>
+            <button className={`view-tab${activeView === 'community' ? ' active' : ''}`} onClick={() => setActiveView('community')}>Community</button>
           </div>
         </div>
 
@@ -3745,6 +3804,10 @@ function addTraceEntry(prevR) {
 
       {activeView === 'challenges' && (
         <ChallengesView onSelect={loadChallenge} />
+      )}
+
+      {activeView === 'community' && (
+        <CommunityView onSelect={loadFromGist} />
       )}
 
       <div className="statusbar">

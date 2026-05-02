@@ -35,15 +35,15 @@ export const asm8085Lang = StreamLanguage.define({
 })
 
 const asm8085HighlightStyle = HighlightStyle.define([
-  { tag: hTags.keyword,             color: '#4090ff', fontWeight: '600' },
-  { tag: hTags.atom,                color: '#f0a840' },
-  { tag: hTags.number,              color: '#4af0a0' },
-  { tag: hTags.string,              color: '#a8e86a' },
-  { tag: hTags.comment,             color: '#4a5470', fontStyle: 'italic' },
-  { tag: hTags.labelName,           color: '#82aaff' },
-  { tag: hTags.meta,                color: '#c792ea' },
-  { tag: hTags.variableName,        color: '#c8d4e8' },
-  { tag: hTags.special(hTags.variableName), color: '#ff6b6b', fontWeight: '600' },
+  { tag: hTags.keyword,             color: 'var(--syn-keyword)', fontWeight: '600' },
+  { tag: hTags.atom,                color: 'var(--syn-register)' },
+  { tag: hTags.number,              color: 'var(--syn-number)' },
+  { tag: hTags.string,              color: 'var(--syn-string)' },
+  { tag: hTags.comment,             color: 'var(--syn-comment)', fontStyle: 'italic' },
+  { tag: hTags.labelName,           color: 'var(--syn-label)' },
+  { tag: hTags.meta,                color: 'var(--syn-directive)' },
+  { tag: hTags.variableName,        color: 'var(--text)' },
+  { tag: hTags.special(hTags.variableName), color: 'var(--syn-pseudo)', fontWeight: '600' },
 ])
 
 export const asm8085Highlighting = syntaxHighlighting(asm8085HighlightStyle)
