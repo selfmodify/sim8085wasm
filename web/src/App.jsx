@@ -752,6 +752,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
   const listRef     = useRef(null)
   const linesRef    = useRef(lines)
   const addrIdxRef  = useRef([])  // complete instruction address table, rebuilt on each build
+  const ignorePcScrollRef = useRef(false)
   useEffect(() => { linesRef.current = lines }, [lines])
 
   // Build a complete address index by scanning all memory from 0 on each build.
@@ -780,7 +781,9 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
     const lo = ls[0].addr
     const hi = ls[ls.length - 1].addr
     if (regs.pc >= lo && regs.pc <= hi) {
-      curRowRef.current?.scrollIntoView({ block: 'nearest' })
+      // Only scroll if PC is not already fully visible (e.g., if it's at the very edge)
+      // or if ignorePcScrollRef is false (meaning user hasn't scrolled manually)
+      if (!ignorePcScrollRef.current || (regs.pc < lo + 2 || regs.pc > hi - 2)) curRowRef.current?.scrollIntoView({ block: 'nearest' })
     } else if (regs.pc > hi && regs.pc - hi <= 6) {
       setViewStart(vs => { const i = findIdx(vs); return addrIdxRef.current[Math.min(addrIdxRef.current.length - 1, i + 1)] })
     } else {
@@ -797,26 +800,35 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
 
   useEffect(() => {
     const handler = (e) => {
-      if (!hoveredRef.current) return
+      if (!hoveredRef.current || listRef.current === null) return
       const ls = linesRef.current
       const idx = addrIdxRef.current
+      if (idx.length === 0) return
+
       const step = (vs, delta) => {
         const i = findIdx(vs)
         return idx[Math.max(0, Math.min(idx.length - 1, i + delta))]
       }
       const pageRows = listRef.current ? Math.max(1, Math.floor(listRef.current.clientHeight / 20) - 1) : 15
+
+      // Detect manual scrolling and disable followPC
+      let manualScroll = false
       if (e.key === 'ArrowDown') {
-        e.preventDefault(); setViewStart(vs => step(vs, 1))
+        e.preventDefault(); setViewStart(vs => step(vs, 1)); manualScroll = true
       } else if (e.key === 'ArrowUp') {
-        e.preventDefault(); setViewStart(vs => step(vs, -1))
+        e.preventDefault(); setViewStart(vs => step(vs, -1)); manualScroll = true
       } else if (e.key === 'PageDown') {
-        e.preventDefault(); setViewStart(vs => step(vs, pageRows))
+        e.preventDefault(); setViewStart(vs => step(vs, pageRows)); manualScroll = true
       } else if (e.key === 'PageUp') {
-        e.preventDefault(); setViewStart(vs => step(vs, -pageRows))
+        e.preventDefault(); setViewStart(vs => step(vs, -pageRows)); manualScroll = true
       } else if (e.key === 'Home') {
-        e.preventDefault(); setViewStart(0)
+        e.preventDefault(); setViewStart(0); manualScroll = true
       } else if (e.key === 'End') {
-        e.preventDefault(); setViewStart(0xFF00)
+        e.preventDefault(); setViewStart(idx[idx.length - 1] || 0xFF00); manualScroll = true
+      }
+      if (manualScroll) {
+        setFollowPC(false)
+        ignorePcScrollRef.current = true // Indicate user is actively scrolling
       }
     }
     window.addEventListener('keydown', handler)
@@ -837,7 +849,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
               if (e.key === 'Enter') {
                 const v = parseInt(addrInput, 16)
                 if (!isNaN(v)) { setViewStart(v & 0xFFFF); setFollowPC(false) }
-                setAddrInput('')
+                setAddrInput(''); ignorePcScrollRef.current = true
               }
               if (e.key === 'Escape') setAddrInput('')
             }}
@@ -851,6 +863,23 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
         </div>
       </div>
       <div className="disasm-list" ref={listRef}
+        onWheel={e => {
+          if (!listRef.current) return
+          const idx = addrIdxRef.current
+          if (idx.length === 0) return
+          
+          setFollowPC(false)
+          ignorePcScrollRef.current = true
+
+          const { scrollTop, scrollHeight, clientHeight } = listRef.current
+          if (e.deltaY < 0 && scrollTop <= 1) {
+            e.preventDefault()
+            setViewStart(vs => idx[Math.max(0, findIdx(vs) - 3)])
+          } else if (e.deltaY > 0 && scrollTop + clientHeight >= scrollHeight - 1) {
+            e.preventDefault()
+            setViewStart(vs => idx[Math.min(idx.length - 1, findIdx(vs) + 3)])
+          }
+        }}
         onMouseEnter={() => { hoveredRef.current = true }}
         onMouseLeave={() => { hoveredRef.current = false }}>
         {lines.map(row => {
