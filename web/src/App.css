@@ -201,6 +201,46 @@
   --shadow-led:   drop-shadow(0 0 6px rgba(0, 255, 65, 0.9));
 }
 
+:root[data-theme="turbo-dos"] {
+  --bg:       #555555;
+  --bg1:      #0000a8;
+  --bg2:      #0000a8;
+  --bg3:      #0055a8;
+  --border:   #aaaaaa;
+  --border2:  #ffffff;
+  --accent:   #ffff55;
+  --accent2:  #55ffff;
+  --amber:    #ff5555;
+  --red:      #ff5555;
+  --blue:     #55ffff;
+  --text:     #e0e0e0;
+  --text2:    #ffffff;
+  --text3:    #aaaaaa;
+  --led-on:   #ff5555;
+  --led-off:  rgba(255, 85, 85, 0.2);
+  --syn-keyword:   #ffffff;
+  --syn-register:  #55ffff;
+  --syn-number:    #55ff55;
+  --syn-string:    #ff5555;
+  --syn-comment:   #aaaaaa;
+  --syn-label:     #ffff55;
+  --syn-directive: #ff55ff;
+  --syn-pseudo:    #ff5555;
+  --tint-accent:      rgba(255, 255, 85, .15);
+  --tint-accent-hi:   rgba(255, 255, 85, .25);
+  --tint-accent-pc:   rgba(255, 255, 85, .35);
+  --tint-accent-flash:rgba(255, 255, 85, .50);
+  --tint-amber:       rgba(255, 85, 85, .15);
+  --tint-amber-sp:    rgba(255, 85, 85, .25);
+  --tint-red:         rgba(255, 85, 85, .15);
+  --tint-blue-code:   rgba(85, 255, 255, .15);
+  --tint-green-pre:   rgba(85, 255, 85, .15);
+  --shadow-pop:   0 4px 16px rgba(0,0,0,.5);
+  --shadow-menu:  0 8px 24px rgba(0,0,0,.6);
+  --shadow-modal: 0 12px 40px rgba(0,0,0,.8);
+  --shadow-led:   drop-shadow(0 0 5px rgba(255, 85, 85, 0.8));
+}
+
 :root {
   --bg:       #0d0f14;
   --bg1:      #141720;
@@ -331,12 +371,14 @@ body {
 /* Black browser chrome so rounded corners look like a bezel */
 :root[data-theme="amber-mono"] html,
 :root[data-theme="gray-crt"] html,
-:root[data-theme="green"]     html { background: #000 }
+:root[data-theme="green"]     html,
+:root[data-theme="turbo-dos"] html { background: #000 }
 
 /* Rounded screen shape + stronger outer glow */
 :root[data-theme="amber-mono"] .app,
 :root[data-theme="gray-crt"] .app,
-:root[data-theme="green"]     .app {
+:root[data-theme="green"]     .app,
+:root[data-theme="turbo-dos"] .app {
   border-radius: 14px;
   overflow: hidden;
   box-shadow:
@@ -348,7 +390,8 @@ body {
 /* Vignette — darkens edges to simulate CRT curvature */
 :root[data-theme="amber-mono"] .app::before,
 :root[data-theme="gray-crt"] .app::before,
-:root[data-theme="green"]     .app::before {
+:root[data-theme="green"]     .app::before,
+:root[data-theme="turbo-dos"] .app::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -360,7 +403,8 @@ body {
 /* Heavier scanlines */
 :root[data-theme="amber-mono"] .app::after,
 :root[data-theme="gray-crt"] .app::after,
-:root[data-theme="green"]     .app::after {
+:root[data-theme="green"]     .app::after,
+:root[data-theme="turbo-dos"] .app::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -373,17 +417,20 @@ body {
 /* Phosphor bloom on register values and accent-coloured text */
 :root[data-theme="amber-mono"] .t-mono-val,
 :root[data-theme="gray-crt"] .t-mono-val,
-:root[data-theme="green"]     .t-mono-val {
+:root[data-theme="green"]     .t-mono-val,
+:root[data-theme="turbo-dos"] .t-mono-val {
   text-shadow: 0 0 10px currentColor, 0 0 3px currentColor;
 }
 :root[data-theme="amber-mono"] .fg-accent,
 :root[data-theme="gray-crt"] .fg-accent,
-:root[data-theme="green"]     .fg-accent {
+:root[data-theme="green"]     .fg-accent,
+:root[data-theme="turbo-dos"] .fg-accent {
   text-shadow: 0 0 7px currentColor;
 }
 :root[data-theme="amber-mono"] .brand-chip,
 :root[data-theme="gray-crt"] .brand-chip,
-:root[data-theme="green"]     .brand-chip {
+:root[data-theme="green"]     .brand-chip,
+:root[data-theme="turbo-dos"] .brand-chip {
   box-shadow: 0 0 16px var(--accent), 0 0 5px var(--accent);
 }
 
