@@ -2377,13 +2377,14 @@ function DriveLoadModal({ files, loading, onClose, onSelect }) {
 }
 
 // ── Educational Challenges View ──────────────────────────────────────────
+const CHALLENGES = [
+  { id: 'c1', title: '1. The Basics: Addition', desc: 'Write a program to add the byte at 0200H to the byte at 0201H and store the 8-bit result in 0202H.', setup: '    setbyte 200H, 15H\n    setbyte 201H, 20H', test: () => sim.simReadByte(0x0202) === 0x35, successMsg: '0202H correctly contains 35H!' },
+  { id: 'c2', title: '2. Array Maximum', desc: 'Find the maximum value in an array of 8 bytes starting at 0200H. Store the result at 0210H.', setup: '    setbyte 200H, 34H\n    setbyte 201H, 78H\n    setbyte 202H, 12H\n    setbyte 203H, 9AH\n    setbyte 204H, 56H\n    setbyte 205H, 0BH\n    setbyte 206H, 0EFH\n    setbyte 207H, 23H', test: () => sim.simReadByte(0x0210) === 0xEF, successMsg: '0210H correctly contains EFH!' },
+  { id: 'c3', title: '3. Multiplication', desc: 'Multiply the byte at 0200H by the byte at 0201H. Store the 16-bit result at 0202H.', setup: '    setbyte 200H, 0CH\n    setbyte 201H, 0AH', test: () => sim.simReadByte(0x0202) === 0x78 && sim.simReadByte(0x0203) === 0x00, successMsg: '0202H correctly contains 0078H!' },
+  { id: 'c4', title: '4. String Length', desc: 'Count the length of a null-terminated ASCII string starting at 0200H. Store the byte count at 0210H.', setup: '    org 200H\n    db "Hello", 00H', test: () => sim.simReadByte(0x0210) === 0x05, successMsg: '0210H correctly contains 05H!' },
+]
+
 function ChallengesView({ onSelect }) {
-  const CHALLENGES = [
-    { id: 'c1', title: '1. The Basics: Addition', desc: 'Write a program to add the byte at 0200H to the byte at 0201H and store the 8-bit result in 0202H.', setup: '    setbyte 200H, 15H\n    setbyte 201H, 20H' },
-    { id: 'c2', title: '2. Array Maximum', desc: 'Find the maximum value in an array of 8 bytes starting at 0200H. Store the result at 0210H.', setup: '    setbyte 200H, 34H\n    setbyte 201H, 78H\n    setbyte 202H, 12H\n    setbyte 203H, 9AH\n    setbyte 204H, 56H\n    setbyte 205H, 0BH\n    setbyte 206H, 0EFH\n    setbyte 207H, 23H' },
-    { id: 'c3', title: '3. Multiplication', desc: 'Multiply the byte at 0200H by the byte at 0201H. Store the 16-bit result at 0202H.', setup: '    setbyte 200H, 0CH\n    setbyte 201H, 0AH' },
-    { id: 'c4', title: '4. String Length', desc: 'Count the length of a null-terminated ASCII string starting at 0200H. Store the byte count at 0210H.', setup: '    db "Hello", 00H' },
-  ]
   return (
     <div className="challenges-view">
       <div className="challenges-container">
@@ -2391,7 +2392,7 @@ function ChallengesView({ onSelect }) {
           <span style={{fontSize: 32}}>🏆</span>
           <div>
             <h1 style={{color: 'var(--text)', fontFamily:'var(--mono)', fontSize: 24, letterSpacing: 1}}>EDUCATIONAL CHALLENGES</h1>
-            <p style={{color: 'var(--text2)', fontSize: 14}}>Select a challenge to load its initial state into the simulator. Automatic test verification is coming soon!</p>
+            <p style={{color: 'var(--text2)', fontSize: 14}}>Select a challenge to load its initial state into the simulator. Run your code to automatically verify the result!</p>
           </div>
         </div>
         <div className="challenge-grid">
@@ -2508,6 +2509,10 @@ export default function App() {
   }, [driveToken])
   const [driveLoading, setDriveLoading] = useState(false)
   const [driveSaveStatus, setDriveSaveStatus] = useState(null)
+  const [activeChallenge, setActiveChallenge] = useState(null)
+  const [challengeResult, setChallengeResult] = useState(null)
+  const [haltTrigger, setHaltTrigger]         = useState(0)
+  const lastHaltRef                           = useRef(0)
 
   const [showWelcome,    setShowWelcome]    = useState(() => !localStorage.getItem('sim8085_welcomed'))
   const [showCalc,       setShowCalc]       = useState(false)
@@ -2632,9 +2637,22 @@ export default function App() {
   useEffect(() => {
     if (msg === 'Load an example or write code, then click Build.') return
     const t = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})
-    const kind = msg.startsWith('✗') ? 'error' : msg.startsWith('✓') ? 'success' : msg.startsWith('■') ? 'halted' : 'info'
+    const kind = msg.startsWith('✗') || msg.startsWith('❌') ? 'error' : msg.startsWith('✓') || msg.startsWith('🏆') ? 'success' : msg.startsWith('■') ? 'halted' : 'info'
     setStatusLog(log => [...log.slice(-19), { text: msg, kind, t }])
   }, [msg])
+
+  useEffect(() => {
+    if (haltTrigger > lastHaltRef.current && activeChallenge && !challengeResult) {
+      lastHaltRef.current = haltTrigger
+      if (activeChallenge.test()) {
+        setChallengeResult({ passed: true, msg: activeChallenge.successMsg })
+        setMsg(`🏆 Challenge Passed: ${activeChallenge.successMsg}`)
+      } else {
+        setChallengeResult({ passed: false, msg: 'Memory output does not match expected result. Check your logic and try again!' })
+        setMsg(`❌ Challenge Failed: Output is incorrect. Keep trying!`)
+      }
+    }
+  }, [haltTrigger, activeChallenge, challengeResult])
 
   function refresh() {
     const r = sim.simGetRegisters()
@@ -2685,6 +2703,7 @@ export default function App() {
       setHistLen(0)
       setTrace([])
       setCallStack([]); callStackRef.current = []
+    setChallengeResult(null)
       setHitcnts(null); setMaxHit(0)
       setChangedAddrs(new Set())
       setOutputPorts([])
@@ -2769,9 +2788,11 @@ export default function App() {
     if (sim.simIsHaltWaiting()) {
       setAppState('halted')
       setMsg('⏸ HLT — awaiting interrupt…')
+      setHaltTrigger(t => t + 1)
     } else if (!sim.simIsRunning()) {
       setAppState(sim.simGetError() ? 'error' : 'halted')
       setMsg(sim.simGetError() ? `✗ ${sim.simGetError()}` : '■ Program halted.')
+      if (!sim.simGetError()) setHaltTrigger(t => t + 1)
     } else if (!ok) {
       setAppState('idle')  // interrupt fired from HLT wait, ISR starting
     }
@@ -2834,6 +2855,7 @@ export default function App() {
         const errMsg   = over.errorMsg  !== undefined ? over.errorMsg  : sim.simGetError()
         setAppState(isHalted ? 'halted' : 'error')
         setMsg(isHalted ? '■ Program halted.' : `✗ ${errMsg}`)
+        if (isHalted) setHaltTrigger(t => t + 1)
       }
     }
 
@@ -2927,7 +2949,9 @@ export default function App() {
           refreshOutputPorts()
           lastUiRef.current = now
         }
+        const justHalted = isHaltWaiting && !wasHaltWaitingRef.current
         wasHaltWaitingRef.current = isHaltWaiting
+        if (justHalted) setHaltTrigger(t => t + 1)
 
         if (isHaltWaiting) {
           setMsg('⏸ HLT — awaiting interrupt…')
@@ -2987,7 +3011,10 @@ export default function App() {
         if (!isFast) updateMemDiff()
         lastUiRef.current = now
       }
+      const justHalted = isHaltWaiting && !wasHaltWaitingRef.current
       wasHaltWaitingRef.current = isHaltWaiting
+      if (justHalted) setHaltTrigger(t => t + 1)
+
       if (isHaltWaiting) {
         setMsg('⏸ HLT — awaiting interrupt…')
         return
@@ -3269,6 +3296,7 @@ function addTraceEntry(prevR) {
   async function fetchDriveFile(fileId, fileName) {
     setMsg(`Loading ${fileName}…`)
     setDriveFiles(null)
+    setActiveChallenge(null)
     try {
       const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${encodeURIComponent(driveToken)}`)
       if (res.status === 401) { setDriveToken(null); setMsg('✗ Drive session expired. Please connect again.'); return }
@@ -3286,6 +3314,7 @@ function addTraceEntry(prevR) {
     const match = input.match(/[0-9a-f]{20,}/i) || input.match(/^[a-zA-Z0-9_-]+$/)
     const gistId = match ? match[0] : input.trim()
     if (!gistId) return
+    setActiveChallenge(null)
     setMsg('Fetching GitHub Gist…')
     try {
       const res = await fetch(`https://api.github.com/gists/${gistId}`)
@@ -3324,6 +3353,7 @@ function addTraceEntry(prevR) {
   function importFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
+    setActiveChallenge(null)
     const ext = file.name.split('.').pop().toLowerCase()
 
     if (ext === 'hex') {
@@ -3418,6 +3448,7 @@ function addTraceEntry(prevR) {
     const sep  = key.indexOf('::')
     const code = EXAMPLES[key.slice(0, sep)]?.[key.slice(sep + 2)]
     if (!code) return
+    setActiveChallenge(null)
     srcRef.current = code
     setSrc(code)
     doAssemble(code)
@@ -3524,12 +3555,14 @@ function addTraceEntry(prevR) {
   }
 
   function loadChallenge(c) {
-    const code = `; Challenge: ${c.title}\n; ${c.desc}\n\n    org 100H\n    kickoff 100H\n${c.setup ? c.setup + '\n' : ''}\n    ; Your code here...\n\n    hlt\n`
+    const code = `; Challenge: ${c.title}\n; ${c.desc}\n\n${c.setup ? c.setup + '\n\n' : ''}    org 100H\n    kickoff 100H\n\n    ; --- YOUR CODE GOES HERE ---\n    ; (Delete the NOP and write your solution)\n    nop\n\n    hlt\n`
     srcRef.current = code
     setSrc(code)
     doAssemble(code)
     setFileName(c.title + '.asm')
     localStorage.setItem('sim8085_filename', c.title + '.asm')
+    setChallengeResult(null)
+    setActiveChallenge(c)
     setActiveView('simulator')
   }
 
@@ -3740,6 +3773,19 @@ function addTraceEntry(prevR) {
       {showCalc && <CalcFloat onClose={() => setShowCalc(false)} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {driveFiles !== null && <DriveLoadModal files={driveFiles} loading={driveLoading} onClose={() => setDriveFiles(null)} onSelect={fetchDriveFile} />}
+      {challengeResult && (
+        <div className="help-overlay" onClick={() => setChallengeResult(null)}>
+          <div className="welcome-modal" style={{ width: 400, textAlign: 'center', padding: '30px 20px', display: 'block' }} onClick={e => e.stopPropagation()}>
+             <div style={{ fontSize: 50, marginBottom: 16 }}>{challengeResult.passed ? '🏆' : '❌'}</div>
+             <h2 style={{ color: challengeResult.passed ? 'var(--accent)' : 'var(--red)', marginBottom: 12, fontFamily: 'var(--mono)' }}>{challengeResult.passed ? 'CHALLENGE PASSED!' : 'CHALLENGE FAILED'}</h2>
+             <p style={{ color: 'var(--text2)', lineHeight: 1.5 }}>{challengeResult.msg}</p>
+             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: 24 }}>
+               <button className="btn" style={{ fontSize: 14, padding: '6px 16px' }} onClick={() => setChallengeResult(null)}>{challengeResult.passed ? 'Awesome!' : 'Keep Trying'}</button>
+               <button className="btn" style={{ fontSize: 14, padding: '6px 16px' }} onClick={() => loadChallenge(activeChallenge)}>Restart Challenge</button>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
