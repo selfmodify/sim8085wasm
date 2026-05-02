@@ -322,30 +322,19 @@ body {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  /* Retro CRT Glow Effect */
-  box-shadow: 0 0 25px 8px var(--tint-accent); /* Increased glow intensity */
   position: relative; /* Needed for pseudo-element scanlines */
-}
-
-/* Retro CRT Scanline Overlay */
-.app::after {
-  content: '';
-  position: absolute;
-  inset: 0; /* Cover the entire app */
-  pointer-events: none; /* Allow clicks/interaction underneath */
-  background-image: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.1) 50%); /* Subtle dark scanlines */
-  background-size: 100% 2px; /* 1px transparent, 1px dark line, repeating every 2px */
-  opacity: 0.3; /* Increased intensity */
-  z-index: 1000; /* Ensure overlay is on top of content but under modals */
+  z-index: 0; /* Establish root stacking context for CRT effects */
 }
 
 /* ── CRT phosphor themes: gray-crt + green ────────────────────────── */
 
 /* Black browser chrome so rounded corners look like a bezel */
+:root[data-theme="amber-mono"] html,
 :root[data-theme="gray-crt"] html,
 :root[data-theme="green"]     html { background: #000 }
 
 /* Rounded screen shape + stronger outer glow */
+:root[data-theme="amber-mono"] .app,
 :root[data-theme="gray-crt"] .app,
 :root[data-theme="green"]     .app {
   border-radius: 14px;
@@ -357,6 +346,7 @@ body {
 }
 
 /* Vignette — darkens edges to simulate CRT curvature */
+:root[data-theme="amber-mono"] .app::before,
 :root[data-theme="gray-crt"] .app::before,
 :root[data-theme="green"]     .app::before {
   content: '';
@@ -368,22 +358,30 @@ body {
 }
 
 /* Heavier scanlines */
+:root[data-theme="amber-mono"] .app::after,
 :root[data-theme="gray-crt"] .app::after,
 :root[data-theme="green"]     .app::after {
-  background-image: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,.4) 50%);
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 50%, rgba(0, 0, 0, 0.25) 50%);
   background-size: 100% 3px;
-  opacity: 0.55;
 }
 
 /* Phosphor bloom on register values and accent-coloured text */
+:root[data-theme="amber-mono"] .t-mono-val,
 :root[data-theme="gray-crt"] .t-mono-val,
 :root[data-theme="green"]     .t-mono-val {
   text-shadow: 0 0 10px currentColor, 0 0 3px currentColor;
 }
+:root[data-theme="amber-mono"] .fg-accent,
 :root[data-theme="gray-crt"] .fg-accent,
 :root[data-theme="green"]     .fg-accent {
   text-shadow: 0 0 7px currentColor;
 }
+:root[data-theme="amber-mono"] .brand-chip,
 :root[data-theme="gray-crt"] .brand-chip,
 :root[data-theme="green"]     .brand-chip {
   box-shadow: 0 0 16px var(--accent), 0 0 5px var(--accent);
