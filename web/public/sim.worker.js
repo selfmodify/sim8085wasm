@@ -145,6 +145,11 @@ function evalCond(cond, r) {
   } catch { return true; }
 }
 
+// ── Tick scheduler — MessageChannel gives near-zero overhead vs setTimeout ────
+const tickChannel = new MessageChannel();
+tickChannel.port1.onmessage = () => warpTick();
+function scheduleTick() { tickChannel.port2.postMessage(null); }
+
 // ── Warp execution loop ───────────────────────────────────────────────────────
 function warpTick() {
   if (!running) return;
@@ -220,7 +225,7 @@ function warpTick() {
       if (cond != null && !evalCond(cond, snapRegs())) {
         jsDataWatchHit = -1;
         M._sim_step();
-        setTimeout(warpTick, 0);
+        scheduleTick();
         return;
       }
     }
@@ -240,8 +245,8 @@ function warpTick() {
     return;
   }
 
-  // Yield to process any pending messages, then continue
-  setTimeout(warpTick, 0);
+  // Yield to process any pending messages, then continue immediately
+  scheduleTick();
 }
 
 // ── Message handler ───────────────────────────────────────────────────────────
@@ -264,7 +269,7 @@ self.onmessage = function bootstrap({ data }) {
         running = true; stopRequested = false;
         throughput.steps = throughput.ms = throughput.mhz = throughput.pendingSteps = 0;
         lastUiMs = 0; wasHaltWaiting = false;
-        setTimeout(warpTick, 0);
+        scheduleTick();
         break;
       case 'stop':
         stopRequested = true;
