@@ -608,7 +608,7 @@ const PAIR_DEFS = [
 ]
 
 function PairPanel({ regs, prev, onJump, onEdit, regBase, onRegBase, onMemoryEdited }) {
-  const [collapsed, toggleCollapsed] = useCollapsible('pairs', false)
+  const [collapsed, toggleCollapsed] = useCollapsible('pairs', true)
   const [editing, setEditing] = useState(null)  // { key, field: 'addr'|'content' }
   const [buf, setBuf] = useState('')
   const p = prev || {}
@@ -1371,16 +1371,29 @@ function CalcFloat({ onClose }) {
 // ── AI chat panel ────────────────────────────────────────────────────────
 const CHAT_SYSTEM = `You are an expert assistant embedded in an Intel 8085 microprocessor simulator. Help users with 8085 assembly language programming, instruction behaviour, register and flag effects, debugging, memory addressing, and general computer architecture. When showing code use 8085 assembly syntax. Be concise and practical.`
 
-function ChatPanel({ regs, src }) {
+function ChatPanel({ regs, src, onClose }) {
   const [apiKey,      setApiKey]      = useState(() => localStorage.getItem('ant_key') || '')
   const [keyDraft,    setKeyDraft]    = useState('')
   const [setupOpen,   setSetupOpen]   = useState(!localStorage.getItem('ant_key'))
   const [messages,    setMessages]    = useState([])
   const [input,       setInput]       = useState('')
   const [loading,     setLoading]     = useState(false)
+  const [pos,         setPos]         = useState({ x: Math.max(0, window.innerWidth / 2 - 170), y: 150 })
+  const posRef     = useRef(pos)
   const scrollRef  = useRef(null)
   const inputRef   = useRef(null)
-  const panelRef   = useRef(null)
+
+  function onDragDown(e) {
+    if (e.target.closest('button') || e.target.closest('input')) return
+    e.preventDefault()
+    const ox = e.clientX - posRef.current.x, oy = e.clientY - posRef.current.y
+    function onMove(ev) {
+      const p = { x: ev.clientX - ox, y: Math.max(0, ev.clientY - oy) }
+      posRef.current = p; setPos(p)
+    }
+    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
+  }
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
@@ -1453,22 +1466,14 @@ function ChatPanel({ regs, src }) {
     }
   }
 
-  function onResizeDown(e) {
-    e.preventDefault()
-    const startY = e.clientY, startH = panelRef.current.getBoundingClientRect().height
-    const onMove = ev => { panelRef.current.style.height = Math.max(80, startH + (startY - ev.clientY)) + 'px' }
-    const onUp   = ()  => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
-    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
-  }
-
   return (
-    <div className="panel chat-panel" ref={panelRef}>
-      <div className="chat-resize-handle" onMouseDown={onResizeDown} />
-      <div className="panel-hd">
-        <span className="panel-icon">🤖</span>AI ASSISTANT
-        <div className="panel-hd-right">
+    <div className="chat-float" style={{ left: pos.x, top: pos.y }}>
+      <div className="chat-float-hd" onMouseDown={onDragDown}>
+        <span><span className="panel-icon">🤖</span>AI ASSISTANT</span>
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
           <button className="reg-base-btn" onClick={() => setSetupOpen(o => !o)} title="API key settings">⚙</button>
           <PanelHelp panel="AI ASSISTANT" />
+          <button className="chat-float-close" onClick={onClose} title="Close">✕</button>
         </div>
       </div>
 
@@ -1879,6 +1884,245 @@ function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput, key
   )
 }
 
+// ── 8255 PPI Panel ────────────────────────────────────────────────────────
+function PPI8255Panel({ outputPorts, inputPresets, onSetInput, onClose }) {
+  const [pos,  setPos]  = useState({ x: Math.max(0, window.innerWidth - 260), y: 100 })
+  const posRef = useRef(pos)
+
+  function onDragDown(e) {
+    if (e.target.closest('button')) return
+    e.preventDefault()
+    const ox = e.clientX - posRef.current.x, oy = e.clientY - posRef.current.y
+    function onMove(ev) {
+      const p = { x: ev.clientX - ox, y: Math.max(0, ev.clientY - oy) }
+      posRef.current = p; setPos(p)
+    }
+    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
+  }
+
+  const basePort = 0x00;
+  const ctrlPort = basePort + 3;
+
+  const outMap = new Map(outputPorts.map(p => [p.port, p.val]))
+  const inMap = new Map(inputPresets.map(p => [p.port, p.val]))
+
+  // Default Control Word is 9BH (10011011) - Mode 0, All ports set as Input
+  const ctrlVal = outMap.get(ctrlPort) ?? 0x9B;
+  const isModeSet = (ctrlVal & 0x80) !== 0;
+  const dirA = isModeSet && (ctrlVal & 0x10) ? 'IN' : 'OUT';
+  const dirCU = isModeSet && (ctrlVal & 0x08) ? 'IN' : 'OUT';
+  const dirB = isModeSet && (ctrlVal & 0x02) ? 'IN' : 'OUT';
+  const dirCL = isModeSet && (ctrlVal & 0x01) ? 'IN' : 'OUT';
+
+  function renderPort(name, port, dir) {
+    const val = dir === 'OUT' ? (outMap.get(port) ?? 0) : (inMap.get(port) ?? 0);
+    return (
+      <div className="ppi-port">
+        <div className="ppi-port-hd">
+          <span>PORT {name} <span className="ppi-port-addr">({hex2(port)}H)</span></span>
+          <span className={`ppi-dir ppi-dir-${dir.toLowerCase()}`}>{dir}</span>
+        </div>
+        <div className="ppi-bits">
+          {[7,6,5,4,3,2,1,0].map(bit => {
+            const isOn = (val >> bit) & 1;
+            return (
+              <div key={bit} className={`ppi-bit${isOn ? ' on' : ''}${dir==='IN'?' clickable':''}`}
+                onClick={() => { if (dir === 'IN') onSetInput(port, val ^ (1 << bit)) }}>
+                {isOn ? '1' : '0'}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  function renderPortC(port, dirU, dirL) {
+    const valOut = outMap.get(port) ?? 0;
+    const valIn = inMap.get(port) ?? 0;
+    return (
+      <div className="ppi-port">
+        <div className="ppi-port-hd">
+          <span>PORT C <span className="ppi-port-addr">({hex2(port)}H)</span></span>
+          <span className="ppi-dir"><span className={`ppi-dir-${dirU.toLowerCase()}`}>U:{dirU}</span> <span className={`ppi-dir-${dirL.toLowerCase()}`}>L:{dirL}</span></span>
+        </div>
+        <div className="ppi-bits">
+          {[7,6,5,4,3,2,1,0].map(bit => {
+            const dir = bit >= 4 ? dirU : dirL;
+            const val = dir === 'OUT' ? valOut : valIn;
+            const isOn = (val >> bit) & 1;
+            return (
+              <div key={bit} className={`ppi-bit${isOn ? ' on' : ''}${dir==='IN'?' clickable':''}`}
+                onClick={() => { if (dir === 'IN') onSetInput(port, valIn ^ (1 << bit)) }}>
+                {isOn ? '1' : '0'}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="ppi-float" style={{ left: pos.x, top: pos.y }}>
+      <div className="ppi-float-hd" onMouseDown={onDragDown}>
+        <span><span className="panel-icon">🕹️</span>8255 PPI</span>
+        <button className="ppi-float-close" onClick={onClose} title="Close">✕</button>
+      </div>
+      <div className="ppi-body">
+        <div className="ppi-ctrl-row">
+          <span>CTRL WORD ({hex2(ctrlPort)}H):</span>
+          <span className="ppi-ctrl-val">{hex2(ctrlVal)}H</span>
+        </div>
+        {renderPort('A', basePort + 0, dirA)}
+        {renderPort('B', basePort + 1, dirB)}
+        {renderPortC(basePort + 2, dirCU, dirCL)}
+      </div>
+    </div>
+  )
+}
+
+// ── 8253 PIT Panel ────────────────────────────────────────────────────────
+function PIT8253Panel({ outputPorts, onClose }) {
+  const [pos,  setPos]  = useState({ x: Math.max(0, window.innerWidth - 480), y: 100 })
+  const posRef = useRef(pos)
+
+  function onDragDown(e) {
+    if (e.target.closest('button')) return
+    e.preventDefault()
+    const ox = e.clientX - posRef.current.x, oy = e.clientY - posRef.current.y
+    function onMove(ev) {
+      const p = { x: ev.clientX - ox, y: Math.max(0, ev.clientY - oy) }
+      posRef.current = p; setPos(p)
+    }
+    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
+  }
+
+  const outMap = new Map(outputPorts.map(p => [p.port, p.val]))
+  const ctrlVal = outMap.get(0x13) ?? 0
+
+  const sc = (ctrlVal >> 6) & 3
+  const mode = (ctrlVal >> 1) & 7
+
+  function renderCounter(idx, port) {
+    const val = outMap.get(port) ?? 0
+    const isActive = sc === idx
+    return (
+      <div className="ppi-port" style={{ borderColor: isActive ? 'var(--accent)' : 'var(--border)' }}>
+        <div className="ppi-port-hd">
+          <span>COUNTER {idx} <span className="ppi-port-addr">({hex2(port)}H)</span></span>
+          {isActive && <span className="ppi-dir ppi-dir-out">MODE {mode}</span>}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>VAL:</span>
+          <span style={{ fontSize: 14, color: isActive ? 'var(--accent)' : 'var(--text2)', fontFamily: 'var(--mono)', fontWeight: 600 }}>{hex2(val)}H</span>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="ppi-float" style={{ left: pos.x, top: pos.y }}>
+      <div className="ppi-float-hd" onMouseDown={onDragDown}>
+        <span><span className="panel-icon">⏱️</span>8253 PIT</span>
+        <button className="ppi-float-close" onClick={onClose} title="Close">✕</button>
+      </div>
+      <div className="ppi-body">
+        <div className="ppi-ctrl-row"><span>CTRL WORD (13H):</span><span className="ppi-ctrl-val">{hex2(ctrlVal)}H</span></div>
+        {renderCounter(0, 0x10)}
+        {renderCounter(1, 0x11)}
+        {renderCounter(2, 0x12)}
+        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Control Word at 13H decodes mode. Loads hit 10H-12H.</div>
+      </div>
+    </div>
+  )
+}
+
+// ── Audio Output Panel ──────────────────────────────────────────────────
+function AudioPanel({ outputPorts, running }) {
+  const [collapsed, toggleCollapsed] = useCollapsible('audio', true)
+  const [enabled, setEnabled] = useState(false)
+  const audioRef = useRef(null) // holds { ctx, osc, gain }
+
+  const portVal = outputPorts.find(p => p.port === 0x40)?.val ?? 0
+
+  function toggleAudio() {
+    if (!enabled) {
+      // Initialize AudioContext directly inside the click handler to bypass browser autoplay blocks
+      if (!audioRef.current) {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)()
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = 'square'
+        gain.gain.value = 0 // Start completely muted
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.start()
+        audioRef.current = { ctx, osc, gain }
+      }
+      const { ctx } = audioRef.current
+      if (ctx.state === 'suspended') ctx.resume()
+      setEnabled(true)
+    } else {
+      // Mute and suspend
+      if (audioRef.current) {
+        const { ctx, gain } = audioRef.current
+        gain.gain.setTargetAtTime(0, ctx.currentTime, 0.015)
+        setTimeout(() => ctx.suspend(), 50) // let the fade out finish before suspending
+      }
+      setEnabled(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!enabled || !audioRef.current) return
+    const { ctx, osc, gain } = audioRef.current
+    if (portVal > 0 && running) {
+      const freq = 100 * Math.pow(2, portVal / 48)
+      osc.frequency.setTargetAtTime(freq, ctx.currentTime, 0.015)
+      gain.gain.setTargetAtTime(0.05, ctx.currentTime, 0.015) // Unmute
+    } else {
+      gain.gain.setTargetAtTime(0, ctx.currentTime, 0.015) // Mute
+    }
+  }, [portVal, enabled, running])
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.osc.stop()
+        audioRef.current.osc.disconnect()
+        audioRef.current.ctx.close()
+      }
+    }
+  }, [])
+
+  return (
+    <div className="panel audio-panel">
+      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
+        <span className="panel-icon">🔊</span>AUDIO (PORT 40H)
+        <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
+      </div>
+      {!collapsed && (
+        <div className="audio-body">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button className={`btn btn-xs ${enabled ? 'btn-run' : ''}`} onClick={toggleAudio}>
+              {enabled ? 'ON' : 'OFF'}
+            </button>
+            <span style={{ fontSize: 12, color: 'var(--text2)', fontFamily: 'var(--mono)' }}>
+              VAL: <span style={{ color: 'var(--accent)' }}>{hex2(portVal)}H</span>
+            </span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+            OUT 40H with value &gt; 0 generates a tone. OUT 40H with 0 mutes it. Requires interaction to enable.
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Interrupt panel ──────────────────────────────────────────────────────
 function IntPanel({ intState, onAssert, onDeassert }) {
   const [collapsed, toggleCollapsed] = useCollapsible('interrupts', true)
@@ -1993,7 +2237,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveToGist, onShare, onCalc, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveToGist, onShare, onCalc, onChat, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast, onManageGithub, panels, onTogglePanel }) {
   const [open, setOpen] = useState(false);
   const [activeSub, setActiveSub] = useState(null);
   const wrapRef = useRef(null)
@@ -2051,9 +2295,35 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
               </div>
             )}
           </div>
+          <div className={`bmenu-item exmenu-cat ${activeSub === 'panels' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('panels')}>
+            <span>🪟  View Panels</span>
+            <span className="exmenu-arrow">▶</span>
+            {activeSub === 'panels' && (
+              <div className="exmenu-sub">
+                {[
+                  { k: 'regs', l: 'Registers' },
+                  { k: 'pairs', l: 'Register Pairs' },
+                  { k: 'flags', l: 'Flags' },
+                  { k: 'ints', l: 'Interrupts' },
+                  { k: 'io', l: 'I/O Ports' },
+                  { k: 'ppi', l: '8255 PPI' },
+                  { k: 'pit', l: '8253 PIT' },
+                  { k: 'audio', l: 'Audio Output' },
+                  { k: 'stack', l: 'Stack' },
+                  { k: 'callstack', l: 'Call Stack' },
+                  { k: 'trace', l: 'Trace' },
+                ].map(({k, l}) => (
+                  <button key={k} className="exmenu-sub-item" onClick={(e) => { e.stopPropagation(); onTogglePanel(k); }}>
+                    <span style={{display:'inline-block', width:16}}>{panels[k] ? '✓' : ''}</span>{l}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {item('⎘  Copy share link', onShare)}
           <div className="bmenu-sep" />
           {item('🖩  Calculator', onCalc)}
+          {item('🤖  AI Assistant', onChat)}
 
           <div className={`bmenu-item exmenu-cat ${activeSub === 'help' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('help')}>
             <span>❓  Help</span>
@@ -2076,6 +2346,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
                 <button className="exmenu-sub-item" onClick={() => { window.open('https://github.com/selfmodify/sim8085wasm', '_blank'); setOpen(false); setActiveSub(null); }}>⭐ View on GitHub</button>
                 <button className="exmenu-sub-item" onClick={() => { window.open('https://github.com/selfmodify/sim8085wasm/issues/new', '_blank'); setOpen(false); setActiveSub(null); }}>🐛 Report a Bug</button>
                 <button className="exmenu-sub-item" onClick={() => { window.open('https://github.com/selfmodify/sim8085wasm/discussions', '_blank'); setOpen(false); setActiveSub(null); }}>💬 Ask a Question</button>
+                <button className="exmenu-sub-item" onClick={() => { onManageGithub(); setOpen(false); setActiveSub(null); }}>🔑 Manage API Token</button>
               </div>
             )}
           </div>
@@ -2367,7 +2638,7 @@ function HelpPanel({ instruction }) {
 }
 
 // ── Google Drive Load modal ──────────────────────────────────────────────
-function DriveLoadModal({ files, loading, onClose, onSelect }) {
+function DriveLoadModal({ files, loading, onClose, onSelect, onDelete }) {
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
@@ -2386,9 +2657,12 @@ function DriveLoadModal({ files, loading, onClose, onSelect }) {
           ) : files.length === 0 ? (
             <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text3)' }}>No files found in the "sim8085" folder.</div>
           ) : files.map(f => (
-            <button key={f.id} className="bmenu-item" style={{ width: '100%', borderBottom: '1px solid var(--border)' }} onClick={() => onSelect(f.id, f.name)}>
-              📄 <span style={{ opacity: 0.5, marginRight: 4 }}>sim8085/</span>{f.name}
-            </button>
+            <div key={f.id} style={{ display: 'flex', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
+              <button className="bmenu-item" style={{ flex: 1, borderBottom: 'none' }} onClick={() => onSelect(f.id, f.name)}>
+                📄 <span style={{ opacity: 0.5, marginRight: 4 }}>sim8085/</span>{f.name}
+              </button>
+              <button className="watch-rm" style={{ margin: '0 12px', fontSize: 13, padding: '4px 6px' }} onClick={() => onDelete(f.id, f.name)} title="Delete from Google Drive">🗑</button>
+            </div>
           ))}
         </div>
       </div>
@@ -2429,25 +2703,66 @@ function ChallengesView({ onSelect }) {
 }
 
 // ── Community Gallery View ───────────────────────────────────────────────
-const COMMUNITY_SCRIPTS = [
-  { id: 'example_gist_id_1', title: 'Traffic Light Controller', author: 'sim8085', desc: 'Simulates a 4-way traffic light sequence using output ports and delay loops.' },
-  { id: 'example_gist_id_2', title: 'Prime Number Generator', author: 'sim8085', desc: 'Calculates prime numbers and stores them sequentially in memory starting at 0500H.' },
-  { id: 'example_gist_id_3', title: 'Stepping Motor Driver', author: 'sim8085', desc: 'Outputs a 4-phase stepping motor sequence to Port 01H with a configurable delay.' },
-] // Replace these placeholder IDs with real GitHub Gist IDs!
+function CommunityView({ onSelect, githubToken }) {
+  const [username, setUsername] = useState('selfmodify')
+  const [scripts, setScripts] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
-function CommunityView({ onSelect }) {
+  async function fetchScripts(user) {
+    if (!user) return
+    setLoading(true)
+    setError(null)
+    setScripts([])
+    try {
+      const headers = githubToken ? { 'Authorization': `token ${githubToken}` } : {}
+      const res = await fetch(`https://api.github.com/users/${user}/gists`, { headers })
+      if (!res.ok) throw new Error('User not found or GitHub API limit reached')
+      const data = await res.json()
+      const valid = []
+      for (const g of data) {
+        const files = Object.values(g.files)
+        const asmFile = files.find(f => f.filename.toLowerCase().endsWith('.asm') || f.filename.toLowerCase().endsWith('.85'))
+        if (asmFile) {
+          valid.push({ id: g.id, title: g.description || asmFile.filename, author: g.owner?.login || user, desc: asmFile.filename })
+        }
+      }
+      setScripts(valid)
+    } catch (e) { setError(e.message) }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { fetchScripts(username) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="challenges-view">
       <div className="challenges-container">
         <div style={{display:'flex', alignItems:'center', gap: 12, marginBottom: 10}}>
           <span style={{fontSize: 32}}>🌐</span>
-          <div>
+          <div style={{flex: 1}}>
             <h1 style={{color: 'var(--text)', fontFamily:'var(--mono)', fontSize: 24, letterSpacing: 1}}>COMMUNITY GALLERY</h1>
-            <p style={{color: 'var(--text2)', fontSize: 14}}>Discover and run popular 8085 assembly scripts shared by the community via GitHub Gists.</p>
+            <p style={{color: 'var(--text2)', fontSize: 14}}>Explore and run 8085 assembly scripts shared via public GitHub Gists.</p>
+          </div>
+          <div style={{display:'flex', gap: 6}}>
+            <input className="chat-input" placeholder="GitHub username" value={username} onChange={e => setUsername(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchScripts(username)} style={{width: 160}} />
+            <button className="btn" onClick={() => fetchScripts(username)} disabled={loading}>Fetch</button>
           </div>
         </div>
+        <div style={{ background: 'var(--bg2)', padding: '14px 18px', borderRadius: 'var(--radius-md)', marginBottom: '20px', border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 13, color: 'var(--accent)', marginBottom: 8, fontFamily: 'var(--mono)', fontWeight: 700 }}>WHAT IS A GITHUB GIST?</div>
+          <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.5, marginBottom: 8 }}>
+            A <strong>Gist</strong> is a quick way to share code snippets on GitHub. This Community tab lets you easily discover and run 8085 assembly programs shared by other developers!
+          </p>
+          <ul style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.5, paddingLeft: 20 }}>
+            <li style={{ marginBottom: 4 }}><strong>To share your code:</strong> Click <em>Export ⇣ → 🐙 Save to GitHub Gist</em>. Your code will instantly become a public Gist.</li>
+            <li><strong>To find code:</strong> Type any GitHub username in the search box above to fetch all their shared <code>.asm</code> or <code>.85</code> files.</li>
+          </ul>
+        </div>
+        {loading && <div style={{color: 'var(--text3)', textAlign: 'center', padding: 40}}>Fetching Gists from GitHub...</div>}
+        {error && <div style={{color: 'var(--red)', textAlign: 'center', padding: 40}}>✗ {error}</div>}
+        {!loading && !error && scripts.length === 0 && <div style={{color: 'var(--text3)', textAlign: 'center', padding: 40}}>No .asm or .85 Gists found for this user.</div>}
         <div className="challenge-grid">
-          {COMMUNITY_SCRIPTS.map(g => (
+          {scripts.map(g => (
             <div key={g.id} className="challenge-card" onClick={() => onSelect(g.id)}>
               <div className="challenge-title">{g.title}</div>
               <div style={{fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: -4}}>by @{g.author}</div>
@@ -2459,6 +2774,33 @@ function CommunityView({ onSelect }) {
     </div>
   )
 }
+
+// ── GitHub Token Setup Modal ─────────────────────────────────────────────
+function GithubSetupModal({ onClose, onSave }) {
+  const [token, setToken] = useState(() => localStorage.getItem('sim8085_github_token') || '')
+  return (
+    <div className="help-overlay" onClick={onClose}>
+      <div className="welcome-modal" style={{ width: 440, padding: '20px 24px', display: 'block', height: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div className="help-hd" style={{ marginBottom: 16, background: 'transparent', border: 'none', padding: 0 }}>
+          <span className="help-mnem" style={{ fontSize: 16 }}>GitHub Integration</span>
+          <button className="help-close" onClick={onClose}>✕</button>
+        </div>
+        <p style={{ color: 'var(--text2)', fontSize: 13, marginBottom: 16 }}>
+          To save scripts and bypass GitHub's API rate limits, provide a Personal Access Token with the <b>gist</b> scope.
+        </p>
+        <input className="chat-input" type="password" placeholder="ghp_..." value={token} onChange={e => setToken(e.target.value)} style={{ width: '100%', marginBottom: 16 }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <a href="https://github.com/settings/tokens/new?scopes=gist&description=sim8085+Simulator" target="_blank" rel="noreferrer" style={{ color: 'var(--blue)', fontSize: 12, textDecoration: 'none' }}>Create a token →</a>
+          <div>
+            {localStorage.getItem('sim8085_github_token') && <button className="btn" style={{ marginRight: 8 }} onClick={() => { localStorage.removeItem('sim8085_github_token'); onSave?.(); onClose(); }}>Clear Token</button>}
+            <button className="btn btn-run" onClick={() => { if(token.trim()) localStorage.setItem('sim8085_github_token', token.trim()); onSave?.(); onClose(); }}>Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 
 // ── Root app ─────────────────────────────────────────────────────────────
 export default function App() {
@@ -2565,11 +2907,23 @@ export default function App() {
   const [driveSaveStatus, setDriveSaveStatus] = useState(null)
   const [activeChallenge, setActiveChallenge] = useState(null)
   const [challengeResult, setChallengeResult] = useState(null)
+  const [showGithubSetup, setShowGithubSetup] = useState(false)
   const [haltTrigger, setHaltTrigger]         = useState(0)
   const lastHaltRef                           = useRef(0)
+  
+  const [panels, setPanels] = useState(() => {
+    const def = { regs:true, pairs:true, flags:true, ints:true, io:true, ppi:true, pit:false, audio:true, stack:true, callstack:true, trace:true }
+    try { return { ...def, ...JSON.parse(localStorage.getItem('sim8085_panels')) } } catch { return def }
+  })
+  function togglePanel(key) {
+    setPanels(p => {
+      const next = { ...p, [key]: !p[key] }; localStorage.setItem('sim8085_panels', JSON.stringify(next)); return next
+    })
+  }
 
   const [showWelcome,    setShowWelcome]    = useState(() => !localStorage.getItem('sim8085_welcomed'))
   const [showCalc,       setShowCalc]       = useState(false)
+  const [showChat,       setShowChat]       = useState(false)
   const [showShortcuts,  setShowShortcuts]  = useState(false)
   function dismissWelcome() { localStorage.setItem('sim8085_welcomed', '1'); setShowWelcome(false) }
   const [runSpeed, setRunSpeed]     = useState(() => {
@@ -2600,6 +2954,8 @@ export default function App() {
   const fileInputRef   = useRef(null)
   const oneShotBpsRef  = useRef(new Set())
   const memWatchMemRef = useRef(null)
+  const memWatchWatchRef = useRef(null)
+  const disasmStackRef = useRef(null)
   const [addrLineMap, setAddrLineMap] = useState(new Map())
   const srcRef      = useRef(src)
   const lastBuiltSrcRef = useRef(src)
@@ -2651,6 +3007,21 @@ export default function App() {
     const startW = memWatchMemRef.current.getBoundingClientRect().width
     function onMove(ev) {
       memWatchMemRef.current.style.flex = `0 0 ${Math.max(80, startW + (ev.clientX - startX))}px`
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
+  function onDisasmStackDividerDown(e) {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = disasmStackRef.current.getBoundingClientRect().width
+    function onMove(ev) {
+      disasmStackRef.current.style.flex = `0 0 ${Math.max(100, startW - (ev.clientX - startX))}px`
     }
     function onUp() {
       document.removeEventListener('mousemove', onMove)
@@ -3362,6 +3733,21 @@ function addTraceEntry(prevR) {
     } catch(e) { setMsg(`✗ Error loading file: ${e.message}`) }
   }
 
+  async function deleteDriveFile(fileId, fileName) {
+    if (!window.confirm(`Are you sure you want to delete "${fileName}" from your Google Drive?`)) return
+    setMsg(`Deleting ${fileName}…`)
+    try {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + driveToken }
+      })
+      if (res.status === 401) { setDriveToken(null); setMsg('✗ Drive session expired. Please connect again.'); return }
+      if (!res.ok) throw new Error('Failed to delete')
+      setMsg(`✓ Deleted ${fileName} from Google Drive`)
+      setDriveFiles(files => files ? files.filter(f => f.id !== fileId) : null)
+    } catch(e) { setMsg(`✗ Error deleting file: ${e.message}`) }
+  }
+
   async function loadFromGist(presetId) {
     const input = typeof presetId === 'string' ? presetId : window.prompt('Enter a GitHub Gist ID or URL:')
     if (!input) return
@@ -3386,9 +3772,8 @@ function addTraceEntry(prevR) {
   async function saveToGist() {
     let token = localStorage.getItem('sim8085_github_token')
     if (!token) {
-      token = window.prompt('To save to GitHub, enter a Personal Access Token with the "gist" scope:\n(You can generate one at github.com/settings/tokens)')
-      if (!token) return
-      localStorage.setItem('sim8085_github_token', token.trim())
+      setShowGithubSetup(true)
+      return
     }
     setMsg('Saving to GitHub Gist…')
     const name = (fileName.replace(/\.(asm|85|s|txt)$/i,'') || 'program') + '.asm'
@@ -3643,12 +4028,15 @@ function addTraceEntry(prevR) {
             onSaveToGist={saveToGist}
             onShare={shareURL}
             onCalc={() => setShowCalc(c => !c)}
+            onChat={() => setShowChat(c => !c)}
             memSize={memSize} onMemSize={changeMemSize}
             engineMode={engineMode} onEngineSwitch={handleEngineSwitch}
             engineSwitching={engineSwitching}
             theme={theme} onTheme={toggleTheme} onSetTheme={setTheme}
             crtBrightness={crtBrightness} onCrtBrightness={v => { setCrtBrightness(v); localStorage.setItem('sim8085_crt_b', v) }}
-            crtContrast={crtContrast} onCrtContrast={v => { setCrtContrast(v); localStorage.setItem('sim8085_crt_c', v) }} />
+            crtContrast={crtContrast} onCrtContrast={v => { setCrtContrast(v); localStorage.setItem('sim8085_crt_c', v) }}
+            onManageGithub={() => setShowGithubSetup(true)}
+            panels={panels} onTogglePanel={togglePanel} />
           <div className="view-tabs">
             <button className={`view-tab${activeView === 'simulator' ? ' active' : ''}`} onClick={() => setActiveView('simulator')}>Simulator</button>
             <button className={`view-tab${activeView === 'challenges' ? ' active' : ''}`} onClick={() => setActiveView('challenges')}>Challenges</button>
@@ -3733,14 +4121,25 @@ function addTraceEntry(prevR) {
 
         {/* Code + Memory column */}
         <div className={`col col-center${mobileTab!=='code' ? ' mobile-hidden' : ''}`}>
-          <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} onClearAllBps={clearAllBps} buildId={buildId} pcFlash={pcFlash}
-            onSetCondition={openConditionDialog}
-            onRunTo={runToAddr}
-            symbols={symbols}
-            onJumpMem={setMemStart}
-            hitcnts={hitcnts} maxHit={maxHit}
-            onGotoLine={(addr, labelName) => { const ln = addrLineMap.get(addr); if (ln) gotoLineRef.current?.(ln, labelName) }} />
-          <ChatPanel regs={regs} src={src} />
+          <div className="disasm-trace-row">
+            <DisasmPanel regs={regs} breakpoints={bps} onToggleBp={toggleBp} onClearAllBps={clearAllBps} buildId={buildId} pcFlash={pcFlash}
+              onSetCondition={openConditionDialog}
+              onRunTo={runToAddr}
+              symbols={symbols}
+              onJumpMem={setMemStart}
+              hitcnts={hitcnts} maxHit={maxHit}
+              onGotoLine={(addr, labelName) => { const ln = addrLineMap.get(addr); if (ln) gotoLineRef.current?.(ln, labelName) }} />
+            {(panels.stack || panels.callstack || panels.trace) && (
+              <>
+                <div className="mem-watch-divider" onMouseDown={onDisasmStackDividerDown} />
+                <div className="disasm-trace-stack" ref={disasmStackRef}>
+                  {panels.stack     && <StackPanel regs={regs} regBase={regBase} onRegBase={setRegBase} />}
+                  {panels.callstack && <CallStackPanel callStack={callStack} onJump={setMemStart} />}
+                  {panels.trace     && <TracePanel trace={trace} onClear={() => setTrace([])} />}
+                </div>
+              </>
+            )}
+          </div>
           <div className="mem-watch-row">
             <div className="mem-watch-mem" ref={memWatchMemRef}>
               <MemPanel
@@ -3755,7 +4154,7 @@ function addTraceEntry(prevR) {
               />
             </div>
             <div className="mem-watch-divider" onMouseDown={onMemWatchDividerDown} />
-            <div className="mem-watch-watch">
+            <div className="mem-watch-watch" ref={memWatchWatchRef}>
               <WatchPanel watches={watches} regs={regs}
                 onAdd={w => setWatches(ws => [...ws, w])}
                 onRemove={i => {
@@ -3784,20 +4183,15 @@ function addTraceEntry(prevR) {
 
         {/* Registers column */}
         <div className={`col col-right${mobileTab!=='regs' ? ' mobile-hidden' : ''}`} ref={rightColRef}>
-          <RegPanel   regs={regs} prev={prevRegs} onJump={setMemStart}
-            regBase={regBase} onRegBase={setRegBase} onEdit={refresh} />
-          <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh}
-            regBase={regBase} onRegBase={setRegBase} onMemoryEdited={() => setBuildId(id => id + 1)} />
-          <FlagPanel  regs={regs} />
-          <IntPanel intState={intState} onAssert={assertInterrupt} onDeassert={deassertInterrupt} />
-          <IOPortPanel outputPorts={outputPorts} inputPresets={inputPresets}
+          {panels.regs      && <RegPanel   regs={regs} prev={prevRegs} onJump={setMemStart} regBase={regBase} onRegBase={setRegBase} onEdit={refresh} />}
+          {panels.pairs     && <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh} regBase={regBase} onRegBase={setRegBase} onMemoryEdited={() => setBuildId(id => id + 1)} />}
+          {panels.flags     && <FlagPanel  regs={regs} />}
+          {panels.ints      && <IntPanel intState={intState} onAssert={assertInterrupt} onDeassert={deassertInterrupt} />}
+          {panels.io        && <IOPortPanel outputPorts={outputPorts} inputPresets={inputPresets}
             onSetInput={setInputPort} onRemoveInput={removeInputPort}
             keyQueue={keyQueue} onEnqueueKeys={enqueueKeys} onClearKeyQueue={clearKeyQueue}
-            sid={sid} sod={sod}
-            onSetSID={v => { sim.simSetSID(v); setSid(v); }} />
-          <StackPanel regs={regs} regBase={regBase} onRegBase={setRegBase} />
-          <CallStackPanel callStack={callStack} onJump={setMemStart} />
-          <TracePanel trace={trace} onClear={() => setTrace([])} />
+            sid={sid} sod={sod} onSetSID={v => { sim.simSetSID(v); setSid(v); }} />}
+          {panels.audio     && <AudioPanel outputPorts={outputPorts} running={running} />}
         </div>
       </div>
       </div>
@@ -3807,7 +4201,7 @@ function addTraceEntry(prevR) {
       )}
 
       {activeView === 'community' && (
-        <CommunityView onSelect={loadFromGist} />
+        <CommunityView onSelect={loadFromGist} githubToken={localStorage.getItem('sim8085_github_token')} />
       )}
 
       <div className="statusbar">
@@ -3834,8 +4228,12 @@ function addTraceEntry(prevR) {
       {showWelcome && <WelcomeModal onClose={dismissWelcome} />}
       {helpInst && <HelpModal instruction={helpInst} onClose={() => setHelpInst(null)} />}
       {showCalc && <CalcFloat onClose={() => setShowCalc(false)} />}
+      {showChat && <ChatPanel regs={regs} src={src} onClose={() => setShowChat(false)} />}
+      {panels.ppi && <PPI8255Panel outputPorts={outputPorts} inputPresets={inputPresets} onSetInput={setInputPort} onClose={() => togglePanel('ppi')} />}
+      {panels.pit && <PIT8253Panel outputPorts={outputPorts} onClose={() => togglePanel('pit')} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
-      {driveFiles !== null && <DriveLoadModal files={driveFiles} loading={driveLoading} onClose={() => setDriveFiles(null)} onSelect={fetchDriveFile} />}
+      {driveFiles !== null && <DriveLoadModal files={driveFiles} loading={driveLoading} onClose={() => setDriveFiles(null)} onSelect={fetchDriveFile} onDelete={deleteDriveFile} />}
+      {showGithubSetup && <GithubSetupModal onClose={() => setShowGithubSetup(false)} onSave={() => setMsg('✓ GitHub token saved.')} />}
       {challengeResult && (
         <div className="help-overlay" onClick={() => setChallengeResult(null)}>
           <div className="welcome-modal" style={{ width: 400, textAlign: 'center', padding: '30px 20px', display: 'block' }} onClick={e => e.stopPropagation()}>

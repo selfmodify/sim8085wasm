@@ -1570,6 +1570,51 @@ carry:
     jmp     show        ; no — wrapped 99999999 → 00000000
 
     hlt`,
+
+    'Audio Siren': `; Plays an alternating two-tone siren via the Audio Output (Port 40H).
+; NOTE: Open the View Panels 🪟 menu, ensure "Audio Output" is checked,
+; and click the "OFF" button in the Audio panel to turn it "ON" before running!
+    org     100H
+    kickoff 100H
+loop:
+    mvi  a, 80H         ; Tone 1 frequency
+    out  40H            ; Send to audio port
+    call delay
+
+    mvi  a, 60H         ; Tone 2 frequency
+    out  40H            ; Send to audio port
+    call delay
+
+    jmp  loop
+
+delay:
+    lxi  d, 2000H       ; Delay length
+dloop:
+    dcx  d
+    mov  a, d
+    ora  e
+    jnz  dloop
+    ret`,
+
+    '8253 Timer': `; 8253 Programmable Interval Timer Setup
+; Configures Counter 0 in Mode 3 (Square Wave Generator).
+; To see this in action, open the 🪟 View Panels menu and check "8253 PIT".
+    org 100H
+    kickoff 100H
+
+    ; Control Word:
+    ; SC=00 (Counter 0), RW=11 (Read/Write LSB then MSB)
+    ; M=011 (Mode 3), BCD=0 (Binary) -> 00110110 = 36H
+    mvi a, 36H
+    out 13H             ; Write to Control Register
+
+    ; Load initial count (e.g. 1000 = 03E8H)
+    mvi a, 0E8H
+    out 10H             ; Write LSB to Counter 0
+    mvi a, 03H
+    out 10H             ; Write MSB to Counter 0
+
+    hlt`,
   },
 
   'Strings': {
