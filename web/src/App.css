@@ -313,7 +313,8 @@
   --btn-h-xs:   22px;
 }
 
-html, body, #root { height: 100%; overflow: hidden }
+html { height: 100% } /* overflow NOT hidden here — lets browser pull-to-refresh work on mobile */
+body, #root { height: 100%; overflow: hidden }
 
 body {
   background: var(--bg);
@@ -1875,9 +1876,10 @@ body {
 
 /* ── Responsive / mobile layout ────────────────────────────────────── */
 @media (max-width: 700px) {
-  /* Topbar: single row — details move into the ☰ brand menu */
-  .topbar { height: auto; min-height: 48px; padding: 4px 10px; flex-wrap: nowrap; gap: 6px }
+  /* Topbar: single row — details move into the ☰ brand menu; tabs inline to the right */
+  .topbar { height: auto; min-height: 48px; padding: 0 0 0 10px; flex-wrap: nowrap; gap: 0; align-items: stretch; }
   .engine-chip, .build-chip, .topbar-drive, .view-tabs { display: none !important }
+  .brand-name { display: none }
   /* Toolbar: single scrollable row instead of wrapping to two rows */
   .toolbar { flex-wrap: nowrap; overflow-x: auto; gap: 4px; padding: 4px 8px; }
   /* Hide keyboard shortcut hints and speed label text to save space */
@@ -1886,16 +1888,18 @@ body {
   .speed-label { gap: 4px }
   .editor-hint { display: none }
 
-  /* Mobile tab bar */
+  /* Mobile tabs — now inline inside the topbar row */
   .mobile-tabs {
     display: flex;
-    flex-shrink: 0;
-    background: var(--bg1);
-    border-bottom: 1px solid var(--border);
+    flex: 1;
+    background: none;
+    border: none;
+    border-left: 1px solid var(--border);
+    margin-left: 6px;
   }
   .mobile-tab {
     flex: 1;
-    padding: 8px 4px;
+    padding: 0 4px;
     background: none;
     border: none;
     border-bottom: 2px solid transparent;
@@ -1903,6 +1907,9 @@ body {
     font-family: var(--mono);
     font-size: 12px;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: color .12s, border-color .12s;
   }
   .mobile-tab.active {

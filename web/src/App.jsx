@@ -2420,7 +2420,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
   return (
     <div className="bmenu-wrap" ref={wrapRef}>
       <button className="brand-chip bmenu-trigger" onClick={() => setOpen(o => !o)} title="Menu">
-        <span className="brand-chevron">☰</span> 8085
+        <span className="brand-chevron">☰</span><span className="brand-name"> 8085</span>
       </button>
       {open &&
         <div className="bmenu-dropdown" style={{ overflow: 'visible' }} onMouseLeave={() => setActiveSub(null)}>
@@ -4311,6 +4311,14 @@ function addTraceEntry(prevR) {
             <button className={`view-tab${activeView === 'community' ? ' active' : ''}`} onClick={() => setActiveView('community')}>Community</button>
           </div>
         </div>
+          {/* Editor/Code/Regs tabs — inline in topbar on mobile, hidden on desktop */}
+          {activeView === 'simulator' && (
+            <div className="mobile-tabs">
+              {[['editor','✏ Editor'],['code','📋 Code'],['regs','🧠 Regs']].map(([id, label]) => (
+                <button key={id} className={`mobile-tab${mobileTab===id?' active':''}`} onClick={() => setMobileTab(id)}>{label}</button>
+              ))}
+            </div>
+          )}
 
         {fileName && <span className="topbar-filename" style={{ marginLeft: 0 }} title={fileName}>File: {fileName}</span>}
 
@@ -4341,14 +4349,6 @@ function addTraceEntry(prevR) {
         <span className="build-chip" title="Build timestamp">Build: {__BUILD_TIME__}</span>
       </div>
 
-      {/* ── Mobile tab bar ── */}
-      {activeView === 'simulator' && (
-        <div className="mobile-tabs">
-          {[['editor','✏ Editor'],['code','📋 Code'],['regs','🧠 Regs']].map(([id, label]) => (
-            <button key={id} className={`mobile-tab${mobileTab===id?' active':''}`} onClick={() => setMobileTab(id)}>{label}</button>
-          ))}
-        </div>
-      )}
 
       {/* ── Simulator View ── */}
       <div style={{ display: activeView === 'simulator' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
