@@ -147,7 +147,7 @@ const PANEL_HELP_TEXT = {
 • Code (Blue): Assembled instructions
 • Data (Green): Values injected via SETBYTE/SETWORD/DB/DW
 • Stack (Amber): Region from SP to FFFFH
-• Hover over any region to see its exact address bounds
+• Click any region to see its exact address bounds
 • Bright green line indicates current Program Counter (PC)`,
 
   'REGISTERS': `• Live 8085 register values (A, B, C, D, E, H, L, PC, SP)
@@ -2224,6 +2224,7 @@ function AudioPanel({ running, onShowDialog }) {
 // ── Memory Map Panel ────────────────────────────────────────────────────
 function MemMapPanel({ regs, programRegion, presetAddrs }) {
   const [collapsed, toggleCollapsed] = useCollapsible('memmap', false)
+  const [selectedInfo, setSelectedInfo] = useState('Click a region for details')
 
   // Group scattered preset addresses into contiguous visual chunks
   const dataRegions = useMemo(() => {
@@ -2252,18 +2253,23 @@ function MemMapPanel({ regs, programRegion, presetAddrs }) {
         <div className="memmap-body">
           <div className="memmap-bar-container">
             <div className="memmap-bar">
-              {programRegion && <div className="memmap-region memmap-code" style={{ top: `${(programRegion.start/65535)*100}%`, height: `${Math.max(0.5, ((programRegion.end-programRegion.start)/65535)*100)}%` }} title={`Code: ${hex4(programRegion.start)}H - ${hex4(programRegion.end)}H`} />}
-              {dataRegions.map((r, i) => <div key={i} className="memmap-region memmap-data" style={{ top: `${(r.start/65535)*100}%`, height: `${Math.max(0.5, ((r.end-r.start)/65535)*100)}%` }} title={`Data: ${hex4(r.start)}H - ${hex4(r.end)}H`} />)}
-              {regs.sp > 0 && <div className="memmap-region memmap-stack" style={{ top: `${(regs.sp/65535)*100}%`, height: `${((65536-regs.sp)/65535)*100}%` }} title={`Stack: ${hex4(regs.sp)}H - FFFFH`} />}
-              <div className="memmap-marker memmap-pc" style={{ top: `${(regs.pc/65535)*100}%` }} title={`PC: ${hex4(regs.pc)}H`} />
+              {programRegion && <div className="memmap-region memmap-code" style={{ top: `${(programRegion.start/65535)*100}%`, height: `${Math.max(0.5, ((programRegion.end-programRegion.start)/65535)*100)}%` }} onClick={() => setSelectedInfo(`Code: ${hex4(programRegion.start)}H - ${hex4(programRegion.end)}H`)} />}
+              {dataRegions.map((r, i) => <div key={i} className="memmap-region memmap-data" style={{ top: `${(r.start/65535)*100}%`, height: `${Math.max(0.5, ((r.end-r.start)/65535)*100)}%` }} onClick={() => setSelectedInfo(`Data: ${hex4(r.start)}H - ${hex4(r.end)}H`)} />)}
+              {regs.sp > 0 && <div className="memmap-region memmap-stack" style={{ top: `${(regs.sp/65535)*100}%`, height: `${((65536-regs.sp)/65535)*100}%` }} onClick={() => setSelectedInfo(`Stack: ${hex4(regs.sp)}H - FFFFH`)} />}
+              <div className="memmap-marker memmap-pc" style={{ top: `${(regs.pc/65535)*100}%` }} onClick={() => setSelectedInfo(`PC: ${hex4(regs.pc)}H`)} />
             </div>
             <div className="memmap-labels"><div style={{top: '0%'}}>0000H</div><div style={{top: '100%', transform: 'translateY(-100%)'}}>FFFFH</div></div>
           </div>
           <div className="memmap-legend">
-            <div><span className="memmap-swatch" style={{background: 'var(--tint-blue-code)', borderColor: 'rgba(64,144,255,.5)'}}/> CODE</div>
-            <div><span className="memmap-swatch" style={{background: 'var(--tint-green-pre)', borderColor: 'rgba(74,240,160,.5)'}}/> DATA</div>
-            <div><span className="memmap-swatch" style={{background: 'var(--tint-amber-sp)', borderColor: 'var(--amber)'}}/> STACK</div>
-            <div><span className="memmap-swatch" style={{background: 'var(--accent)', height: 2, border: 'none'}}/> PC</div>
+            <div className="memmap-legend-grid">
+              <div><span className="memmap-swatch" style={{background: 'var(--tint-blue-code)', borderColor: 'rgba(64,144,255,.5)'}}/> CODE</div>
+              <div><span className="memmap-swatch" style={{background: 'var(--tint-green-pre)', borderColor: 'rgba(74,240,160,.5)'}}/> DATA</div>
+              <div><span className="memmap-swatch" style={{background: 'var(--tint-amber-sp)', borderColor: 'var(--amber)'}}/> STACK</div>
+              <div><span className="memmap-swatch" style={{background: 'var(--tint-accent-pc)', borderColor: 'var(--accent)'}}/> PC</div>
+            </div>
+            <div style={{ marginTop: 8, padding: '4px 8px', background: 'var(--bg3)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: 10, color: 'var(--text2)', minHeight: 24, display: 'flex', alignItems: 'center' }}>
+              {selectedInfo}
+            </div>
           </div>
         </div>
       )}
