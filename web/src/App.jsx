@@ -2368,11 +2368,12 @@ function ExampleMenu({ onLoad }) {
               <div
                 className={`exmenu-cat${activeCat === cat ? ' exmenu-cat-active' : ''}`}
                 onMouseEnter={() => setActiveCat(cat)}
+                onClick={() => setActiveCat(activeCat === cat ? null : cat)}
               >
                 <span>{cat}</span>
                 <span className="exmenu-arrow">▶</span>
                 {activeCat === cat && (
-                  <div className="exmenu-sub">
+                  <div className="exmenu-sub" onClick={e => e.stopPropagation()}>
                     {Object.keys(programs).map(name => (
                       <button key={name} className="exmenu-sub-item"
                         onClick={() => { onLoad(`${cat}::${name}`); setOpen(false); setActiveCat(null) }}>
@@ -2423,11 +2424,11 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
       </button>
       {open &&
         <div className="bmenu-dropdown" style={{ overflow: 'visible' }} onMouseLeave={() => setActiveSub(null)}>
-          <div className={`bmenu-item exmenu-cat ${activeSub === 'import' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('import')}>
+          <div className={`bmenu-item exmenu-cat ${activeSub === 'import' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('import')} onClick={() => setActiveSub(activeSub === 'import' ? null : 'import')}>
             <span>⇡  Import</span>
             <span className="exmenu-arrow">▶</span>
             {activeSub === 'import' && (
-              <div className="exmenu-sub">
+              <div className="exmenu-sub" onClick={e => e.stopPropagation()}>
                 <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.asm / .85 source</button>
                 <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.hex / .bin image</button>
                 <button className="exmenu-sub-item" onClick={() => { onLoadFromDrive(); setOpen(false); setActiveSub(null); }}>☁ Load from Google Drive</button>
@@ -2436,11 +2437,11 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
             )}
           </div>
 
-          <div className={`bmenu-item exmenu-cat ${activeSub === 'export' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('export')}>
+          <div className={`bmenu-item exmenu-cat ${activeSub === 'export' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('export')} onClick={() => setActiveSub(activeSub === 'export' ? null : 'export')}>
             <span>⇣  Export</span>
             <span className="exmenu-arrow">▶</span>
             {activeSub === 'export' && (
-              <div className="exmenu-sub">
+              <div className="exmenu-sub" onClick={e => e.stopPropagation()}>
                 <button className="exmenu-sub-item" onClick={() => { onExport(); setOpen(false); setActiveSub(null); }}>.asm source</button>
                 <button className="exmenu-sub-item" onClick={() => { onExportHex(); setOpen(false); setActiveSub(null); }}>.hex (Intel HEX)</button>
                 <button className="exmenu-sub-item" onClick={() => { onExportBin(); setOpen(false); setActiveSub(null); }}>.bin (raw binary)</button>
@@ -2449,11 +2450,11 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
               </div>
             )}
           </div>
-          <div className={`bmenu-item exmenu-cat ${activeSub === 'panels' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('panels')}>
+          <div className={`bmenu-item exmenu-cat ${activeSub === 'panels' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('panels')} onClick={() => setActiveSub(activeSub === 'panels' ? null : 'panels')}>
             <span>🪟  View Panels</span>
             <span className="exmenu-arrow">▶</span>
             {activeSub === 'panels' && (
-              <div className="exmenu-sub">
+              <div className="exmenu-sub" onClick={e => e.stopPropagation()}>
                 {[
                   { k: 'regs', l: 'Registers' },
                   { k: 'pairs', l: 'Register Pairs' },
@@ -2480,11 +2481,11 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
           {item('🖩  Calculator', onCalc)}
           {item('🤖  AI Assistant', onChat)}
 
-          <div className={`bmenu-item exmenu-cat ${activeSub === 'help' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('help')}>
+          <div className={`bmenu-item exmenu-cat ${activeSub === 'help' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('help')} onClick={() => setActiveSub(activeSub === 'help' ? null : 'help')}>
             <span>❓  Help</span>
             <span className="exmenu-arrow">▶</span>
             {activeSub === 'help' && (
-              <div className="exmenu-sub">
+              <div className="exmenu-sub" onClick={e => e.stopPropagation()}>
                 <button className="exmenu-sub-item" onClick={() => { onShowWelcome(); setOpen(false); setActiveSub(null); }}>📖 Welcome guide</button>
                 <button className="exmenu-sub-item" onClick={() => { onShowShortcuts(); setOpen(false); setActiveSub(null); }}>⌨ Keyboard shortcuts</button>
                 <button className="exmenu-sub-item" onClick={() => { window.open('./privacy.html', '_blank'); setOpen(false); setActiveSub(null); }}>🔒 Privacy Policy</button>
@@ -2493,11 +2494,11 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
             )}
           </div>
 
-          <div className={`bmenu-item exmenu-cat ${activeSub === 'community' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('community')}>
+          <div className={`bmenu-item exmenu-cat ${activeSub === 'community' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('community')} onClick={() => setActiveSub(activeSub === 'community' ? null : 'community')}>
             <span>🌐  Community</span>
             <span className="exmenu-arrow">▶</span>
             {activeSub === 'community' && (
-              <div className="exmenu-sub">
+              <div className="exmenu-sub" onClick={e => e.stopPropagation()}>
                 <button className="exmenu-sub-item" onClick={() => { window.open('https://github.com/selfmodify/sim8085wasm', '_blank'); setOpen(false); setActiveSub(null); }}>⭐ View on GitHub</button>
                 <button className="exmenu-sub-item" onClick={() => { window.open('https://github.com/selfmodify/sim8085wasm/issues/new', '_blank'); setOpen(false); setActiveSub(null); }}>🐛 Report a Bug</button>
                 <button className="exmenu-sub-item" onClick={() => { window.open('https://github.com/selfmodify/sim8085wasm/discussions', '_blank'); setOpen(false); setActiveSub(null); }}>💬 Ask a Question</button>
@@ -2507,11 +2508,11 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
           </div>
 
           <div className="bmenu-sep" />
-          <div className={`bmenu-item exmenu-cat ${activeSub === 'theme' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('theme')}>
+          <div className={`bmenu-item exmenu-cat ${activeSub === 'theme' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('theme')} onClick={() => setActiveSub(activeSub === 'theme' ? null : 'theme')}>
             <span>🎨  Theme</span>
             <span className="exmenu-arrow">▶</span>
             {activeSub === 'theme' && (
-              <div className="exmenu-sub">
+              <div className="exmenu-sub" onClick={e => e.stopPropagation()}>
                 {[
                   { id: 'dark',       label: '🌙  Dark'             },
                   { id: 'dim',        label: '🌗  Dim'              },
@@ -2807,7 +2808,7 @@ function DriveLoadModal({ files, loading, onClose, onSelect, onDelete }) {
   }, [onClose])
   return (
     <div className="help-overlay" onClick={onClose}>
-      <div className="shortcuts-modal" onClick={e => e.stopPropagation()} style={{ width: 420 }}>
+      <div className="shortcuts-modal" onClick={e => e.stopPropagation()} style={{ width: 420, maxWidth: '90vw' }}>
         <div className="help-hd">
           <span className="help-mnem">Load from "sim8085" Folder</span>
           <button className="help-close" onClick={onClose}>✕</button>
@@ -2941,7 +2942,7 @@ function GithubSetupModal({ onClose, onSave }) {
   const [token, setToken] = useState(() => localStorage.getItem('sim8085_github_token') || '')
   return (
     <div className="help-overlay" onClick={onClose}>
-      <div className="welcome-modal" style={{ width: 440, padding: '20px 24px', display: 'block', height: 'auto' }} onClick={e => e.stopPropagation()}>
+      <div className="welcome-modal" style={{ width: 440, maxWidth: '90vw', padding: '20px 24px', display: 'block', height: 'auto' }} onClick={e => e.stopPropagation()}>
         <div className="help-hd" style={{ marginBottom: 16, background: 'transparent', border: 'none', padding: 0 }}>
           <span className="help-mnem" style={{ fontSize: 16 }}>GitHub Integration</span>
           <button className="help-close" onClick={onClose}>✕</button>
@@ -2985,7 +2986,7 @@ function UIDialog({ dialog, onClose }) {
 
   return (
     <div className="help-overlay" onClick={handleCancel} style={{ zIndex: 9999 }}>
-      <div className="welcome-modal" style={{ width: 440, height: 'auto', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+      <div className="welcome-modal" style={{ width: 440, maxWidth: '90vw', height: 'auto', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
         <div className="help-hd" style={{ padding: '12px 16px', background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
           <span className="help-mnem" style={{ fontSize: 16 }}>{dialog.title || 'Message'}</span>
           <button className="help-close" onClick={handleCancel}>✕</button>
@@ -4334,11 +4335,13 @@ function addTraceEntry(prevR) {
       </div>
 
       {/* ── Mobile tab bar ── */}
-      <div className="mobile-tabs">
-        {[['editor','✏ Editor'],['code','📋 Code'],['regs','🧠 Regs']].map(([id, label]) => (
-          <button key={id} className={`mobile-tab${mobileTab===id?' active':''}`} onClick={() => setMobileTab(id)}>{label}</button>
-        ))}
-      </div>
+      {activeView === 'simulator' && (
+        <div className="mobile-tabs">
+          {[['editor','✏ Editor'],['code','📋 Code'],['regs','🧠 Regs']].map(([id, label]) => (
+            <button key={id} className={`mobile-tab${mobileTab===id?' active':''}`} onClick={() => setMobileTab(id)}>{label}</button>
+          ))}
+        </div>
+      )}
 
       {/* ── Simulator View ── */}
       <div style={{ display: activeView === 'simulator' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
@@ -4515,7 +4518,7 @@ function addTraceEntry(prevR) {
       {showGithubSetup && <GithubSetupModal onClose={() => setShowGithubSetup(false)} onSave={() => setMsg('✓ GitHub token saved.')} />}
       {challengeResult && (
         <div className="help-overlay" onClick={() => setChallengeResult(null)}>
-          <div className="welcome-modal" style={{ width: 400, textAlign: 'center', padding: '30px 20px', display: 'block' }} onClick={e => e.stopPropagation()}>
+          <div className="welcome-modal" style={{ width: 400, maxWidth: '90vw', textAlign: 'center', padding: '30px 20px', display: 'block' }} onClick={e => e.stopPropagation()}>
              <div style={{ fontSize: 50, marginBottom: 16 }}>{challengeResult.passed ? '🏆' : '❌'}</div>
              <h2 style={{ color: challengeResult.passed ? 'var(--accent)' : 'var(--red)', marginBottom: 12, fontFamily: 'var(--mono)' }}>{challengeResult.passed ? 'CHALLENGE PASSED!' : 'CHALLENGE FAILED'}</h2>
              <p style={{ color: 'var(--text2)', lineHeight: 1.5 }}>{challengeResult.msg}</p>

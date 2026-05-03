@@ -1231,6 +1231,7 @@ body {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-menu);
   min-width: 210px;
+  max-width: 94vw; max-height: 90vh;
   overflow: hidden;
 }
 .calc-float-hd {
@@ -1270,6 +1271,7 @@ body {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-menu);
   width: 340px; height: 420px;
+  max-width: 94vw; max-height: 90vh;
   min-width: 250px; min-height: 250px;
   display: flex; flex-direction: column; overflow: hidden;
   resize: both;
@@ -1371,6 +1373,7 @@ body {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-menu);
   min-width: 220px;
+  max-width: 94vw; max-height: 90vh;
   overflow: hidden;
 }
 .ppi-float-hd {
@@ -1417,13 +1420,14 @@ body {
 }
 .memmap-labels { position: relative; flex: 1; font-family: var(--mono); font-size: 10px; color: var(--text3); user-select: none }
 .memmap-labels > div { position: absolute; left: 0; line-height: 1 }
-.memmap-region { position: absolute; left: 0; right: 0; min-height: 2px; transition: all .1s }
+.memmap-region { position: absolute; left: 0; right: 0; min-height: 2px; transition: all .1s; cursor: pointer }
 .memmap-code { background: var(--tint-blue-code); border-top: 1px solid rgba(64,144,255,.5); border-bottom: 1px solid rgba(64,144,255,.5) }
 .memmap-data { background: var(--tint-green-pre); border-top: 1px solid rgba(74,240,160,.5); border-bottom: 1px solid rgba(74,240,160,.5) }
 .memmap-stack { background: var(--tint-amber-sp); border-top: 1px solid var(--amber) }
-.memmap-marker { position: absolute; left: -2px; right: -2px; height: 2px; z-index: 10; transition: top .1s linear }
+.memmap-marker { position: absolute; left: -2px; right: -2px; height: 2px; z-index: 10; transition: top .1s linear; cursor: pointer }
 .memmap-pc { background: var(--accent); box-shadow: 0 0 6px var(--accent) }
-.memmap-legend { display: flex; flex-direction: column; gap: 8px; font-size: 11px; color: var(--text2); font-family: var(--mono) }
+.memmap-legend { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--text2); font-family: var(--mono) }
+.memmap-legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 4px; }
 .memmap-swatch { display: inline-block; width: 12px; height: 12px; border: 1px solid; border-radius: 2px; margin-right: 6px; vertical-align: middle }
 
 /* ── Console panel ───────────────────────────────────────────────── */
@@ -1926,8 +1930,8 @@ body {
   .col-resize-handle { display: none }
 
   /* Editor: fixed height so LED/help panels below it are reachable */
-  .editor-panel { flex: 0 0 auto; min-height: 300px }
-  .editor-inner { height: 300px; min-height: 0 }
+  .editor-panel { flex: 1 1 auto !important; min-height: 350px }
+  .editor-inner { height: auto !important; flex: 1 1 auto; min-height: 0 }
 
   /* Ensure mobile tap targets are at least 44x44px */
   .btn, .mobile-tab, .exmenu-trigger, .bmenu-trigger { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
@@ -1956,6 +1960,28 @@ body {
   /* Simplify the status bar */
   .topbar-filename, .statusbar-label, .sc-cycles, .sc-mhz, .sbar-sep { display: none; }
   .sbar-counter.sc-steps { min-width: auto; text-align: left; }
+
+  /* Accordion submenus for mobile touch screens */
+  .bmenu-dropdown, .exmenu-dropdown {
+    max-width: 90vw; max-height: 80vh; overflow-y: auto; overflow-x: hidden;
+  }
+  .exmenu-cat {
+    flex-wrap: wrap;
+  }
+  .exmenu-sub {
+    position: relative;
+    left: 0; top: 0;
+    width: 100%;
+    box-shadow: none;
+    border: none;
+    border-left: 2px solid var(--border2);
+    border-radius: 0;
+    background: rgba(0,0,0,0.1);
+    margin-top: 8px;
+  }
+  .exmenu-cat-active .exmenu-arrow {
+    transform: rotate(90deg);
+  }
 
   /* Fix welcome modal */
   .welcome-grid { grid-template-columns: 1fr; }
