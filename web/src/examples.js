@@ -1450,6 +1450,106 @@ xloop:
     hlt`,
   },
 
+  'Strings': {
+    'Length': `; Count the length of a null-terminated ASCII string.
+; String stored at 200H.  Result (byte count) stored at 210H.
+; "Hello" has 5 characters → 210H = 05H.
+    org 100H
+    kickoff 100H
+    setbyte 200H, 48H   ; 'H'
+    setbyte 201H, 65H   ; 'e'
+    setbyte 202H, 6CH   ; 'l'
+    setbyte 203H, 6CH   ; 'l'
+    setbyte 204H, 6FH   ; 'o'
+    setbyte 205H, 00H   ; null terminator
+    lxi  h, 200H
+    mvi  b, 00H         ; B = length counter
+scan:
+    mov  a, m
+    ora  a              ; set flags; Z=1 if null
+    jz   done
+    inr  b
+    inx  h
+    jmp  scan
+done:
+    mov  a, b
+    sta  210H           ; store length = 05H
+    hlt`,
+
+    'Uppercase': `; Convert all lowercase letters in a string to uppercase.
+; Works in-place.  Non-letter bytes are left unchanged.
+; ASCII 'a'..'z' = 61H..7AH → subtract 20H → 'A'..'Z' = 41H..5AH.
+    org 100H
+    kickoff 100H
+    setbyte 200H, 48H   ; 'H'  (already upper — left alone)
+    setbyte 201H, 65H   ; 'e'  → 'E'
+    setbyte 202H, 6CH   ; 'l'  → 'L'
+    setbyte 203H, 6CH   ; 'l'  → 'L'
+    setbyte 204H, 6FH   ; 'o'  → 'O'
+    setbyte 205H, 21H   ; '!'  (not a letter — left alone)
+    setbyte 206H, 00H   ; null terminator
+    lxi  h, 200H
+loop:
+    mov  a, m
+    ora  a              ; null check
+    jz   done
+    cpi  61H            ; below 'a'?
+    jc   next           ; yes — not lowercase, skip
+    cpi  7BH            ; above 'z'?
+    jnc  next           ; yes — not lowercase, skip
+    sui  20H            ; to uppercase
+    mov  m, a
+next:
+    inx  h
+    jmp  loop
+done:
+    hlt`,
+
+    'Reverse': `; Reverse a null-terminated string in-place.
+; DE = left pointer,  HL = right pointer,  B = char temp,  C = swap count.
+; "Hello" (5 chars) → "olleH".
+    org 100H
+    kickoff 100H
+    setbyte 200H, 48H   ; 'H'
+    setbyte 201H, 65H   ; 'e'
+    setbyte 202H, 6CH   ; 'l'
+    setbyte 203H, 6CH   ; 'l'
+    setbyte 204H, 6FH   ; 'o'
+    setbyte 205H, 00H   ; null terminator
+    lxi  d, 200H        ; DE = left pointer (fixed start)
+    lxi  h, 200H        ; HL = scan to find end
+    mvi  c, 00H         ; C = length counter
+scan:
+    mov  a, m
+    ora  a              ; null check
+    jz   found
+    inr  c
+    inx  h
+    jmp  scan
+found:
+    ; C = length.  Length < 2 → nothing to reverse.
+    mov  a, c
+    cpi  02H
+    jc   done
+    dcx  h              ; HL = last char (was pointing at null)
+    ; Swap count = floor(length / 2): clear CY then shift right
+    ora  a              ; A still holds length; clears CY
+    rar                 ; A = length / 2 (floor)
+    mov  c, a           ; C = swap count (reuse register)
+swap:
+    mov  b, m           ; B = right char
+    ldax d              ; A = left char
+    mov  m, a           ; mem[HL] = left
+    mov  a, b
+    stax d              ; mem[DE] = right
+    inx  d              ; left pointer advances right
+    dcx  h              ; right pointer advances left
+    dcr  c
+    jnz  swap
+done:
+    hlt`,
+  },
+
   'I/O': {
     'Port Echo': `; Read a byte from input port 01H, write it to output port 02H.
 ; Before running: set port 01H value in the I/O Ports panel.
@@ -1614,106 +1714,6 @@ dloop:
     mvi a, 03H
     out 10H             ; Write MSB to Counter 0
 
-    hlt`,
-  },
-
-  'Strings': {
-    'Length': `; Count the length of a null-terminated ASCII string.
-; String stored at 200H.  Result (byte count) stored at 210H.
-; "Hello" has 5 characters → 210H = 05H.
-    org 100H
-    kickoff 100H
-    setbyte 200H, 48H   ; 'H'
-    setbyte 201H, 65H   ; 'e'
-    setbyte 202H, 6CH   ; 'l'
-    setbyte 203H, 6CH   ; 'l'
-    setbyte 204H, 6FH   ; 'o'
-    setbyte 205H, 00H   ; null terminator
-    lxi  h, 200H
-    mvi  b, 00H         ; B = length counter
-scan:
-    mov  a, m
-    ora  a              ; set flags; Z=1 if null
-    jz   done
-    inr  b
-    inx  h
-    jmp  scan
-done:
-    mov  a, b
-    sta  210H           ; store length = 05H
-    hlt`,
-
-    'Uppercase': `; Convert all lowercase letters in a string to uppercase.
-; Works in-place.  Non-letter bytes are left unchanged.
-; ASCII 'a'..'z' = 61H..7AH → subtract 20H → 'A'..'Z' = 41H..5AH.
-    org 100H
-    kickoff 100H
-    setbyte 200H, 48H   ; 'H'  (already upper — left alone)
-    setbyte 201H, 65H   ; 'e'  → 'E'
-    setbyte 202H, 6CH   ; 'l'  → 'L'
-    setbyte 203H, 6CH   ; 'l'  → 'L'
-    setbyte 204H, 6FH   ; 'o'  → 'O'
-    setbyte 205H, 21H   ; '!'  (not a letter — left alone)
-    setbyte 206H, 00H   ; null terminator
-    lxi  h, 200H
-loop:
-    mov  a, m
-    ora  a              ; null check
-    jz   done
-    cpi  61H            ; below 'a'?
-    jc   next           ; yes — not lowercase, skip
-    cpi  7BH            ; above 'z'?
-    jnc  next           ; yes — not lowercase, skip
-    sui  20H            ; to uppercase
-    mov  m, a
-next:
-    inx  h
-    jmp  loop
-done:
-    hlt`,
-
-    'Reverse': `; Reverse a null-terminated string in-place.
-; DE = left pointer,  HL = right pointer,  B = char temp,  C = swap count.
-; "Hello" (5 chars) → "olleH".
-    org 100H
-    kickoff 100H
-    setbyte 200H, 48H   ; 'H'
-    setbyte 201H, 65H   ; 'e'
-    setbyte 202H, 6CH   ; 'l'
-    setbyte 203H, 6CH   ; 'l'
-    setbyte 204H, 6FH   ; 'o'
-    setbyte 205H, 00H   ; null terminator
-    lxi  d, 200H        ; DE = left pointer (fixed start)
-    lxi  h, 200H        ; HL = scan to find end
-    mvi  c, 00H         ; C = length counter
-scan:
-    mov  a, m
-    ora  a              ; null check
-    jz   found
-    inr  c
-    inx  h
-    jmp  scan
-found:
-    ; C = length.  Length < 2 → nothing to reverse.
-    mov  a, c
-    cpi  02H
-    jc   done
-    dcx  h              ; HL = last char (was pointing at null)
-    ; Swap count = floor(length / 2): clear CY then shift right
-    ora  a              ; A still holds length; clears CY
-    rar                 ; A = length / 2 (floor)
-    mov  c, a           ; C = swap count (reuse register)
-swap:
-    mov  b, m           ; B = right char
-    ldax d              ; A = left char
-    mov  m, a           ; mem[HL] = left
-    mov  a, b
-    stax d              ; mem[DE] = right
-    inx  d              ; left pointer advances right
-    dcx  h              ; right pointer advances left
-    dcr  c
-    jnz  swap
-done:
     hlt`,
   },
 

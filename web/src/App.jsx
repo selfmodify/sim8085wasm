@@ -2301,7 +2301,7 @@ function ExampleMenu({ onLoad }) {
         <div className="exmenu-dropdown">
           {Object.entries(EXAMPLES).map(([cat, programs], i) => (
             <div key={cat}>
-              {i === 1 && <hr className="exmenu-sep" />}
+              {['Basic', 'Memory', 'I/O'].includes(cat) && <hr className="exmenu-sep" />}
               <div
                 className={`exmenu-cat${activeCat === cat ? ' exmenu-cat-active' : ''}`}
                 onMouseEnter={() => setActiveCat(cat)}
@@ -2758,7 +2758,7 @@ function DriveLoadModal({ files, loading, onClose, onSelect, onDelete }) {
               <button className="bmenu-item" style={{ flex: 1, borderBottom: 'none' }} onClick={() => onSelect(f.id, f.name)}>
                 📄 <span style={{ opacity: 0.5, marginRight: 4 }}>sim8085/</span>{f.name}
               </button>
-              <button className="watch-rm" style={{ margin: '0 12px', fontSize: 13, padding: '4px 6px' }} onClick={() => onDelete(f.id, f.name)} title="Delete from Google Drive">🗑</button>
+              <button className="watch-rm" style={{ margin: '0 12px', fontSize: 13, padding: '4px 6px' }} onClick={(e) => { e.stopPropagation(); onDelete(f.id, f.name); }} title="Delete from Google Drive">🗑</button>
             </div>
           ))}
         </div>
@@ -2920,7 +2920,7 @@ function UIDialog({ dialog, onClose }) {
   }
 
   return (
-    <div className="help-overlay" onClick={handleCancel}>
+    <div className="help-overlay" onClick={handleCancel} style={{ zIndex: 9999 }}>
       <div className="welcome-modal" style={{ width: 440, height: 'auto', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
         <div className="help-hd" style={{ padding: '12px 16px', background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
           <span className="help-mnem" style={{ fontSize: 16 }}>{dialog.title || 'Message'}</span>
@@ -3038,6 +3038,16 @@ export default function App() {
     } catch {}
     return null
   })
+  const [driveMenuOpen, setDriveMenuOpen] = useState(false)
+  const driveMenuRef = useRef(null)
+  
+  useEffect(() => {
+    if (!driveMenuOpen) return
+    const handler = e => { if (!driveMenuRef.current?.contains(e.target)) setDriveMenuOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [driveMenuOpen])
+
   useEffect(() => {
     if (!driveToken) localStorage.removeItem('sim8085_drive_token')
   }, [driveToken])
@@ -3731,14 +3741,11 @@ function addTraceEntry(prevR) {
     document.body.removeChild(a); URL.revokeObjectURL(url)
   }
 
-  function handleDriveConnectToggle() {
-    if (driveToken) {
-      if (window.google) window.google.accounts.oauth2.revoke(driveToken, () => {})
-      setDriveToken(null)
-      setMsg('✓ Disconnected from Google Drive')
-    } else {
-      connectDrive()
-    }
+  function handleDriveDisconnect() {
+    if (window.google) window.google.accounts.oauth2.revoke(driveToken, () => {})
+    setDriveToken(null)
+    setDriveMenuOpen(false)
+    setMsg('✓ Disconnected from Google Drive')
   }
 
   function connectDrive(onSuccess) {
@@ -3773,7 +3780,7 @@ function addTraceEntry(prevR) {
     performSave(driveToken)
   }
 
-  async function performSave(token) {
+  async function performSave(token, explicitName) {
     setMsg('Saving to Google Drive…')
     setDriveSaveStatus('saving')
     try {
@@ -3793,7 +3800,8 @@ function addTraceEntry(prevR) {
         folderId = createData.id
       }
 
-      const name = (fileName.replace(/\.(asm|85|s|txt)$/i,'') || 'program') + '.asm'
+      const nameToUse = explicitName || fileName || 'program'
+      const name = nameToUse.replace(/\.(asm|85|s|txt)$/i,'') + '.asm'
       
       let existingFileId = null
       if (folderId) {
@@ -3823,6 +3831,7 @@ function addTraceEntry(prevR) {
       if (res.status === 401) { setDriveToken(null); setMsg('✗ Drive session expired. Please connect again.'); setDriveSaveStatus(null); return }
       if (res.ok) {
         setMsg(existingFileId ? '✓ File updated on Google Drive!' : '✓ File saved to "sim8085" folder on Google Drive!')
+        if (explicitName) { setFileName(name); localStorage.setItem('sim8085_filename', name) }
         setDriveSaveStatus('success')
         setTimeout(() => setDriveSaveStatus(null), 2000)
       } else { setMsg('✗ Error saving to Google Drive.'); setDriveSaveStatus(null) }
@@ -3830,6 +3839,22 @@ function addTraceEntry(prevR) {
       setMsg('✗ Network error saving to Google Drive.')
       setDriveSaveStatus(null)
     }
+  }
+
+  function saveAsToDrive() {
+    setAppDialog({
+      type: 'prompt',
+      title: 'Save As (Google Drive)',
+      message: 'Enter new file name:',
+      defaultValue: fileName || 'program.asm',
+      confirmText: 'Save',
+      onConfirm: (newName) => {
+        if (!newName) return
+        const finalName = newName.replace(/\.(asm|85|s|txt)$/i,'') + '.asm'
+        if (!driveToken) { connectDrive((token) => performSave(token, finalName)); return }
+        performSave(driveToken, finalName)
+      }
+    })
   }
 
   async function loadFromDrive() {
@@ -3883,16 +3908,15 @@ function addTraceEntry(prevR) {
       message: `Are you sure you want to delete "${fileName}" from your Google Drive?`,
       confirmText: 'Delete',
       onConfirm: async () => {
+        setDriveFiles(files => files ? files.filter(f => f.id !== fileId) : null)
         setMsg(`Deleting ${fileName}…`)
         try {
-          const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
-            method: 'DELETE',
-            headers: { Authorization: 'Bearer ' + driveToken }
+          const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?access_token=${encodeURIComponent(driveToken)}`, {
+            method: 'DELETE'
           })
           if (res.status === 401) { setDriveToken(null); setMsg('✗ Drive session expired. Please connect again.'); return }
           if (!res.ok) throw new Error('Failed to delete')
           setMsg(`✓ Deleted ${fileName} from Google Drive`)
-          setDriveFiles(files => files ? files.filter(f => f.id !== fileId) : null)
         } catch(e) { setMsg(`✗ Error deleting file: ${e.message}`) }
       }
     })
@@ -4218,16 +4242,26 @@ function addTraceEntry(prevR) {
 
         {fileName && <span className="topbar-filename" style={{ marginLeft: 0 }} title={fileName}>File: {fileName}</span>}
 
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
-          {driveToken && (
-            <>
-              <button className="btn" onClick={loadFromDrive} title="Load from Google Drive">☁ Load</button>
-              <button className="btn" onClick={saveToDrive} disabled={driveSaveStatus === 'saving'} title="Save to Google Drive">
-                {driveSaveStatus === 'saving' ? '⏳ Saving…' : driveSaveStatus === 'success' ? '✓ Saved' : '☁ Save'}
-              </button>
-            </>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', position: 'relative' }} ref={driveMenuRef}>
+          {driveSaveStatus === 'saving' && <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)' }}>⏳ Saving…</span>}
+          {driveSaveStatus === 'success' && <span style={{ color: 'var(--accent)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)' }}>✓ Saved</span>}
+          
+          <button className="btn" style={{ color: 'var(--blue)', borderColor: 'var(--border2)' }} onClick={() => {
+            if (driveToken) setDriveMenuOpen(o => !o)
+            else connectDrive()
+          }} title={driveToken ? "Google Drive options" : "Connect to Google Drive"}>
+            {driveToken ? <>☁ Connected <span className="exmenu-chevron">{driveMenuOpen ? '▴' : '▾'}</span></> : '☁ Connect to Drive'}
+          </button>
+
+          {driveMenuOpen && driveToken && (
+            <div className="bmenu-dropdown" style={{ right: 0, left: 'auto', top: 'calc(100% + 6px)' }}>
+              <button className="bmenu-item" onClick={() => { setDriveMenuOpen(false); loadFromDrive() }}>📂 Load from Drive...</button>
+              <button className="bmenu-item" onClick={() => { setDriveMenuOpen(false); saveToDrive() }}>💾 Save</button>
+              <button className="bmenu-item" onClick={() => { setDriveMenuOpen(false); saveAsToDrive() }}>📝 Save As...</button>
+              <div className="bmenu-sep" />
+              <button className="bmenu-item" onClick={handleDriveDisconnect}>🔌 Disconnect</button>
+            </div>
           )}
-          <button className="btn" style={{ color: 'var(--blue)', borderColor: 'var(--border2)' }} onClick={handleDriveConnectToggle} title={driveToken ? "Disconnect Google Drive" : "Connect to Google Drive"}>{driveToken ? '☁ Connected' : '☁ Connect Drive'}</button>
         </div>
         <span className={`engine-chip engine-chip-${engineMode}`} title={engineSwitching ? 'Switching engine…' : `Engine: ${engineMode.toUpperCase()}`}>
           {engineSwitching ? '…' : `Engine: ${engineMode.toUpperCase()}`}
@@ -4408,7 +4442,6 @@ function addTraceEntry(prevR) {
           {showChat && <ChatPanel regs={regs} src={src} onClose={() => setShowChat(false)} />}
           {panels.ppi && <PPI8255Panel outputPorts={outputPorts} inputPresets={inputPresets} onSetInput={setInputPort} onClose={() => togglePanel('ppi')} />}
           {panels.pit && <PIT8253Panel outputPorts={outputPorts} onClose={() => togglePanel('pit')} />}
-          {panels.audio && <AudioPanel running={running} onShowDialog={setAppDialog} />}
         </>
       )}
 
@@ -4428,6 +4461,7 @@ function addTraceEntry(prevR) {
           </div>
         </div>
       )}
+      {appDialog && <UIDialog dialog={appDialog} onClose={() => setAppDialog(null)} />}
     </div>
   )
 }

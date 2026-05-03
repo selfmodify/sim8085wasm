@@ -16,11 +16,11 @@ export const asm8085Lang = StreamLanguage.define({
   token(stream) {
     if (stream.eatSpace()) return null
     if (stream.eat(';')) { stream.skipToEnd(); return 'comment' }
+    if (stream.match(/^[A-Za-z0-9_]+:/))      return 'labelName'
     if (stream.match(/^[0-9A-Fa-f]+[Hh]\b/)) return 'number'
     if (stream.match(/^[01]+[Bb]\b/))         return 'number'
     if (stream.match(/^[0-9]+\b/))            return 'number'
     if (stream.match(/^'[^']*'/))             return 'string'
-    if (stream.match(/^[A-Za-z_][A-Za-z0-9_]*:/)) return 'labelName'
     if (stream.match(/^[A-Za-z_][A-Za-z0-9_]*/)) {
       const word = stream.current().toUpperCase()
       if (ASM8085_MNEMONICS.has(word))  return 'keyword'

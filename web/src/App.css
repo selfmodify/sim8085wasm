@@ -201,7 +201,7 @@
   --shadow-led:   drop-shadow(0 0 6px rgba(0, 255, 65, 0.9));
 }
 
-:root[data-theme="turbo-dos"] {
+:root[data-theme="turbo-c"] {
   --bg:       #555555;
   --bg1:      #0000a8;
   --bg2:      #0000a8;
@@ -387,13 +387,13 @@ body {
 :root[data-theme="amber-mono"] html,
 :root[data-theme="gray-crt"] html,
 :root[data-theme="green"]     html,
-:root[data-theme="turbo-dos"] html { background: #000 }
+:root[data-theme="turbo-c"] html { background: #000 }
 
 /* Rounded screen shape + stronger outer glow */
 :root[data-theme="amber-mono"] .app,
 :root[data-theme="gray-crt"] .app,
 :root[data-theme="green"]     .app,
-:root[data-theme="turbo-dos"] .app {
+:root[data-theme="turbo-c"] .app {
   border-radius: 14px;
   overflow: hidden;
   box-shadow:
@@ -406,7 +406,7 @@ body {
 :root[data-theme="amber-mono"] .app::before,
 :root[data-theme="gray-crt"] .app::before,
 :root[data-theme="green"]     .app::before,
-:root[data-theme="turbo-dos"] .app::before {
+:root[data-theme="turbo-c"] .app::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -419,7 +419,7 @@ body {
 :root[data-theme="amber-mono"] .app::after,
 :root[data-theme="gray-crt"] .app::after,
 :root[data-theme="green"]     .app::after,
-:root[data-theme="turbo-dos"] .app::after {
+:root[data-theme="turbo-c"] .app::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -443,7 +443,7 @@ body {
 :root[data-theme="amber-mono"] .app.crt-glitch::after,
 :root[data-theme="gray-crt"] .app.crt-glitch::after,
 :root[data-theme="green"] .app.crt-glitch::after,
-:root[data-theme="turbo-dos"] .app.crt-glitch::after {
+:root[data-theme="turbo-c"] .app.crt-glitch::after {
   background-image:
     linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 50%, rgba(0, 0, 0, 0.25) 50%),
     linear-gradient(to bottom, transparent, rgba(0,0,0,0.15) 10%, transparent 20%);
@@ -455,19 +455,19 @@ body {
 :root[data-theme="amber-mono"] .t-mono-val,
 :root[data-theme="gray-crt"] .t-mono-val,
 :root[data-theme="green"]     .t-mono-val,
-:root[data-theme="turbo-dos"] .t-mono-val {
+:root[data-theme="turbo-c"] .t-mono-val {
   text-shadow: 0 0 10px currentColor, 0 0 3px currentColor;
 }
 :root[data-theme="amber-mono"] .fg-accent,
 :root[data-theme="gray-crt"] .fg-accent,
 :root[data-theme="green"]     .fg-accent,
-:root[data-theme="turbo-dos"] .fg-accent {
+:root[data-theme="turbo-c"] .fg-accent {
   text-shadow: 0 0 7px currentColor;
 }
 :root[data-theme="amber-mono"] .brand-chip,
 :root[data-theme="gray-crt"] .brand-chip,
 :root[data-theme="green"]     .brand-chip,
-:root[data-theme="turbo-dos"] .brand-chip {
+:root[data-theme="turbo-c"] .brand-chip {
   box-shadow: 0 0 16px var(--accent), 0 0 5px var(--accent);
 }
 
@@ -498,7 +498,7 @@ body {
 /* ── Example submenu ─────────────────────────────────────────────── */
 .exmenu-wrap { position: relative }
 .exmenu-trigger { color: var(--text2) }
-.exmenu-chevron { font-size: 11px; opacity: .7; margin-left: 2px }
+.exmenu-chevron { font-size: 14px; opacity: .8; margin-left: 4px; line-height: 1 }
 .exmenu-dropdown {
   position: absolute;
   top: calc(100% + 5px);
