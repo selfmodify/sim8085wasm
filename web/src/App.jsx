@@ -1886,7 +1886,7 @@ function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput, key
 
 // ── 8255 PPI Panel ────────────────────────────────────────────────────────
 function PPI8255Panel({ outputPorts, inputPresets, onSetInput, onClose }) {
-  const [pos,  setPos]  = useState({ x: Math.max(0, window.innerWidth - 260), y: 100 })
+  const [pos,  setPos]  = useState({ x: Math.max(0, window.innerWidth - 260), y: 420 })
   const posRef = useRef(pos)
 
   function onDragDown(e) {
@@ -1985,7 +1985,7 @@ function PPI8255Panel({ outputPorts, inputPresets, onSetInput, onClose }) {
 
 // ── 8253 PIT Panel ────────────────────────────────────────────────────────
 function PIT8253Panel({ outputPorts, onClose }) {
-  const [pos,  setPos]  = useState({ x: Math.max(0, window.innerWidth - 480), y: 100 })
+  const [pos,  setPos]  = useState({ x: Math.max(0, window.innerWidth - 480), y: 420 })
   const posRef = useRef(pos)
 
   function onDragDown(e) {
@@ -2306,9 +2306,9 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
                   { k: 'flags', l: 'Flags' },
                   { k: 'ints', l: 'Interrupts' },
                   { k: 'io', l: 'I/O Ports' },
+                  { k: 'audio', l: 'Audio Output' },
                   { k: 'ppi', l: '8255 PPI' },
                   { k: 'pit', l: '8253 PIT' },
-                  { k: 'audio', l: 'Audio Output' },
                   { k: 'stack', l: 'Stack' },
                   { k: 'callstack', l: 'Call Stack' },
                   { k: 'trace', l: 'Trace' },
@@ -4227,10 +4227,16 @@ function addTraceEntry(prevR) {
       </div>
       {showWelcome && <WelcomeModal onClose={dismissWelcome} />}
       {helpInst && <HelpModal instruction={helpInst} onClose={() => setHelpInst(null)} />}
-      {showCalc && <CalcFloat onClose={() => setShowCalc(false)} />}
-      {showChat && <ChatPanel regs={regs} src={src} onClose={() => setShowChat(false)} />}
-      {panels.ppi && <PPI8255Panel outputPorts={outputPorts} inputPresets={inputPresets} onSetInput={setInputPort} onClose={() => togglePanel('ppi')} />}
-      {panels.pit && <PIT8253Panel outputPorts={outputPorts} onClose={() => togglePanel('pit')} />}
+      
+      {activeView === 'simulator' && (
+        <>
+          {showCalc && <CalcFloat onClose={() => setShowCalc(false)} />}
+          {showChat && <ChatPanel regs={regs} src={src} onClose={() => setShowChat(false)} />}
+          {panels.ppi && <PPI8255Panel outputPorts={outputPorts} inputPresets={inputPresets} onSetInput={setInputPort} onClose={() => togglePanel('ppi')} />}
+          {panels.pit && <PIT8253Panel outputPorts={outputPorts} onClose={() => togglePanel('pit')} />}
+        </>
+      )}
+
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {driveFiles !== null && <DriveLoadModal files={driveFiles} loading={driveLoading} onClose={() => setDriveFiles(null)} onSelect={fetchDriveFile} onDelete={deleteDriveFile} />}
       {showGithubSetup && <GithubSetupModal onClose={() => setShowGithubSetup(false)} onSave={() => setMsg('✓ GitHub token saved.')} />}
