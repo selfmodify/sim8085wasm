@@ -356,6 +356,21 @@ body {
 /* Panel grow helper */
 .panel-grow { flex: 1 1 0; min-height: 0 }
 
+/* ── Disasm+Trace side-by-side ───────────────────────────────────── */
+.disasm-trace-row {
+  display: flex;
+  flex: 1 1 0;
+  min-height: 80px;
+  overflow: hidden;
+}
+.disasm-trace-stack {
+  flex: 0 0 240px;
+  display: flex;
+  flex-direction: column;
+  min-width: 100px;
+  overflow: hidden;
+}
+
 /* ── App layout ───────────────────────────────────────────────────── */
 .app {
   display: flex;
@@ -1224,12 +1239,31 @@ body {
 .calc-input::placeholder { color: var(--text3); opacity: .5 }
 
 /* ── AI chat ──────────────────────────────────────────────────────── */
-.chat-panel { height: 240px; display: flex; flex-direction: column }
-.chat-resize-handle {
-  height: 5px; flex-shrink: 0; cursor: ns-resize;
-  background: transparent; border-top: 2px solid var(--border); transition: border-color .15s;
+.chat-float {
+  position: fixed;
+  z-index: 500;
+  background: var(--bg1);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-menu);
+  width: 340px; height: 420px;
+  min-width: 250px; min-height: 250px;
+  display: flex; flex-direction: column; overflow: hidden;
+  resize: both;
 }
-.chat-resize-handle:hover { border-top-color: var(--accent) }
+.chat-float-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 8px 5px 10px; background: var(--bg2);
+  border-bottom: 1px solid var(--border); cursor: move;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  letter-spacing: 2px; color: var(--text2); user-select: none;
+  flex-shrink: 0;
+}
+.chat-float-close {
+  background: none; border: none; color: var(--text3); cursor: pointer;
+  font-size: 13px; padding: 1px 5px; border-radius: var(--radius-sm); letter-spacing: 0; line-height: 1;
+}
+.chat-float-close:hover { color: var(--red); background: var(--bg3) }
 .chat-key-setup { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--border) }
 .chat-key-hint  { color: var(--text2); font-size: 11px; line-height: 1.5; margin: 0 }
 .chat-key-row   { display: flex; gap: 6px }
@@ -1304,6 +1338,51 @@ body {
   font-family: var(--mono); font-size: 11px; color: var(--accent);
   cursor: default;
 }
+
+/* ── 8255 PPI ────────────────────────────────────────────────────── */
+.ppi-float {
+  position: fixed;
+  z-index: 500;
+  background: var(--bg1);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-menu);
+  min-width: 220px;
+  overflow: hidden;
+}
+.ppi-float-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 8px 5px 10px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  cursor: move;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  letter-spacing: 2px; color: var(--text2);
+  user-select: none;
+}
+.ppi-float-close {
+  background: none; border: none; color: var(--text3); cursor: pointer;
+  font-size: 13px; padding: 1px 5px; border-radius: var(--radius-sm); letter-spacing: 0;
+  line-height: 1;
+}
+.ppi-float-close:hover { color: var(--red); background: var(--bg3) }
+.ppi-body { padding: 8px 10px; display: flex; flex-direction: column; gap: 8px }
+.ppi-ctrl-row { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--text3); border-bottom: 1px solid var(--border); padding-bottom: 4px }
+.ppi-ctrl-val { color: var(--amber) }
+.ppi-port { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px }
+.ppi-port-hd { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--text2); margin-bottom: 6px }
+.ppi-port-addr { color: var(--text3); font-weight: 400 }
+.ppi-dir { color: var(--accent); font-size: 9px; letter-spacing: .5px }
+.ppi-dir-in { color: var(--amber) }
+.ppi-bits { display: flex; gap: 2px; justify-content: space-between }
+.ppi-bit { flex: 1; text-align: center; background: var(--bg3); border: 1px solid var(--border); border-radius: 2px; font-family: var(--mono); font-size: 11px; padding: 2px 0; color: var(--text3); transition: all .1s; user-select: none; }
+.ppi-bit.on { background: var(--tint-accent-hi); border-color: var(--accent2); color: var(--accent) }
+.ppi-bit.clickable { cursor: pointer }
+.ppi-bit.clickable:hover { border-color: var(--amber); color: var(--amber) }
+
+/* ── Audio Panel ─────────────────────────────────────────────────── */
+.audio-panel { padding-bottom: 4px }
+.audio-body { padding: 8px 10px; display: flex; flex-direction: column; gap: 8px }
 
 /* ── Console panel ───────────────────────────────────────────────── */
 .console-panel { overflow: hidden; display: flex; flex-direction: column; min-height: 80px; max-height: 220px }
@@ -1823,12 +1902,12 @@ body {
   .mem-panel    { flex: 0 0 auto !important; height: 280px; }
 
   /* Disable resize handles on touch screens */
-  .mem-resize-handle, .chat-resize-handle, .stack-resize-handle, .help-resize-handle { display: none; }
+  .mem-resize-handle, .stack-resize-handle, .help-resize-handle { display: none; }
 
   /* Stack the memory and watch sections vertically */
-  .mem-watch-row { flex-direction: column; height: auto !important; overflow: visible; }
+  .mem-watch-row, .disasm-trace-row { flex-direction: column; height: auto !important; overflow: visible; }
   .mem-watch-divider { display: none; }
-  .mem-watch-mem, .mem-watch-watch { 
+  .mem-watch-mem, .mem-watch-watch, .disasm-trace-stack { 
     flex: 0 0 auto !important; width: 100% !important; min-height: 0; overflow: visible;
   }
 

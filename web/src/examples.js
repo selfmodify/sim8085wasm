@@ -1588,7 +1588,7 @@ loop:
     jmp  loop
 
 delay:
-    lxi  d, 2000H       ; Delay length
+    lxi  d, 0800H       ; Tune delay for Fast speed
 dloop:
     dcx  d
     mov  a, d
