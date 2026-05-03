@@ -491,7 +491,7 @@ function useCollapsible(key, defaultCollapsed = false) {
   return [collapsed, toggle]
 }
 
-function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
+function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit, onShowDialog }) {
   const [collapsed, toggleCollapsed] = useCollapsible('reg', false)
   const p = prev || {}
 
@@ -505,7 +505,16 @@ function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit }) {
       const radix = regBase === 'bin' ? 2 : regBase === 'dec' ? 10 : 16
       const n = parseInt(buf, radix)
       if (!isNaN(n)) {
-        if (regKey === 'pc' && !window.confirm(`Move instruction pointer to ${hex4(n)}H?\nThe next step will execute from that address.`)) { setEditing(false); return }
+        if (regKey === 'pc') {
+          onShowDialog?.({
+            type: 'confirm',
+            title: 'Move PC',
+            message: `Move instruction pointer to ${hex4(n)}H?\nThe next step will execute from that address.`,
+            onConfirm: () => { sim.simSetRegisters({ [regKey]: n }); onEdit(); },
+            onCancel: () => setEditing(false)
+          })
+          return
+        }
         sim.simSetRegisters({ [regKey]: n })
         onEdit()
       }
@@ -994,7 +1003,7 @@ function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondit
 }
 
 // ── Memory dump panel ────────────────────────────────────────────────────
-function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion, presetAddrs, onMemoryEdited }) {
+function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion, presetAddrs, onMemoryEdited, onShowDialog }) {
   const [mem, setMem] = useState(new Uint8Array(128))
   const [followPC, setFollowPC] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -1167,10 +1176,17 @@ function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion
   }
 
   function clearMemory() {
-    if (!window.confirm('Clear all memory? This will overwrite everything with 00H.')) return
-    for (let i = 0; i <= 0xFFFF; i++) sim.simWriteByte(i, 0)
-    refresh()
-    onMemoryEdited?.()
+    onShowDialog?.({
+      type: 'confirm',
+      title: 'Clear Memory',
+      message: 'Clear all memory? This will overwrite everything with 00H.',
+      confirmText: 'Clear',
+      onConfirm: () => {
+        for (let i = 0; i <= 0xFFFF; i++) sim.simWriteByte(i, 0)
+        refresh()
+        onMemoryEdited?.()
+      }
+    })
   }
 
   return (
@@ -2064,7 +2080,7 @@ function PIT8253Panel({ outputPorts, onClose }) {
 }
 
 // ── Audio Output Panel ──────────────────────────────────────────────────
-function AudioPanel({ running }) {
+function AudioPanel({ running, onShowDialog }) {
   const [collapsed, toggleCollapsed] = useCollapsible('audio', false)
   const [enabled, setEnabled] = useState(false)
   const [volume, setVolume] = useState(0.05)
@@ -2080,7 +2096,7 @@ function AudioPanel({ running }) {
     if (!enabled) {
       // Initialize AudioContext directly inside the click handler to bypass browser autoplay blocks
       const AudioCtx = window.AudioContext || window.webkitAudioContext
-      if (!AudioCtx) { alert('Web Audio API not supported.'); return }
+      if (!AudioCtx) { onShowDialog?.({ type: 'alert', title: 'Audio', message: 'Web Audio API not supported.' }); return }
       if (!audioRef.current) {
         const ctx = new AudioCtx()
         const osc = ctx.createOscillator()
@@ -2108,7 +2124,7 @@ function AudioPanel({ running }) {
   }
 
   function playTestTone() {
-    if (!enabled || !audioRef.current) return alert("Click ON first!")
+    if (!enabled || !audioRef.current) return onShowDialog?.({ type: 'alert', title: 'Audio', message: 'Click ON first!' })
     const { gain, osc, ctx } = audioRef.current
     osc.frequency.setValueAtTime(440, ctx.currentTime)
     gain.gain.setValueAtTime(volume, ctx.currentTime)
@@ -2439,7 +2455,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
                   { id: 'amber-mono', label: '🟡  Amber Monochrome' },
                   { id: 'gray-crt',   label: '⬜  Gray Retro CRT'   },
                   { id: 'green',      label: '🟢  Green CRT'        },
-                  { id: 'turbo-dos',  label: '🟦  Turbo DOS'        },
+                  { id: 'turbo-c',    label: '🟦  Turbo C'          },
                 ].map(({ id, label }) => (
                   <button key={id} className="exmenu-sub-item"
                     style={{ color: theme === id ? 'var(--accent)' : undefined,
@@ -2451,7 +2467,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
               </div>
             )}
           </div>
-          {['amber-mono', 'gray-crt', 'green', 'turbo-dos'].includes(theme) && (
+          {['amber-mono', 'gray-crt', 'green', 'turbo-c'].includes(theme) && (
             <>
               <div className="bmenu-setting">
                 <span className="bmenu-setting-label">CRT Brightness</span>
@@ -2882,6 +2898,46 @@ function GithubSetupModal({ onClose, onSave }) {
   )
 }
 
+// ── Global UI Dialog ──────────────────────────────────────────────────────
+function UIDialog({ dialog, onClose }) {
+  const [input, setInput] = useState(dialog.defaultValue || '')
+  const inputRef = useRef(null)
+  useEffect(() => {
+    if (dialog.type === 'prompt' && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [dialog])
+
+  function handleConfirm() {
+    if (dialog.onConfirm) dialog.onConfirm(dialog.type === 'prompt' ? input : undefined)
+    onClose()
+  }
+
+  function handleCancel() {
+    if (dialog.onCancel) dialog.onCancel()
+    onClose()
+  }
+
+  return (
+    <div className="help-overlay" onClick={handleCancel}>
+      <div className="welcome-modal" style={{ width: 440, height: 'auto', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+        <div className="help-hd" style={{ padding: '12px 16px', background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
+          <span className="help-mnem" style={{ fontSize: 16 }}>{dialog.title || 'Message'}</span>
+          <button className="help-close" onClick={handleCancel}>✕</button>
+        </div>
+        <div style={{ padding: '20px 16px' }}>
+          <p style={{ color: 'var(--text2)', fontSize: 14, whiteSpace: 'pre-wrap', marginBottom: dialog.type === 'prompt' ? 16 : 0, fontFamily: 'var(--sans)' }}>{dialog.message}</p>
+          {dialog.type === 'prompt' && <input ref={inputRef} className="chat-input" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleConfirm()} style={{ width: '100%', fontSize: 14, padding: '6px 8px' }} />}
+        </div>
+        <div style={{ padding: '12px 16px', background: 'var(--bg2)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          {dialog.type !== 'alert' && <button className="btn" onClick={handleCancel}>{dialog.cancelText || 'Cancel'}</button>}
+          <button className="btn btn-run" onClick={handleConfirm}>{dialog.confirmText || 'OK'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ── Root app ─────────────────────────────────────────────────────────────
 export default function App() {
@@ -2989,6 +3045,7 @@ export default function App() {
   const [driveSaveStatus, setDriveSaveStatus] = useState(null)
   const [activeChallenge, setActiveChallenge] = useState(null)
   const [challengeResult, setChallengeResult] = useState(null)
+  const [appDialog, setAppDialog]             = useState(null)
   const [showGithubSetup, setShowGithubSetup] = useState(false)
   const [haltTrigger, setHaltTrigger]         = useState(0)
   const lastHaltRef                           = useRef(0)
@@ -3616,14 +3673,18 @@ function addTraceEntry(prevR) {
   function openConditionDialog(addr) {
     if (!bps.has(addr)) return
     const cur = bps.get(addr) || ''
-    const expr = window.prompt(
-      `Condition at ${hex4(addr)}H — use A B C D E H L PC SP BC DE HL FLAGS S Z AC P CY\n(e.g.  A==0   CY==1   HL>=0x200)\nLeave empty for unconditional:`,
-      cur
-    )
-    if (expr === null) return
-    const next = new Map(bps)
-    next.set(addr, expr.trim() || null)
-    syncBps(next)
+    setAppDialog({
+      type: 'prompt',
+      title: `Condition at ${hex4(addr)}H`,
+      message: 'Use A B C D E H L PC SP BC DE HL FLAGS S Z AC P CY\n(e.g.  A==0   CY==1   HL>=0x200)\nLeave empty for unconditional:',
+      defaultValue: cur,
+      onConfirm: (expr) => {
+        if (expr === undefined) return
+        const next = new Map(bps)
+        next.set(addr, expr.trim() || null)
+        syncBps(next)
+      }
+    })
   }
 
   function exportFile() {
@@ -3816,39 +3877,57 @@ function addTraceEntry(prevR) {
   }
 
   async function deleteDriveFile(fileId, fileName) {
-    if (!window.confirm(`Are you sure you want to delete "${fileName}" from your Google Drive?`)) return
-    setMsg(`Deleting ${fileName}…`)
-    try {
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
-        method: 'DELETE',
-        headers: { Authorization: 'Bearer ' + driveToken }
-      })
-      if (res.status === 401) { setDriveToken(null); setMsg('✗ Drive session expired. Please connect again.'); return }
-      if (!res.ok) throw new Error('Failed to delete')
-      setMsg(`✓ Deleted ${fileName} from Google Drive`)
-      setDriveFiles(files => files ? files.filter(f => f.id !== fileId) : null)
-    } catch(e) { setMsg(`✗ Error deleting file: ${e.message}`) }
+    setAppDialog({
+      type: 'confirm',
+      title: 'Delete File',
+      message: `Are you sure you want to delete "${fileName}" from your Google Drive?`,
+      confirmText: 'Delete',
+      onConfirm: async () => {
+        setMsg(`Deleting ${fileName}…`)
+        try {
+          const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+            method: 'DELETE',
+            headers: { Authorization: 'Bearer ' + driveToken }
+          })
+          if (res.status === 401) { setDriveToken(null); setMsg('✗ Drive session expired. Please connect again.'); return }
+          if (!res.ok) throw new Error('Failed to delete')
+          setMsg(`✓ Deleted ${fileName} from Google Drive`)
+          setDriveFiles(files => files ? files.filter(f => f.id !== fileId) : null)
+        } catch(e) { setMsg(`✗ Error deleting file: ${e.message}`) }
+      }
+    })
   }
 
   async function loadFromGist(presetId) {
-    const input = typeof presetId === 'string' ? presetId : window.prompt('Enter a GitHub Gist ID or URL:')
-    if (!input) return
-    const match = input.match(/[0-9a-f]{20,}/i) || input.match(/^[a-zA-Z0-9_-]+$/)
-    const gistId = match ? match[0] : input.trim()
-    if (!gistId) return
-    setActiveChallenge(null)
-    setMsg('Fetching GitHub Gist…')
-    try {
-      const res = await fetch(`https://api.github.com/gists/${gistId}`)
-      if (!res.ok) throw new Error('Gist not found or private')
-      const data = await res.json()
-      const file = Object.values(data.files).find(f => f.filename.endsWith('.asm') || f.filename.endsWith('.85')) || Object.values(data.files)[0]
-      if (!file) throw new Error('No valid files found in Gist')
-      srcRef.current = file.content; setSrc(file.content); doAssemble(file.content)
-      setFileName(file.filename); localStorage.setItem('sim8085_filename', file.filename)
-      setMsg(`✓ Loaded ${file.filename} from GitHub Gist`)
-      setActiveView('simulator')
-    } catch(e) { setMsg(`✗ Error loading GitHub Gist: ${e.message}`) }
+    const load = async (input) => {
+      const match = input.match(/[0-9a-f]{20,}/i) || input.match(/^[a-zA-Z0-9_-]+$/)
+      const gistId = match ? match[0] : input.trim()
+      if (!gistId) return
+      setActiveChallenge(null)
+      setMsg('Fetching GitHub Gist…')
+      try {
+        const res = await fetch(`https://api.github.com/gists/${gistId}`)
+        if (!res.ok) throw new Error('Gist not found or private')
+        const data = await res.json()
+        const file = Object.values(data.files).find(f => f.filename.endsWith('.asm') || f.filename.endsWith('.85')) || Object.values(data.files)[0]
+        if (!file) throw new Error('No valid files found in Gist')
+        srcRef.current = file.content; setSrc(file.content); doAssemble(file.content)
+        setFileName(file.filename); localStorage.setItem('sim8085_filename', file.filename)
+        setMsg(`✓ Loaded ${file.filename} from GitHub Gist`)
+        setActiveView('simulator')
+      } catch(e) { setMsg(`✗ Error loading GitHub Gist: ${e.message}`) }
+    }
+
+    if (typeof presetId === 'string') {
+      load(presetId)
+    } else {
+      setAppDialog({
+        type: 'prompt',
+        title: 'Load Gist',
+        message: 'Enter a GitHub Gist ID or URL:',
+        onConfirm: (input) => { if (input) load(input) }
+      })
+    }
   }
 
   async function saveToGist() {
@@ -3896,27 +3975,32 @@ function addTraceEntry(prevR) {
     }
 
     if (ext === 'bin') {
-      const inputAddr = window.prompt(`Enter hex start address for ${file.name}:`, '0100')
-      if (inputAddr === null) {
-        e.target.value = ''
-        return
-      }
-      let startAddr = parseInt(inputAddr.replace(/h$/i, ''), 16)
-      if (isNaN(startAddr) || startAddr < 0 || startAddr > 0xFFFF) {
-        startAddr = 0x100
-        alert('Invalid hex address. Defaulting to 0100H.')
-      }
-      const reader = new FileReader()
-      reader.onload = ev => {
-        const bytes = new Uint8Array(ev.target.result)
-        sim.simInit()
-        bytes.forEach((b, i) => sim.simWriteByte(startAddr + i, b))
-        setMsg(`✓ Loaded ${bytes.length} bytes from ${file.name} at ${hex4(startAddr)}H`)
-        setAppState('idle'); setBuildId(id => id + 1)
-        setFileName(file.name); localStorage.setItem('sim8085_filename', file.name)
-        e.target.value = ''
-      }
-      reader.readAsArrayBuffer(file)
+      setAppDialog({
+        type: 'prompt',
+        title: 'Load Binary',
+        message: `Enter hex start address for ${file.name}:`,
+        defaultValue: '0100',
+        onConfirm: (inputAddr) => {
+          if (!inputAddr) { e.target.value = ''; return }
+          let startAddr = parseInt(inputAddr.replace(/h$/i, ''), 16)
+          if (isNaN(startAddr) || startAddr < 0 || startAddr > 0xFFFF) {
+            startAddr = 0x100
+            setAppDialog({ type: 'alert', title: 'Invalid Address', message: 'Invalid hex address. Defaulting to 0100H.' })
+          }
+          const reader = new FileReader()
+          reader.onload = ev => {
+            const bytes = new Uint8Array(ev.target.result)
+            sim.simInit()
+            bytes.forEach((b, i) => sim.simWriteByte(startAddr + i, b))
+            setMsg(`✓ Loaded ${bytes.length} bytes from ${file.name} at ${hex4(startAddr)}H`)
+            setAppState('idle'); setBuildId(id => id + 1)
+            setFileName(file.name); localStorage.setItem('sim8085_filename', file.name)
+            e.target.value = ''
+          }
+          reader.readAsArrayBuffer(file)
+        },
+        onCancel: () => { e.target.value = '' }
+      })
       return
     }
 
@@ -3952,7 +4036,12 @@ function addTraceEntry(prevR) {
     const url = `${base}#code=${encoded}`
     navigator.clipboard.writeText(url)
       .then(() => setMsg('✓ URL copied to clipboard!'))
-      .catch(() => window.prompt('Copy this URL:', url))
+      .catch(() => setAppDialog({
+        type: 'prompt',
+        title: 'Share URL',
+        message: 'Copy this URL:',
+        defaultValue: url
+      }))
   }
 
   function runToAddr(addr) {
@@ -4090,7 +4179,7 @@ function addTraceEntry(prevR) {
 
   const running = appState === 'running'
   const isDirty = src !== lastBuiltSrcRef.current
-  const isRetroTheme = ['amber-mono', 'gray-crt', 'green', 'turbo-dos'].includes(theme)
+  const isRetroTheme = ['amber-mono', 'gray-crt', 'green', 'turbo-c'].includes(theme)
 
   return (
     <div className={`app${isRetroTheme && crtGlitch ? ' crt-glitch' : ''}`} style={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}>
@@ -4234,6 +4323,7 @@ function addTraceEntry(prevR) {
                 changedAddrs={changedAddrs}
                 programRegion={programRegion}
                 presetAddrs={presetAddrs}
+                onShowDialog={setAppDialog}
               onMemoryEdited={() => setBuildId(id => id + 1)}
               />
             </div>
@@ -4267,7 +4357,7 @@ function addTraceEntry(prevR) {
 
         {/* Registers column */}
         <div className={`col col-right${mobileTab!=='regs' ? ' mobile-hidden' : ''}`} ref={rightColRef}>
-          {panels.regs      && <RegPanel   regs={regs} prev={prevRegs} onJump={setMemStart} regBase={regBase} onRegBase={setRegBase} onEdit={refresh} />}
+          {panels.regs      && <RegPanel   regs={regs} prev={prevRegs} onJump={setMemStart} regBase={regBase} onRegBase={setRegBase} onEdit={refresh} onShowDialog={setAppDialog} />}
           {panels.pairs     && <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh} regBase={regBase} onRegBase={setRegBase} onMemoryEdited={() => setBuildId(id => id + 1)} />}
           {panels.flags     && <FlagPanel  regs={regs} />}
           {panels.ints      && <IntPanel intState={intState} onAssert={assertInterrupt} onDeassert={deassertInterrupt} />}
@@ -4318,6 +4408,7 @@ function addTraceEntry(prevR) {
           {showChat && <ChatPanel regs={regs} src={src} onClose={() => setShowChat(false)} />}
           {panels.ppi && <PPI8255Panel outputPorts={outputPorts} inputPresets={inputPresets} onSetInput={setInputPort} onClose={() => togglePanel('ppi')} />}
           {panels.pit && <PIT8253Panel outputPorts={outputPorts} onClose={() => togglePanel('pit')} />}
+          {panels.audio && <AudioPanel running={running} onShowDialog={setAppDialog} />}
         </>
       )}
 
