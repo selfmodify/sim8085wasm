@@ -2472,7 +2472,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
       {open &&
         <div className="bmenu-dropdown" style={{ overflow: 'visible' }} onMouseLeave={() => setActiveSub(null)}>
           {[['simulator','🖥','Simulator'],['challenges','🏆','Challenges'],['community','🌐','Community Gists']].map(([v,icon,label]) => (
-            <button key={v} className="bmenu-item" onClick={() => { onSetView(v); setOpen(false); setActiveSub(null) }}>
+            <button key={v} className={`bmenu-item${v !== 'simulator' ? ' bmenu-mobile-only' : ''}`} onClick={() => { onSetView(v); setOpen(false); setActiveSub(null) }}>
               <span style={{display:'inline-block',width:16}}>{activeView===v?'✓':''}</span>{icon} {label}
             </button>
           ))}

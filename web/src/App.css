@@ -593,6 +593,7 @@ body {
 }
 .bmenu-item:hover { background: var(--bg3); color: var(--accent) }
 .bmenu-sep { height: 1px; background: var(--border); margin: 2px 0 }
+.bmenu-mobile-only { display: none }
 .bmenu-setting {
   display: flex; align-items: center; justify-content: space-between;
   padding: 6px 14px; font-size: 13px; color: var(--text); font-family: var(--sans);
@@ -1978,6 +1979,7 @@ body {
     max-width: 90vw; max-height: 80vh; overflow-y: auto !important; overflow-x: hidden !important;
   }
   .bmenu-mobile-hide { display: none }
+  .bmenu-mobile-only { display: block }
   .exmenu-cat {
     flex-wrap: wrap;
   }
