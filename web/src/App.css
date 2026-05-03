@@ -376,6 +376,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh; /* dynamic viewport height: excludes browser chrome on mobile */
   overflow: hidden;
   position: relative; /* Needed for pseudo-element scanlines */
   z-index: 0; /* Establish root stacking context for CRT effects */
@@ -1930,9 +1931,10 @@ body {
   /* Hide drag handles */
   .col-resize-handle { display: none }
 
-  /* Editor: fixed height so LED/help panels below it are reachable */
-  .editor-panel { flex: 1 1 auto !important; min-height: 350px }
-  .editor-inner { height: auto !important; flex: 1 1 auto; min-height: 0 }
+  /* Editor: viewport-relative height so the column can overflow and scroll to reach help/LED panels.
+     flex-grow on editor-panel causes WebKit to misreport scroll height, blocking touch scroll. */
+  .editor-panel { flex: 0 0 auto !important; }
+  .editor-inner { height: 40vh !important; min-height: 150px; flex: none !important; }
 
   /* Ensure mobile tap targets are at least 44x44px */
   .btn, .mobile-tab, .exmenu-trigger, .bmenu-trigger { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
