@@ -143,6 +143,13 @@ const PANEL_HELP_TEXT = {
 ⬇ Export range:
 • Download any selected memory range to a raw .bin file`,
 
+  'MEMORY MAP': `• Visual representation of the 64KB address space
+• Code (Blue): Assembled instructions
+• Data (Green): Values injected via SETBYTE/SETWORD/DB/DW
+• Stack (Amber): Region from SP to FFFFH
+• Hover over any region to see its exact address bounds
+• Bright green line indicates current Program Counter (PC)`,
+
   'REGISTERS': `• Live 8085 register values (A, B, C, D, E, H, L, PC, SP)
 • Click any value to edit it inline
 • Right-click a value to copy it to the clipboard
@@ -2214,6 +2221,56 @@ function AudioPanel({ running, onShowDialog }) {
   )
 }
 
+// ── Memory Map Panel ────────────────────────────────────────────────────
+function MemMapPanel({ regs, programRegion, presetAddrs }) {
+  const [collapsed, toggleCollapsed] = useCollapsible('memmap', false)
+
+  // Group scattered preset addresses into contiguous visual chunks
+  const dataRegions = useMemo(() => {
+    if (!presetAddrs || presetAddrs.size === 0) return []
+    const addrs = [...presetAddrs].sort((a,b) => a-b)
+    const regions = []
+    let cur = { start: addrs[0], end: addrs[0] }
+    for (let i = 1; i < addrs.length; i++) {
+      if (addrs[i] <= cur.end + 64) cur.end = addrs[i] // cluster close elements
+      else { regions.push(cur); cur = { start: addrs[i], end: addrs[i] } }
+    }
+    regions.push(cur)
+    return regions
+  }, [presetAddrs])
+
+  return (
+    <div className="panel memmap-panel">
+      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
+        <span><span className="panel-icon">🗺️</span>MEMORY MAP</span>
+        <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
+          <PanelHelp panel="MEMORY MAP" />
+        </div>
+        <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
+      </div>
+      {!collapsed && (
+        <div className="memmap-body">
+          <div className="memmap-bar-container">
+            <div className="memmap-bar">
+              {programRegion && <div className="memmap-region memmap-code" style={{ top: `${(programRegion.start/65535)*100}%`, height: `${Math.max(0.5, ((programRegion.end-programRegion.start)/65535)*100)}%` }} title={`Code: ${hex4(programRegion.start)}H - ${hex4(programRegion.end)}H`} />}
+              {dataRegions.map((r, i) => <div key={i} className="memmap-region memmap-data" style={{ top: `${(r.start/65535)*100}%`, height: `${Math.max(0.5, ((r.end-r.start)/65535)*100)}%` }} title={`Data: ${hex4(r.start)}H - ${hex4(r.end)}H`} />)}
+              {regs.sp > 0 && <div className="memmap-region memmap-stack" style={{ top: `${(regs.sp/65535)*100}%`, height: `${((65536-regs.sp)/65535)*100}%` }} title={`Stack: ${hex4(regs.sp)}H - FFFFH`} />}
+              <div className="memmap-marker memmap-pc" style={{ top: `${(regs.pc/65535)*100}%` }} title={`PC: ${hex4(regs.pc)}H`} />
+            </div>
+            <div className="memmap-labels"><div style={{top: '0%'}}>0000H</div><div style={{top: '100%', transform: 'translateY(-100%)'}}>FFFFH</div></div>
+          </div>
+          <div className="memmap-legend">
+            <div><span className="memmap-swatch" style={{background: 'var(--tint-blue-code)', borderColor: 'rgba(64,144,255,.5)'}}/> CODE</div>
+            <div><span className="memmap-swatch" style={{background: 'var(--tint-green-pre)', borderColor: 'rgba(74,240,160,.5)'}}/> DATA</div>
+            <div><span className="memmap-swatch" style={{background: 'var(--tint-amber-sp)', borderColor: 'var(--amber)'}}/> STACK</div>
+            <div><span className="memmap-swatch" style={{background: 'var(--accent)', height: 2, border: 'none'}}/> PC</div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Interrupt panel ──────────────────────────────────────────────────────
 function IntPanel({ intState, onAssert, onDeassert }) {
   const [collapsed, toggleCollapsed] = useCollapsible('interrupts', true)
@@ -2397,6 +2454,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
                   { k: 'flags', l: 'Flags' },
                   { k: 'ints', l: 'Interrupts' },
                   { k: 'io', l: 'I/O Ports' },
+                  { k: 'memmap', l: 'Memory Map' },
                   { k: 'audio', l: 'Audio Output' },
                   { k: 'ppi', l: '8255 PPI' },
                   { k: 'pit', l: '8253 PIT' },
@@ -3061,7 +3119,7 @@ export default function App() {
   const lastHaltRef                           = useRef(0)
   
   const [panels, setPanels] = useState(() => {
-    const def = { regs:true, pairs:true, flags:true, ints:true, io:true, ppi:true, pit:false, audio:true, stack:true, callstack:true, trace:true }
+    const def = { regs:true, pairs:true, flags:true, ints:true, io:true, memmap:false, ppi:true, pit:false, audio:true, stack:true, callstack:true, trace:true }
     try { return { ...def, ...JSON.parse(localStorage.getItem('sim8085_panels')) } } catch { return def }
   })
   function togglePanel(key) {
@@ -4399,6 +4457,7 @@ function addTraceEntry(prevR) {
             onSetInput={setInputPort} onRemoveInput={removeInputPort}
             keyQueue={keyQueue} onEnqueueKeys={enqueueKeys} onClearKeyQueue={clearKeyQueue}
             sid={sid} sod={sod} onSetSID={v => { sim.simSetSID(v); setSid(v); }} />}
+          {panels.memmap    && <MemMapPanel regs={regs} programRegion={programRegion} presetAddrs={presetAddrs} />}
           {panels.audio     && <AudioPanel outputPorts={outputPorts} running={running} />}
         </div>
       </div>
