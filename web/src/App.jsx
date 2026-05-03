@@ -221,6 +221,23 @@ const PANEL_HELP_TEXT = {
 • INTR — level-triggered; select which RST n vector (0–7) appears on the data bus
 • Mask badges appear when the program has masked a line via SIM
 • Write ISRs at the vector addresses (e.g. ORG 003CH for RST 7.5) and end them with EI + RET`,
+
+  '8255 PPI': `• Programmable Peripheral Interface (Ports 00H–03H)
+• Control Word (03H) configures ports A, B, and C as Input or Output
+• Mode 0 is supported (basic I/O)
+• Output ports display the bits sent via OUT
+• Input ports provide clickable bits to toggle state for IN`,
+
+  '8253 PIT': `• Programmable Interval Timer (Ports 10H–13H)
+• Control Word (13H) selects counter and mode
+• Counters 0, 1, and 2 are mapped to 10H, 11H, and 12H
+• Currently serves as a visual decoder for the control word and counter values`,
+
+  'AUDIO OUTPUT': `• Web Audio API synthesizer mapped to PORT 40H
+• OUT 40H with a value > 0 generates a square wave tone
+• OUT 40H with 0 mutes the audio
+• Must click the ON button first to enable audio output
+• Use Fast speed (not Warp) for best playback timing`,
 }
 
 function PanelHelp({ panel, wide }) {
@@ -1968,7 +1985,10 @@ function PPI8255Panel({ outputPorts, inputPresets, onSetInput, onClose }) {
     <div className="ppi-float" style={{ left: pos.x, top: pos.y }}>
       <div className="ppi-float-hd" onMouseDown={onDragDown}>
         <span><span className="panel-icon">🕹️</span>8255 PPI</span>
-        <button className="ppi-float-close" onClick={onClose} title="Close">✕</button>
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <PanelHelp panel="8255 PPI" />
+          <button className="ppi-float-close" onClick={onClose} title="Close">✕</button>
+        </div>
       </div>
       <div className="ppi-body">
         <div className="ppi-ctrl-row">
@@ -2027,7 +2047,10 @@ function PIT8253Panel({ outputPorts, onClose }) {
     <div className="ppi-float" style={{ left: pos.x, top: pos.y }}>
       <div className="ppi-float-hd" onMouseDown={onDragDown}>
         <span><span className="panel-icon">⏱️</span>8253 PIT</span>
-        <button className="ppi-float-close" onClick={onClose} title="Close">✕</button>
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <PanelHelp panel="8253 PIT" />
+          <button className="ppi-float-close" onClick={onClose} title="Close">✕</button>
+        </div>
       </div>
       <div className="ppi-body">
         <div className="ppi-ctrl-row"><span>CTRL WORD (13H):</span><span className="ppi-ctrl-val">{hex2(ctrlVal)}H</span></div>
@@ -2145,7 +2168,10 @@ function AudioPanel({ running }) {
   return (
     <div className="panel audio-panel">
       <div className="panel-hd collapsible" onClick={toggleCollapsed}>
-        <span className="panel-icon">🔊</span>AUDIO (PORT 40H)
+        <span><span className="panel-icon">🔊</span>AUDIO (PORT 40H)</span>
+        <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
+          <PanelHelp panel="AUDIO OUTPUT" />
+        </div>
         <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
       </div>
       {!collapsed && (
@@ -2286,7 +2312,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveToGist, onShare, onCalc, onChat, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast, onManageGithub, panels, onTogglePanel }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveToGist, onShare, onCalc, onChat, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast, crtGlitch, onCrtGlitch, onManageGithub, panels, onTogglePanel }) {
   const [open, setOpen] = useState(false);
   const [activeSub, setActiveSub] = useState(null);
   const wrapRef = useRef(null)
@@ -2439,6 +2465,12 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
                   onChange={e => onCrtContrast(+e.target.value)} className="speed-slider" style={{width:'80px'}}
                   onDoubleClick={() => onCrtContrast(1)} title="Double-click to reset" />
               </div>
+              <div className="bmenu-setting">
+                <span className="bmenu-setting-label">CRT Interference</span>
+                <button className={`btn btn-xs ${crtGlitch ? 'btn-run' : ''}`} onClick={() => onCrtGlitch(!crtGlitch)}>
+                  {crtGlitch ? 'ON' : 'OFF'}
+                </button>
+              </div>
             </>
           )}
           <div className="bmenu-setting">
@@ -2486,9 +2518,9 @@ const WELCOME_FEATURES = [
   { icon: '📋', title: 'Disassembly',     desc: 'Live disassembly follows the program counter. Click any row to toggle a breakpoint — execution pauses automatically when PC hits it.' },
   { icon: '🧠', title: 'CPU State',       desc: 'Registers, flags, and register pairs update live and highlight green on every change. Click any register pair to jump the memory view to that address. Values are editable in place.' },
   { icon: '💾', title: 'Memory',          desc: 'Browse and edit all of RAM in the hex editor. Double-click any cell to change it. RAM size is configurable (16 / 32 / 64 KB) in the menu.' },
-  { icon: '💡', title: 'LED Display',     desc: 'The 7-segment LED display is driven by Intel SDK CALL 5 system calls. Load "LED Count" or "LED Scroll" from the I/O examples to see it in action.' },
+  { icon: '🕹️', title: 'I/O & Peripherals', desc: 'Interact with the 8255 PPI, 8253 PIT, Audio Output, and 7-segment LED display. Set input ports for the IN instruction, and queue keystrokes for CALL 5 C=01H syscalls.' },
   { icon: '🔔', title: 'Interrupts',      desc: 'Fire TRAP, RST 7.5, RST 6.5, or RST 5.5 mid-program with the FIRE buttons. Control the interrupt flip-flop via EI/DI/SIM/RIM. HLT pauses and resumes on the next interrupt.' },
-  { icon: '🔌', title: 'I/O & Keyboard',  desc: 'Pre-set input port values returned by the IN instruction. Queue keystrokes for the CALL 5 C=01H read-key syscall. Try the "Keyboard Read" example under I/O.' },
+  { icon: '🌐', title: 'Community & Challenges', desc: 'Solve auto-verified coding challenges, or explore and share 8085 scripts via GitHub Gists.' },
   { icon: '🖩', title: 'Calculator',      desc: 'Convert values between binary, octal, decimal, and hex — handy when working out immediate operands or memory addresses.' },
   { icon: '🤖', title: 'AI Assistant',    desc: 'Enter your Anthropic API key (stored only in your browser, never sent to any server) to ask questions about 8085 assembly directly in the app.' },
 ]
@@ -2931,6 +2963,7 @@ export default function App() {
   }, [theme])
   const [crtBrightness, setCrtBrightness] = useState(() => parseFloat(localStorage.getItem('sim8085_crt_b') || '1'))
   const [crtContrast, setCrtContrast]     = useState(() => parseFloat(localStorage.getItem('sim8085_crt_c') || '1'))
+  const [crtGlitch, setCrtGlitch]         = useState(() => localStorage.getItem('sim8085_crt_glitch') === 'true')
   function toggleTheme() {
     setTheme(t =>
       t === 'dark'       ? 'dim'        :
@@ -4060,7 +4093,7 @@ function addTraceEntry(prevR) {
   const isRetroTheme = ['amber-mono', 'gray-crt', 'green', 'turbo-dos'].includes(theme)
 
   return (
-    <div className="app" style={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}>
+    <div className={`app${isRetroTheme && crtGlitch ? ' crt-glitch' : ''}`} style={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}>
       {/* ── Topbar ── */}
       <div className="topbar">
         <div className="brand">
@@ -4084,6 +4117,7 @@ function addTraceEntry(prevR) {
             theme={theme} onTheme={toggleTheme} onSetTheme={setTheme}
             crtBrightness={crtBrightness} onCrtBrightness={v => { setCrtBrightness(v); localStorage.setItem('sim8085_crt_b', v) }}
             crtContrast={crtContrast} onCrtContrast={v => { setCrtContrast(v); localStorage.setItem('sim8085_crt_c', v) }}
+            crtGlitch={crtGlitch} onCrtGlitch={v => { setCrtGlitch(v); localStorage.setItem('sim8085_crt_glitch', v ? 'true' : 'false') }}
             onManageGithub={() => setShowGithubSetup(true)}
             panels={panels} onTogglePanel={togglePanel} />
           <div className="view-tabs">
@@ -4092,6 +4126,8 @@ function addTraceEntry(prevR) {
             <button className={`view-tab${activeView === 'community' ? ' active' : ''}`} onClick={() => setActiveView('community')}>Community</button>
           </div>
         </div>
+
+        {fileName && <span className="topbar-filename" style={{ marginLeft: 0 }} title={fileName}>File: {fileName}</span>}
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
           {driveToken && (
@@ -4104,7 +4140,6 @@ function addTraceEntry(prevR) {
           )}
           <button className="btn" style={{ color: 'var(--blue)', borderColor: 'var(--border2)' }} onClick={handleDriveConnectToggle} title={driveToken ? "Disconnect Google Drive" : "Connect to Google Drive"}>{driveToken ? '☁ Connected' : '☁ Connect Drive'}</button>
         </div>
-        {fileName && <span className="topbar-filename" style={{ marginLeft: 4 }} title={fileName}>File: {fileName}</span>}
         <span className={`engine-chip engine-chip-${engineMode}`} title={engineSwitching ? 'Switching engine…' : `Engine: ${engineMode.toUpperCase()}`}>
           {engineSwitching ? '…' : `Engine: ${engineMode.toUpperCase()}`}
         </span>

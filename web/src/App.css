@@ -429,6 +429,28 @@ body {
   background-size: 100% 3px;
 }
 
+/* CRT Glitch / Interference effects */
+@keyframes crt-roll {
+  0%   { background-position: 0 0, 0 -100vh; }
+  100% { background-position: 0 0, 0 100vh; }
+}
+@keyframes crt-flicker {
+  0%, 100% { opacity: 1; }
+  25% { opacity: 0.85; }
+  50% { opacity: 0.95; }
+  75% { opacity: 0.8; }
+}
+:root[data-theme="amber-mono"] .app.crt-glitch::after,
+:root[data-theme="gray-crt"] .app.crt-glitch::after,
+:root[data-theme="green"] .app.crt-glitch::after,
+:root[data-theme="turbo-dos"] .app.crt-glitch::after {
+  background-image:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 50%, rgba(0, 0, 0, 0.25) 50%),
+    linear-gradient(to bottom, transparent, rgba(0,0,0,0.15) 10%, transparent 20%);
+  background-size: 100% 3px, 100% 100%;
+  animation: crt-roll 6s infinite linear, crt-flicker 0.15s infinite;
+}
+
 /* Phosphor bloom on register values and accent-coloured text */
 :root[data-theme="amber-mono"] .t-mono-val,
 :root[data-theme="gray-crt"] .t-mono-val,
@@ -641,8 +663,9 @@ body {
 .topbar-filename {
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 11px;
-  color: var(--text3);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
