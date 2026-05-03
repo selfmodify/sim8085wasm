@@ -313,8 +313,8 @@
   --btn-h-xs:   22px;
 }
 
-html { height: 100% } /* overflow NOT hidden here — lets browser pull-to-refresh work on mobile */
-body, #root { height: 100%; overflow: hidden }
+html, body { height: 100% } /* no overflow:hidden on html/body — required for browser pull-to-refresh */
+#root { height: 100%; overflow: hidden }
 
 body {
   background: var(--bg);
@@ -1975,8 +1975,9 @@ body {
 
   /* Accordion submenus for mobile touch screens */
   .bmenu-dropdown, .exmenu-dropdown {
-    max-width: 90vw; max-height: 80vh; overflow-y: auto; overflow-x: hidden;
+    max-width: 90vw; max-height: 80vh; overflow-y: auto !important; overflow-x: hidden !important;
   }
+  .bmenu-mobile-hide { display: none }
   .exmenu-cat {
     flex-wrap: wrap;
   }

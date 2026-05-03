@@ -2343,6 +2343,53 @@ function IntPanel({ intState, onAssert, onDeassert }) {
 }
 
 // ── Example submenu ──────────────────────────────────────────────────────
+function PanelsMenu({ panels, onToggle }) {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const btnRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const close = e => { if (!btnRef.current?.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('touchstart', close)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('touchstart', close)
+    }
+  }, [open])
+
+  const toggle = () => {
+    if (!open) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 230) })
+    }
+    setOpen(o => !o)
+  }
+
+  return (
+    <>
+      <button ref={btnRef} className="btn" onClick={toggle} title="Show/hide panels">
+        🪟 Panels <span className="exmenu-chevron">{open ? '▴' : '▾'}</span>
+      </button>
+      {open && (
+        <div className="bmenu-dropdown" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999, maxHeight: '70vh', overflowY: 'auto' }}>
+          {[
+            ['regs','Registers'],['pairs','Reg Pairs'],['flags','Flags'],
+            ['ints','Interrupts'],['io','I/O Ports'],['memmap','Mem Map'],
+            ['audio','Audio'],['ppi','8255 PPI'],['pit','8253 PIT'],
+            ['stack','Stack'],['callstack','Call Stack'],['trace','Trace'],
+          ].map(([k, l]) => (
+            <button key={k} className="bmenu-item" onClick={() => onToggle(k)}>
+              <span style={{ display: 'inline-block', width: 16 }}>{panels[k] ? '✓' : ''}</span>{l}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
 function ExampleMenu({ onLoad }) {
   const [open, setOpen]         = useState(false)
   const [activeCat, setActiveCat] = useState(null)
@@ -2456,32 +2503,6 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
               </div>
             )}
           </div>
-          <div className={`bmenu-item exmenu-cat ${activeSub === 'panels' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('panels')} onClick={() => setActiveSub(activeSub === 'panels' ? null : 'panels')}>
-            <span>🪟  View Panels</span>
-            <span className="exmenu-arrow">▶</span>
-            {activeSub === 'panels' && (
-              <div className="exmenu-sub" onClick={e => e.stopPropagation()}>
-                {[
-                  { k: 'regs', l: 'Registers' },
-                  { k: 'pairs', l: 'Register Pairs' },
-                  { k: 'flags', l: 'Flags' },
-                  { k: 'ints', l: 'Interrupts' },
-                  { k: 'io', l: 'I/O Ports' },
-                  { k: 'memmap', l: 'Memory Map' },
-                  { k: 'audio', l: 'Audio Output' },
-                  { k: 'ppi', l: '8255 PPI' },
-                  { k: 'pit', l: '8253 PIT' },
-                  { k: 'stack', l: 'Stack' },
-                  { k: 'callstack', l: 'Call Stack' },
-                  { k: 'trace', l: 'Trace' },
-                ].map(({k, l}) => (
-                  <button key={k} className="exmenu-sub-item" onClick={(e) => { e.stopPropagation(); onTogglePanel(k); }}>
-                    <span style={{display:'inline-block', width:16}}>{panels[k] ? '✓' : ''}</span>{l}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
           {item('⎘  Copy share link', onShare)}
           <div className="bmenu-sep" />
           {item('🖩  Calculator', onCalc)}
@@ -2569,7 +2590,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
               <option value={64*1024}>64 KB</option>
             </select>
           </div>
-          <div className="bmenu-setting">
+          <div className="bmenu-mobile-hide bmenu-setting">
             <span className="bmenu-setting-label">Engine</span>
             <span style={{display:'flex',gap:3}}>
               {['js','wasm'].map(m => (
@@ -2587,7 +2608,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
               ))}
             </span>
           </div>
-          <div className="bmenu-credits">
+          <div className="bmenu-mobile-hide bmenu-credits">
             <div>8085 Simulator</div>
             <div>Original: V. Kumar · 1995</div>
             <div>Web port: 2026</div>
@@ -4354,6 +4375,7 @@ function addTraceEntry(prevR) {
       <div style={{ display: activeView === 'simulator' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         <div className="toolbar">
           <ExampleMenu onLoad={loadExample} />
+          <PanelsMenu panels={panels} onToggle={togglePanel} />
           <input type="file" ref={fileInputRef} style={{display:'none'}} accept=".asm,.85,.s,.txt,.hex,.bin" onChange={importFile} />
           <button className={`btn btn-asm${isDirty ? ' btn-asm-dirty' : ''}`} onClick={() => doAssemble(srcRef.current)} title={isDirty ? "Unsaved changes — click to rebuild" : "Code is up to date"}>
             ⚙ Build{isDirty ? ' •' : ''}  <kbd>F5</kbd>
