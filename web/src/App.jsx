@@ -2392,7 +2392,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveToGist, onShare, onCalc, onChat, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast, crtGlitch, onCrtGlitch, onManageGithub, panels, onTogglePanel }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveToGist, onShare, onCalc, onChat, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast, crtGlitch, onCrtGlitch, onManageGithub, panels, onTogglePanel, activeView, onSetView }) {
   const [open, setOpen] = useState(false);
   const [activeSub, setActiveSub] = useState(null);
   const wrapRef = useRef(null)
@@ -2424,6 +2424,12 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
       </button>
       {open &&
         <div className="bmenu-dropdown" style={{ overflow: 'visible' }} onMouseLeave={() => setActiveSub(null)}>
+          {[['simulator','🖥','Simulator'],['challenges','🏆','Challenges'],['community','🌐','Community Gists']].map(([v,icon,label]) => (
+            <button key={v} className="bmenu-item" onClick={() => { onSetView(v); setOpen(false); setActiveSub(null) }}>
+              <span style={{display:'inline-block',width:16}}>{activeView===v?'✓':''}</span>{icon} {label}
+            </button>
+          ))}
+          <div className="bmenu-sep" />
           <div className={`bmenu-item exmenu-cat ${activeSub === 'import' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('import')} onClick={() => setActiveSub(activeSub === 'import' ? null : 'import')}>
             <span>⇡  Import</span>
             <span className="exmenu-arrow">▶</span>
@@ -4297,7 +4303,8 @@ function addTraceEntry(prevR) {
             crtContrast={crtContrast} onCrtContrast={v => { setCrtContrast(v); localStorage.setItem('sim8085_crt_c', v) }}
             crtGlitch={crtGlitch} onCrtGlitch={v => { setCrtGlitch(v); localStorage.setItem('sim8085_crt_glitch', v ? 'true' : 'false') }}
             onManageGithub={() => setShowGithubSetup(true)}
-            panels={panels} onTogglePanel={togglePanel} />
+            panels={panels} onTogglePanel={togglePanel}
+            activeView={activeView} onSetView={setActiveView} />
           <div className="view-tabs">
             <button className={`view-tab${activeView === 'simulator' ? ' active' : ''}`} onClick={() => setActiveView('simulator')}>Simulator</button>
             <button className={`view-tab${activeView === 'challenges' ? ' active' : ''}`} onClick={() => setActiveView('challenges')}>Challenges</button>
@@ -4307,7 +4314,7 @@ function addTraceEntry(prevR) {
 
         {fileName && <span className="topbar-filename" style={{ marginLeft: 0 }} title={fileName}>File: {fileName}</span>}
 
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', position: 'relative' }} ref={driveMenuRef}>
+        <div className="topbar-drive" style={{ marginLeft: 'auto', display: 'flex', gap: '6px', position: 'relative' }} ref={driveMenuRef}>
           {driveSaveStatus === 'saving' && <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)' }}>⏳ Saving…</span>}
           {driveSaveStatus === 'success' && <span style={{ color: 'var(--accent)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)' }}>✓ Saved</span>}
           

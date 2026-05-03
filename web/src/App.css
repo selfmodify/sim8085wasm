@@ -1875,9 +1875,11 @@ body {
 
 /* ── Responsive / mobile layout ────────────────────────────────────── */
 @media (max-width: 700px) {
-  /* Topbar: let toolbar wrap so buttons don't clip */
-  .topbar { height: auto; min-height: 48px; padding: 6px 10px; flex-wrap: wrap; gap: 6px }
-  .toolbar { flex-wrap: wrap; gap: 4px; padding: 6px 10px; }
+  /* Topbar: single row — details move into the ☰ brand menu */
+  .topbar { height: auto; min-height: 48px; padding: 4px 10px; flex-wrap: nowrap; gap: 6px }
+  .engine-chip, .build-chip, .topbar-drive, .view-tabs { display: none !important }
+  /* Toolbar: single scrollable row instead of wrapping to two rows */
+  .toolbar { flex-wrap: nowrap; overflow-x: auto; gap: 4px; padding: 4px 8px; }
   /* Hide keyboard shortcut hints and speed label text to save space */
   .btn kbd { display: none }
   .speed-val { display: none }
