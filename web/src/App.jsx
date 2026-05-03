@@ -2471,11 +2471,19 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
       </button>
       {open &&
         <div className="bmenu-dropdown" style={{ overflow: 'visible' }} onMouseLeave={() => setActiveSub(null)}>
-          {[['simulator','🖥','Simulator'],['challenges','🏆','Challenges'],['community','🌐','Community Gists']].map(([v,icon,label]) => (
-            <button key={v} className={`bmenu-item${v !== 'simulator' ? ' bmenu-mobile-only' : ''}`} onClick={() => { onSetView(v); setOpen(false); setActiveSub(null) }}>
-              <span style={{display:'inline-block',width:16}}>{activeView===v?'✓':''}</span>{icon} {label}
-            </button>
-          ))}
+          <div className={`bmenu-item exmenu-cat ${activeSub === 'views' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('views')} onClick={() => setActiveSub(activeSub === 'views' ? null : 'views')}>
+            <span>🖥  Views</span>
+            <span className="exmenu-arrow">▶</span>
+            {activeSub === 'views' && (
+              <div className="exmenu-sub" onClick={e => e.stopPropagation()}>
+                {[['simulator','🖥','Simulator'],['challenges','🏆','Challenges'],['community','🌐','Community Gists']].map(([v,icon,label]) => (
+                  <button key={v} className="exmenu-sub-item" onClick={() => { onSetView(v); setOpen(false); setActiveSub(null) }}>
+                    <span style={{display:'inline-block',width:16}}>{activeView===v?'✓':''}</span>{icon} {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="bmenu-sep" />
           <div className={`bmenu-item exmenu-cat ${activeSub === 'import' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('import')} onClick={() => setActiveSub(activeSub === 'import' ? null : 'import')}>
             <span>⇡  Import</span>
