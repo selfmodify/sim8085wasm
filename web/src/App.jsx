@@ -3120,6 +3120,7 @@ export default function App() {
   const [crtBrightness, setCrtBrightness] = useState(() => parseFloat(localStorage.getItem('sim8085_crt_b') || '1'))
   const [crtContrast, setCrtContrast]     = useState(() => parseFloat(localStorage.getItem('sim8085_crt_c') || '1'))
   const [crtGlitch, setCrtGlitch]         = useState(() => { const v = localStorage.getItem('sim8085_crt_glitch'); return v === 'true' ? 'flicker' : (v && v !== 'false' ? v : 'off') })
+  const [chaosCalm, setChaosCalm]         = useState(false)
   function toggleTheme() {
     setTheme(t =>
       t === 'dark'       ? 'dim'        :
@@ -4301,12 +4302,22 @@ function addTraceEntry(prevR) {
     setActiveView('simulator')
   }
 
+  useEffect(() => {
+    const isRetro = ['amber-mono', 'gray-crt', 'green', 'turbo-c'].includes(theme)
+    if (!isRetro || crtGlitch !== 'chaos') { setChaosCalm(false); return }
+    let id
+    const tick = (calm) => { id = setTimeout(() => { setChaosCalm(!calm); tick(!calm) }, calm ? 1000 : 4000) }
+    setChaosCalm(false)
+    tick(false)
+    return () => clearTimeout(id)
+  }, [theme, crtGlitch])
+
   const running = appState === 'running'
   const isDirty = src !== lastBuiltSrcRef.current
   const isRetroTheme = ['amber-mono', 'gray-crt', 'green', 'turbo-c'].includes(theme)
 
   return (
-    <div className={`app${isRetroTheme && crtGlitch !== 'off' ? ` crt-glitch-${crtGlitch}` : ''}`} style={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}>
+    <div className={`app${isRetroTheme && crtGlitch !== 'off' && !(crtGlitch === 'chaos' && chaosCalm) ? ` crt-glitch-${crtGlitch}` : ''}`} style={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}>
       {/* ── Topbar ── */}
       <div className="topbar">
         <div className="brand">
