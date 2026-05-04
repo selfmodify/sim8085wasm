@@ -4213,7 +4213,7 @@ function addTraceEntry(prevR) {
   }
 
   function newFile() {
-    const blank = '; New 8085 program\n\tORG 0000H\n\nSTART:\n\n\tHLT\n\tEND\n'
+    const blank = '; New 8085 program\n\tORG 0000H\n\nSTART:\n\n\tHLT\n'
     srcRef.current = blank
     setSrc(blank)
     setFileName('untitled.asm')
