@@ -2078,7 +2078,7 @@ body {
   }
 
   /* Simplify the status bar */
-  .topbar-filename, .statusbar-label, .sc-cycles, .sc-mhz, .sbar-sep { display: none; }
+  .topbar-filename, .statusbar-label { display: none; }
   .sbar-counter.sc-steps { min-width: auto; text-align: left; }
 
   /* Accordion submenus for mobile touch screens */
