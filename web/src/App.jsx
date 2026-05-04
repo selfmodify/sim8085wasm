@@ -2583,8 +2583,8 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
               </div>
               <div className="bmenu-setting">
                 <span className="bmenu-setting-label">CRT Interference</span>
-                <button className={`btn btn-xs ${crtGlitch ? 'btn-run' : ''}`} onClick={() => onCrtGlitch(!crtGlitch)}>
-                  {crtGlitch ? 'ON' : 'OFF'}
+                <button className={`btn btn-xs ${crtGlitch !== 'off' ? 'btn-run' : ''}`} onClick={() => onCrtGlitch()}>
+                  {({off:'Off',flicker:'Flicker',static:'Static',vsync:'V-Sync',hsync:'H-Sync',chroma:'Chroma',chaos:'Chaos'})[crtGlitch] ?? 'Off'}
                 </button>
               </div>
             </>
@@ -3119,7 +3119,7 @@ export default function App() {
   }, [theme])
   const [crtBrightness, setCrtBrightness] = useState(() => parseFloat(localStorage.getItem('sim8085_crt_b') || '1'))
   const [crtContrast, setCrtContrast]     = useState(() => parseFloat(localStorage.getItem('sim8085_crt_c') || '1'))
-  const [crtGlitch, setCrtGlitch]         = useState(() => localStorage.getItem('sim8085_crt_glitch') === 'true')
+  const [crtGlitch, setCrtGlitch]         = useState(() => { const v = localStorage.getItem('sim8085_crt_glitch'); return v === 'true' ? 'flicker' : (v && v !== 'false' ? v : 'off') })
   function toggleTheme() {
     setTheme(t =>
       t === 'dark'       ? 'dim'        :
@@ -4306,7 +4306,7 @@ function addTraceEntry(prevR) {
   const isRetroTheme = ['amber-mono', 'gray-crt', 'green', 'turbo-c'].includes(theme)
 
   return (
-    <div className={`app${isRetroTheme && crtGlitch ? ' crt-glitch' : ''}`} style={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}>
+    <div className={`app${isRetroTheme && crtGlitch !== 'off' ? ` crt-glitch-${crtGlitch}` : ''}`} style={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}>
       {/* ── Topbar ── */}
       <div className="topbar">
         <div className="brand">
@@ -4330,7 +4330,7 @@ function addTraceEntry(prevR) {
             theme={theme} onTheme={toggleTheme} onSetTheme={setTheme}
             crtBrightness={crtBrightness} onCrtBrightness={v => { setCrtBrightness(v); localStorage.setItem('sim8085_crt_b', v) }}
             crtContrast={crtContrast} onCrtContrast={v => { setCrtContrast(v); localStorage.setItem('sim8085_crt_c', v) }}
-            crtGlitch={crtGlitch} onCrtGlitch={v => { setCrtGlitch(v); localStorage.setItem('sim8085_crt_glitch', v ? 'true' : 'false') }}
+            crtGlitch={crtGlitch} onCrtGlitch={() => { const modes = ['off','flicker','static','vsync','hsync','chroma','chaos']; const next = modes[(modes.indexOf(crtGlitch) + 1) % modes.length]; setCrtGlitch(next); localStorage.setItem('sim8085_crt_glitch', next) }}
             onManageGithub={() => setShowGithubSetup(true)}
             panels={panels} onTogglePanel={togglePanel}
             activeView={activeView} onSetView={setActiveView} />

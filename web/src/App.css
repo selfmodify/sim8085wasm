@@ -442,15 +442,123 @@ body {
   50% { opacity: 0.95; }
   75% { opacity: 0.8; }
 }
-:root[data-theme="amber-mono"] .app.crt-glitch::after,
-:root[data-theme="gray-crt"] .app.crt-glitch::after,
-:root[data-theme="green"] .app.crt-glitch::after,
-:root[data-theme="turbo-c"] .app.crt-glitch::after {
+@keyframes crt-static-jitter {
+  0%   { background-position: 0 0 }   8%  { background-position: 0 -23px }
+  16%  { background-position: 0 11px } 24% { background-position: 0 -7px }
+  32%  { background-position: 0 31px } 40% { background-position: 0 -15px }
+  48%  { background-position: 0 43px } 56% { background-position: 0 -29px }
+  64%  { background-position: 0 17px } 72% { background-position: 0 -37px }
+  80%  { background-position: 0 5px }  88% { background-position: 0 -19px }
+  100% { background-position: 0 0 }
+}
+@keyframes crt-hsync {
+  0%,  88% { transform: none }
+  89% { transform: translateX(5px) }
+  90% { transform: translateX(-12px) }
+  91% { transform: translateX(8px) }
+  92% { transform: translateX(-4px) }
+  93% { transform: none }
+  96% { transform: translateX(18px) }
+  97% { transform: translateX(-3px) }
+  98%, 100% { transform: none }
+}
+@keyframes crt-chroma-drift {
+  0%   { background-position: 0 0,    0px 0 }
+  25%  { background-position: 0 1px,  1px 0 }
+  50%  { background-position: 0 -1px, -1px 0 }
+  75%  { background-position: 0 2px,  2px 0 }
+  100% { background-position: 0 0,    0px 0 }
+}
+
+/* Flicker: subtle roll + opacity oscillation */
+:root[data-theme="amber-mono"] .app.crt-glitch-flicker::after,
+:root[data-theme="gray-crt"]   .app.crt-glitch-flicker::after,
+:root[data-theme="green"]      .app.crt-glitch-flicker::after,
+:root[data-theme="turbo-c"]    .app.crt-glitch-flicker::after {
   background-image:
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 50%, rgba(0, 0, 0, 0.25) 50%),
-    linear-gradient(to bottom, transparent, rgba(0,0,0,0.15) 10%, transparent 20%);
+    linear-gradient(to bottom, rgba(255,255,255,.02) 50%, rgba(0,0,0,.25) 50%),
+    linear-gradient(to bottom, transparent, rgba(0,0,0,.15) 10%, transparent 20%);
   background-size: 100% 3px, 100% 100%;
-  animation: crt-roll 6s infinite linear, crt-flicker 0.15s infinite;
+  animation: crt-roll 6s linear infinite, crt-flicker .15s infinite;
+}
+
+/* Static: TV snow with rapid scanline jitter */
+:root[data-theme="amber-mono"] .app.crt-glitch-static::after,
+:root[data-theme="gray-crt"]   .app.crt-glitch-static::after,
+:root[data-theme="green"]      .app.crt-glitch-static::after,
+:root[data-theme="turbo-c"]    .app.crt-glitch-static::after {
+  background-image:
+    linear-gradient(to bottom, rgba(255,255,255,.04) 50%, rgba(0,0,0,.45) 50%);
+  background-size: 100% 2px;
+  animation: crt-static-jitter .08s steps(1) infinite, crt-flicker .1s infinite;
+}
+
+/* V-Sync: lost vertical sync — fast rolling frame */
+:root[data-theme="amber-mono"] .app.crt-glitch-vsync::after,
+:root[data-theme="gray-crt"]   .app.crt-glitch-vsync::after,
+:root[data-theme="green"]      .app.crt-glitch-vsync::after,
+:root[data-theme="turbo-c"]    .app.crt-glitch-vsync::after {
+  background-image:
+    linear-gradient(to bottom, rgba(255,255,255,.02) 50%, rgba(0,0,0,.3) 50%),
+    linear-gradient(to bottom, transparent, rgba(255,255,255,.06) 5%, rgba(0,0,0,.25) 10%, transparent 20%);
+  background-size: 100% 3px, 100% 25%;
+  animation: crt-roll .45s linear infinite, crt-flicker .3s infinite;
+}
+
+/* H-Sync: horizontal displacement jitter */
+:root[data-theme="amber-mono"] .app.crt-glitch-hsync,
+:root[data-theme="gray-crt"]   .app.crt-glitch-hsync,
+:root[data-theme="green"]      .app.crt-glitch-hsync,
+:root[data-theme="turbo-c"]    .app.crt-glitch-hsync {
+  animation: crt-hsync 3.5s steps(1) infinite;
+}
+:root[data-theme="amber-mono"] .app.crt-glitch-hsync::after,
+:root[data-theme="gray-crt"]   .app.crt-glitch-hsync::after,
+:root[data-theme="green"]      .app.crt-glitch-hsync::after,
+:root[data-theme="turbo-c"]    .app.crt-glitch-hsync::after {
+  background-image:
+    linear-gradient(to bottom, rgba(255,255,255,.02) 50%, rgba(0,0,0,.2) 50%);
+  background-size: 100% 3px;
+  animation: crt-roll 4s linear infinite;
+}
+
+/* Chroma: RGB phosphor subpixel dot pattern with slow drift */
+:root[data-theme="amber-mono"] .app.crt-glitch-chroma::after,
+:root[data-theme="gray-crt"]   .app.crt-glitch-chroma::after,
+:root[data-theme="green"]      .app.crt-glitch-chroma::after,
+:root[data-theme="turbo-c"]    .app.crt-glitch-chroma::after {
+  background-image:
+    linear-gradient(to bottom, rgba(255,255,255,.02) 50%, rgba(0,0,0,.2) 50%),
+    repeating-linear-gradient(90deg,
+      rgba(255,0,0,.07) 0px, rgba(255,0,0,.07) 1px,
+      rgba(0,255,0,.06) 1px, rgba(0,255,0,.06) 2px,
+      rgba(0,0,255,.07) 2px, rgba(0,0,255,.07) 3px,
+      transparent 3px, transparent 4px);
+  background-size: 100% 3px, 4px 100%;
+  animation: crt-chroma-drift 1.2s linear infinite, crt-flicker .25s infinite;
+}
+
+/* Chaos: h-sync jitter + fast roll + static noise + RGB dots */
+:root[data-theme="amber-mono"] .app.crt-glitch-chaos,
+:root[data-theme="gray-crt"]   .app.crt-glitch-chaos,
+:root[data-theme="green"]      .app.crt-glitch-chaos,
+:root[data-theme="turbo-c"]    .app.crt-glitch-chaos {
+  animation: crt-hsync 2s steps(1) infinite;
+}
+:root[data-theme="amber-mono"] .app.crt-glitch-chaos::after,
+:root[data-theme="gray-crt"]   .app.crt-glitch-chaos::after,
+:root[data-theme="green"]      .app.crt-glitch-chaos::after,
+:root[data-theme="turbo-c"]    .app.crt-glitch-chaos::after {
+  background-image:
+    linear-gradient(to bottom, rgba(255,255,255,.03) 50%, rgba(0,0,0,.4) 50%),
+    linear-gradient(to bottom, transparent, rgba(0,0,0,.2) 8%, transparent 16%),
+    repeating-linear-gradient(90deg,
+      rgba(255,0,0,.05) 0px, rgba(255,0,0,.05) 1px,
+      rgba(0,255,0,.04) 1px, rgba(0,255,0,.04) 2px,
+      rgba(0,0,255,.05) 2px, rgba(0,0,255,.05) 3px,
+      transparent 3px, transparent 4px);
+  background-size: 100% 2px, 100% 25%, 4px 100%;
+  animation: crt-roll .8s linear infinite, crt-static-jitter .12s steps(1) infinite, crt-flicker .1s infinite;
 }
 
 /* Phosphor bloom on register values and accent-coloured text */
