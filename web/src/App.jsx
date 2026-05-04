@@ -3147,10 +3147,14 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('sim8085_theme', theme)
   }, [theme])
-  const [crtBrightness, setCrtBrightness] = useState(() => parseFloat(localStorage.getItem('sim8085_crt_b') || '1'))
-  const [crtContrast, setCrtContrast]     = useState(() => parseFloat(localStorage.getItem('sim8085_crt_c') || '1'))
+  const [crtBrightness, setCrtBrightness] = useState(() => parseFloat(localStorage.getItem(`sim8085_crt_b_${localStorage.getItem('sim8085_theme') || 'green'}`) || '1'))
+  const [crtContrast, setCrtContrast]     = useState(() => parseFloat(localStorage.getItem(`sim8085_crt_c_${localStorage.getItem('sim8085_theme') || 'green'}`) || '1'))
   const [crtGlitch, setCrtGlitch]         = useState(() => { const v = localStorage.getItem('sim8085_crt_glitch'); return v === 'true' ? 'flicker' : (v && v !== 'false' ? v : 'off') })
   const [chaosCalm, setChaosCalm]         = useState(false)
+  useEffect(() => {
+    setCrtBrightness(parseFloat(localStorage.getItem(`sim8085_crt_b_${theme}`) || '1'))
+    setCrtContrast(parseFloat(localStorage.getItem(`sim8085_crt_c_${theme}`) || '1'))
+  }, [theme])
   function toggleTheme() {
     setTheme(t =>
       t === 'dark'       ? 'dim'        :
@@ -4455,8 +4459,8 @@ function addTraceEntry(prevR) {
             engineMode={engineMode} onEngineSwitch={handleEngineSwitch}
             engineSwitching={engineSwitching}
             theme={theme} onTheme={toggleTheme} onSetTheme={setTheme}
-            crtBrightness={crtBrightness} onCrtBrightness={v => { setCrtBrightness(v); localStorage.setItem('sim8085_crt_b', v) }}
-            crtContrast={crtContrast} onCrtContrast={v => { setCrtContrast(v); localStorage.setItem('sim8085_crt_c', v) }}
+            crtBrightness={crtBrightness} onCrtBrightness={v => { setCrtBrightness(v); localStorage.setItem(`sim8085_crt_b_${theme}`, v) }}
+            crtContrast={crtContrast} onCrtContrast={v => { setCrtContrast(v); localStorage.setItem(`sim8085_crt_c_${theme}`, v) }}
             crtGlitch={crtGlitch} onCrtGlitch={() => { const modes = ['off','flicker','static','vsync','hsync','chroma','chaos']; const next = modes[(modes.indexOf(crtGlitch) + 1) % modes.length]; setCrtGlitch(next); localStorage.setItem('sim8085_crt_glitch', next) }}
             onManageGithub={() => setShowGithubSetup(true)}
             panels={panels} onTogglePanel={togglePanel}
