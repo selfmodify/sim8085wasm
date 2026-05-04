@@ -2718,6 +2718,8 @@ const SHORTCUTS = [
     rows: [
       { keys: ['F5'],           desc: 'Assemble (Build)' },
       { keys: ['F7'],           desc: 'Step one instruction' },
+      { keys: ['F8'],           desc: 'Step over call/subroutine' },
+      { keys: ['F10'],          desc: 'Step out of current subroutine' },
       { keys: ['F9'],           desc: 'Run / Stop' },
       { keys: ['F6'],           desc: 'Reset (re-assemble from source)' },
     ]
@@ -3321,13 +3323,15 @@ export default function App() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const hotkeysRef = useRef(null)
-  useEffect(() => { hotkeysRef.current = { doAssemble, handleReset, doStep, handleRun, running, appState } })
+  useEffect(() => { hotkeysRef.current = { doAssemble, handleReset, doStep, doStepOver, doStepOut, handleRun, running, appState } })
   useEffect(() => {
     function onKey(e) {
       const h = hotkeysRef.current
       if (e.key === 'F5') { e.preventDefault(); h.doAssemble(srcRef.current) }
       if (e.key === 'F6') { e.preventDefault(); h.handleReset() }
       if (e.key === 'F7') { e.preventDefault(); if (!h.running && h.appState !== 'error') h.doStep() }
+      if (e.key === 'F8') { e.preventDefault(); if (!h.running && h.appState !== 'error') h.doStepOver() }
+      if (e.key === 'F10') { e.preventDefault(); if (!h.running && h.appState !== 'error') h.doStepOut() }
       if (e.key === 'F9') { e.preventDefault(); if (h.appState !== 'error' || h.running) h.handleRun() }
       if (e.key === '?' && !e.ctrlKey && !e.altKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
         e.preventDefault(); setShowShortcuts(s => !s)
@@ -3463,17 +3467,15 @@ export default function App() {
   const RET_OPS  = new Set([0xC9,0xC0,0xC8,0xD0,0xD8,0xE0,0xE8,0xF0,0xF8])
   const RST_OPS  = new Set([0xC7,0xCF,0xD7,0xDF,0xE7,0xEF,0xF7,0xFF])
 
-  function doStep() {
-    stopRun()
-    pushHistory()
+  function performStep() {
     const prevR = sim.simGetRegisters()
     const op = sim.simReadByte(prevR.pc)
     const ok = sim.simStep()
     const afterR = sim.simGetRegisters()
-    // Update call stack
+
     if (CALL_OPS.has(op) || RST_OPS.has(op)) {
       const targetAddr = afterR.pc
-      const retAddr    = prevR.pc + (RST_OPS.has(op) ? 1 : 3)
+      const retAddr = prevR.pc + (RST_OPS.has(op) ? 1 : 3)
       const next = [...callStackRef.current, { callAddr: prevR.pc, retAddr, targetAddr }]
       callStackRef.current = next
       setCallStack(next)
@@ -3482,10 +3484,18 @@ export default function App() {
       callStackRef.current = next
       setCallStack(next)
     }
-    setSteps(s => s+1)
-    setPcFlash(f => f+1)
-    refresh()
+
     addTraceEntry(prevR)
+    return { ok, prevR, afterR, op }
+  }
+
+  function doStep() {
+    stopRun()
+    pushHistory()
+    const { ok } = performStep()
+    setSteps(s => s + 1)
+    setPcFlash(f => f + 1)
+    refresh()
     updateMemDiff()
     refreshOutputPorts()
     if (sim.simIsHaltWaiting()) {
@@ -3498,6 +3508,79 @@ export default function App() {
       if (!sim.simGetError()) setHaltTrigger(t => t + 1)
     } else if (!ok) {
       setAppState('idle')  // interrupt fired from HLT wait, ISR starting
+    }
+  }
+
+  function doStepOver() {
+    if (running || appState === 'error') return
+    stopRun()
+    const currentR = sim.simGetRegisters()
+    const op = sim.simReadByte(currentR.pc)
+    if (!CALL_OPS.has(op) && !RST_OPS.has(op)) {
+      return doStep()
+    }
+    pushHistory()
+    const retAddr = currentR.pc + (RST_OPS.has(op) ? 1 : 3)
+    let stepCount = 0
+    let result = null
+    while (true) {
+      result = performStep()
+      stepCount += 1
+      if (!result.ok) break
+      if (result.afterR.pc === retAddr) break
+      if (sim.simIsHaltWaiting() || !sim.simIsRunning() || sim.simGetError()) break
+    }
+
+    setSteps(s => s + stepCount)
+    setPcFlash(f => f + 1)
+    refresh()
+    updateMemDiff()
+    refreshOutputPorts()
+    if (sim.simIsHaltWaiting()) {
+      setAppState('halted')
+      setMsg('⏸ HLT — awaiting interrupt…')
+      setHaltTrigger(t => t + 1)
+    } else if (!sim.simIsRunning()) {
+      setAppState(sim.simGetError() ? 'error' : 'halted')
+      setMsg(sim.simGetError() ? `✗ ${sim.simGetError()}` : '■ Program halted.')
+      if (!sim.simGetError()) setHaltTrigger(t => t + 1)
+    } else if (result && !result.ok) {
+      setAppState('idle')
+    }
+  }
+
+  function doStepOut() {
+    if (running || appState === 'error') return
+    if (callStackRef.current.length === 0) return doStep()
+    stopRun()
+    pushHistory()
+
+    const targetDepth = callStackRef.current.length - 1
+    let stepCount = 0
+    let result = null
+    while (true) {
+      result = performStep()
+      stepCount += 1
+      if (!result.ok) break
+      if (callStackRef.current.length === targetDepth) break
+      if (sim.simIsHaltWaiting() || !sim.simIsRunning() || sim.simGetError()) break
+    }
+
+    setSteps(s => s + stepCount)
+    setPcFlash(f => f + 1)
+    refresh()
+    updateMemDiff()
+    refreshOutputPorts()
+    if (sim.simIsHaltWaiting()) {
+      setAppState('halted')
+      setMsg('⏸ HLT — awaiting interrupt…')
+      setHaltTrigger(t => t + 1)
+    } else if (!sim.simIsRunning()) {
+      setAppState(sim.simGetError() ? 'error' : 'halted')
+      setMsg(sim.simGetError() ? `✗ ${sim.simGetError()}` : '■ Program halted.')
+      if (!sim.simGetError()) setHaltTrigger(t => t + 1)
+    } else if (result && !result.ok) {
+      setAppState('idle')
     }
   }
 
@@ -4432,8 +4515,10 @@ function addTraceEntry(prevR) {
           <button className={`btn btn-asm${isDirty ? ' btn-asm-dirty' : ''}`} onClick={() => doAssemble(srcRef.current)} title={isDirty ? "Unsaved changes — click to rebuild" : "Code is up to date"}>
             ⚙ Build{isDirty ? ' •' : ''}  <kbd>F5</kbd>
           </button>
-          <button className="btn btn-step"  onClick={doStep}  disabled={running || appState==='error'}>↓ Step  <kbd>F7</kbd></button>
-          <button className="btn btn-back"  onClick={doStepBack} disabled={running || appState==='error' || histLen === 0} title={`Undo last step (${histLen} available)`}>⟲ Back{histLen > 0 ? ` (${histLen})` : ''}</button>
+          <button className="btn btn-step"         onClick={doStep}      disabled={running || appState==='error'}>↓ Step    <kbd>F7</kbd></button>
+          <button className="btn btn-step-over"    onClick={doStepOver}  disabled={running || appState==='error'}>↷ Over    <kbd>F8</kbd></button>
+          <button className="btn btn-step-out"     onClick={doStepOut}   disabled={running || appState==='error'}>↵ Out     <kbd>F10</kbd></button>
+          <button className="btn btn-back"         onClick={doStepBack} disabled={running || appState==='error' || histLen === 0} title={`Undo last step (${histLen} available)`}>⟲ Back{histLen > 0 ? ` (${histLen})` : ''}</button>
           <button className={`btn ${running ? 'btn-stop':'btn-run'}`} onClick={handleRun} disabled={!running && appState==='error'}>
             {running ? '■ Stop' : '▶ Run'}  <kbd>{running?'F9':'F9'}</kbd>
           </button>

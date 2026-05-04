@@ -762,6 +762,10 @@ body {
 .btn-asm.btn-asm-dirty:hover:not(:disabled) { background: var(--tint-amber); border-color: var(--amber) }
 .btn-step  { border-color: #3a5040; color: var(--accent) }
 .btn-step:hover:not(:disabled) { background: #1a2520 }
+.btn-step-over  { border-color: #305050; color: #80e0c0 }
+.btn-step-over:hover:not(:disabled) { background: #102828 }
+.btn-step-out   { border-color: #503050; color: #c08cff }
+.btn-step-out:hover:not(:disabled) { background: #201425 }
 .btn-run   { border-color: #3a6040; color: var(--accent); font-weight: 600 }
 .btn-run:hover:not(:disabled) { background: #1a3020; border-color: var(--accent2) }
 .btn-stop  { border-color: #6a2020; color: var(--red); font-weight: 600 }
