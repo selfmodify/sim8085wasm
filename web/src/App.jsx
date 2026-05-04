@@ -2394,11 +2394,16 @@ function ExampleMenu({ onLoad }) {
   const [open, setOpen]           = useState(false)
   const [activeCat, setActiveCat] = useState(null)
   const [pos, setPos]             = useState({ top: 0, left: 0 })
-  const btnRef = useRef(null)
+  const btnRef  = useRef(null)
+  const dropRef = useRef(null)
 
   useEffect(() => {
     if (!open) return
-    const handler = e => { if (!btnRef.current?.contains(e.target)) { setOpen(false); setActiveCat(null) } }
+    const handler = e => {
+      if (!btnRef.current?.contains(e.target) && !dropRef.current?.contains(e.target)) {
+        setOpen(false); setActiveCat(null)
+      }
+    }
     document.addEventListener('mousedown', handler)
     document.addEventListener('touchstart', handler)
     return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('touchstart', handler) }
@@ -2418,7 +2423,7 @@ function ExampleMenu({ onLoad }) {
         Examples <span className="exmenu-chevron">{open ? '▴' : '▾'}</span>
       </button>
       {open && (
-        <div className="exmenu-dropdown" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
+        <div ref={dropRef} className="exmenu-dropdown" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
           {Object.entries(EXAMPLES).map(([cat, programs], i) => (
             <div key={cat}>
               {['Basic', 'Memory', 'I/O'].includes(cat) && <hr className="exmenu-sep" />}
