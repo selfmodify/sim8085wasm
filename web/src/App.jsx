@@ -2391,24 +2391,34 @@ function PanelsMenu({ panels, onToggle }) {
 }
 
 function ExampleMenu({ onLoad }) {
-  const [open, setOpen]         = useState(false)
+  const [open, setOpen]           = useState(false)
   const [activeCat, setActiveCat] = useState(null)
-  const wrapRef = useRef(null)
+  const [pos, setPos]             = useState({ top: 0, left: 0 })
+  const btnRef = useRef(null)
 
   useEffect(() => {
     if (!open) return
-    const handler = e => { if (!wrapRef.current?.contains(e.target)) { setOpen(false); setActiveCat(null) } }
+    const handler = e => { if (!btnRef.current?.contains(e.target)) { setOpen(false); setActiveCat(null) } }
     document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('touchstart', handler) }
   }, [open])
 
+  const toggle = () => {
+    if (!open) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 230) })
+    }
+    setOpen(o => !o)
+  }
+
   return (
-    <div className="exmenu-wrap" ref={wrapRef}>
-      <button className="btn exmenu-trigger" onClick={() => setOpen(o => !o)}>
+    <>
+      <button ref={btnRef} className="btn exmenu-trigger" onClick={toggle}>
         Examples <span className="exmenu-chevron">{open ? '▴' : '▾'}</span>
       </button>
       {open && (
-        <div className="exmenu-dropdown">
+        <div className="exmenu-dropdown" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
           {Object.entries(EXAMPLES).map(([cat, programs], i) => (
             <div key={cat}>
               {['Basic', 'Memory', 'I/O'].includes(cat) && <hr className="exmenu-sep" />}
@@ -2434,7 +2444,8 @@ function ExampleMenu({ onLoad }) {
           ))}
         </div>
       )}
-    </div>
+    </>
+
   )
 }
 
