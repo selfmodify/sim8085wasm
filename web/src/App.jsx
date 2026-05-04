@@ -2455,7 +2455,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveToGist, onShare, onCalc, onChat, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast, crtGlitch, onCrtGlitch, onManageGithub, panels, onTogglePanel, activeView, onSetView }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveToGist, onShare, onCalc, onChat, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast, crtGlitch, onCrtGlitch, onManageGithub, panels, onTogglePanel, activeView, onSetView }) {
   const [open, setOpen] = useState(false);
   const [activeSub, setActiveSub] = useState(null);
   const wrapRef = useRef(null)
@@ -2506,6 +2506,8 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
             <span className="exmenu-arrow">▶</span>
             {activeSub === 'import' && (
               <div className="exmenu-sub" onClick={e => e.stopPropagation()}>
+                <button className="exmenu-sub-item" onClick={() => { onNew(); setOpen(false); setActiveSub(null); }}>📄 New file</button>
+                <hr className="exmenu-sep" />
                 <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.asm / .85 source</button>
                 <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.hex / .bin image</button>
                 <button className="exmenu-sub-item" onClick={() => { onLoadFromDrive(); setOpen(false); setActiveSub(null); }}>☁ Load from Google Drive</button>
@@ -4191,6 +4193,14 @@ function addTraceEntry(prevR) {
     } catch(e) { setMsg(`✗ Error saving GitHub Gist: ${e.message}`) }
   }
 
+  function newFile() {
+    const blank = '; New 8085 program\n\tORG 0000H\n\nSTART:\n\n\tHLT\n\tEND\n'
+    srcRef.current = blank
+    setSrc(blank)
+    setFileName('untitled.asm')
+    localStorage.removeItem('sim8085_filename')
+  }
+
   function importFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -4444,6 +4454,7 @@ function addTraceEntry(prevR) {
           <BrandMenu
             onShowWelcome={() => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) }}
             onShowShortcuts={() => setShowShortcuts(true)}
+            onNew={newFile}
             onImport={() => fileInputRef.current.click()}
             onLoadFromDrive={loadFromDrive}
             onLoadFromGist={loadFromGist}
