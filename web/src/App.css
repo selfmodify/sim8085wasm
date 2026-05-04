@@ -538,11 +538,11 @@ body {
   animation: crt-chroma-drift 1.2s linear infinite, crt-flicker .25s infinite;
 }
 
-/* Chaos: bursts of interference for ~4s, then 3s of calm, repeating */
+/* Chaos: bursts of interference for ~4s, then 1s of calm, repeating */
 @keyframes crt-chaos-burst {
-  /* 0–57% ≈ 4s active, 57–100% ≈ 3s hidden */
-  0%,   56% { opacity: 1 }
-  57%, 100% { opacity: 0 }
+  /* 0–80% = 4s active, 80–100% = 1s hidden (total 5s cycle) */
+  0%,   80% { opacity: 1 }
+  81%, 100% { opacity: 0 }
 }
 @keyframes crt-chaos-hsync-cycle {
   /* H-sync jolts only during the active window */
@@ -559,7 +559,7 @@ body {
 :root[data-theme="gray-crt"]   .app.crt-glitch-chaos,
 :root[data-theme="green"]      .app.crt-glitch-chaos,
 :root[data-theme="turbo-c"]    .app.crt-glitch-chaos {
-  animation: crt-chaos-hsync-cycle 7s steps(1) infinite;
+  animation: crt-chaos-hsync-cycle 5s steps(1) infinite;
 }
 :root[data-theme="amber-mono"] .app.crt-glitch-chaos::after,
 :root[data-theme="gray-crt"]   .app.crt-glitch-chaos::after,
@@ -575,7 +575,7 @@ body {
       transparent 3px, transparent 4px);
   background-size: 100% 2px, 100% 25%, 4px 100%;
   animation: crt-roll .8s linear infinite, crt-static-jitter .12s steps(1) infinite,
-             crt-chaos-burst 7s step-end infinite;
+             crt-chaos-burst 5s step-end infinite;
 }
 
 /* Phosphor bloom on register values and accent-coloured text */
