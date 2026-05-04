@@ -4218,6 +4218,7 @@ function addTraceEntry(prevR) {
     setSrc(blank)
     setFileName('untitled.asm')
     localStorage.removeItem('sim8085_filename')
+    doAssemble(blank)
   }
 
   function importFile(e) {
