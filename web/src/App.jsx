@@ -4572,12 +4572,12 @@ function addTraceEntry(prevR) {
       {activeView === 'simulator' && (
         <>
           {showCalc && <CalcFloat onClose={() => setShowCalc(false)} />}
-          {showChat && <ChatPanel regs={regs} src={src} onClose={() => setShowChat(false)} />}
           {panels.ppi && <PPI8255Panel outputPorts={outputPorts} inputPresets={inputPresets} onSetInput={setInputPort} onClose={() => togglePanel('ppi')} />}
           {panels.pit && <PIT8253Panel outputPorts={outputPorts} onClose={() => togglePanel('pit')} />}
         </>
       )}
 
+      {showChat && <ChatPanel regs={regs} src={src} onClose={() => setShowChat(false)} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {driveFiles !== null && <DriveLoadModal files={driveFiles} loading={driveLoading} onClose={() => setDriveFiles(null)} onSelect={fetchDriveFile} onDelete={deleteDriveFile} />}
       {showGithubSetup && <GithubSetupModal onClose={() => setShowGithubSetup(false)} onSave={() => setMsg('✓ GitHub token saved.')} />}
