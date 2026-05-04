@@ -2512,11 +2512,6 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFrom
                 <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.hex / .bin image</button>
                 <button className="exmenu-sub-item" onClick={() => { onLoadFromDrive(); setOpen(false); setActiveSub(null); }}>☁ Load from Google Drive</button>
                 <button className="exmenu-sub-item" onClick={() => { onLoadFromGist(); setOpen(false); setActiveSub(null); }}>🐙 Load from GitHub Gist</button>
-                {driveToken ? (
-                  <button className="exmenu-sub-item" style={{ color: 'var(--text3)' }} onClick={() => { onDriveDisconnect?.(); setOpen(false); setActiveSub(null); }}>🔌 Disconnect Drive</button>
-                ) : (
-                  <button className="exmenu-sub-item" onClick={() => { onConnectDrive?.(); setOpen(false); setActiveSub(null); }}>☁ Connect to Google Drive</button>
-                )}
               </div>
             )}
           </div>
@@ -2537,6 +2532,24 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFrom
             )}
           </div>
           <div className="bmenu-sep" />
+
+          {driveToken ? (
+            <div className={`bmenu-item exmenu-cat ${activeSub === 'drive' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('drive')} onClick={() => setActiveSub(activeSub === 'drive' ? null : 'drive')}>
+              <span>☁  Drive ✓</span>
+              <span className="exmenu-arrow">▶</span>
+              {activeSub === 'drive' && (
+                <div className="exmenu-sub" onClick={e => e.stopPropagation()}>
+                  <button className="exmenu-sub-item" onClick={() => { onLoadFromDrive(); setOpen(false); setActiveSub(null); }}>📂 Load from Drive…</button>
+                  <button className="exmenu-sub-item" onClick={() => { onSaveToDrive(); setOpen(false); setActiveSub(null); }}>💾 Save to Drive</button>
+                  <button className="exmenu-sub-item" onClick={() => { onSaveAsToDrive?.(); setOpen(false); setActiveSub(null); }}>📝 Save As…</button>
+                  <div className="bmenu-sep" />
+                  <button className="exmenu-sub-item" style={{ color: 'var(--text3)' }} onClick={() => { onDriveDisconnect?.(); setOpen(false); setActiveSub(null); }}>🔌 Disconnect</button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button className="bmenu-item" onClick={() => { onConnectDrive?.(); setOpen(false); setActiveSub(null); }}>☁  Connect to Google Drive</button>
+          )}
 
           <div className={`bmenu-item exmenu-cat ${activeSub === 'tools' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('tools')} onClick={() => setActiveSub(activeSub === 'tools' ? null : 'tools')}>
             <span>🛠  Tools</span>
