@@ -2455,7 +2455,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveToGist, onShare, onCalc, onChat, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast, crtGlitch, onCrtGlitch, onManageGithub, panels, onTogglePanel, activeView, onSetView }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveAsToDrive, onSaveToGist, onShare, onCalc, onChat, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast, crtGlitch, onCrtGlitch, onManageGithub, panels, onTogglePanel, activeView, onSetView, driveToken, onConnectDrive, onDriveDisconnect }) {
   const [open, setOpen] = useState(false);
   const [activeSub, setActiveSub] = useState(null);
   const wrapRef = useRef(null)
@@ -2512,6 +2512,11 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFrom
                 <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.hex / .bin image</button>
                 <button className="exmenu-sub-item" onClick={() => { onLoadFromDrive(); setOpen(false); setActiveSub(null); }}>☁ Load from Google Drive</button>
                 <button className="exmenu-sub-item" onClick={() => { onLoadFromGist(); setOpen(false); setActiveSub(null); }}>🐙 Load from GitHub Gist</button>
+                {driveToken ? (
+                  <button className="exmenu-sub-item" style={{ color: 'var(--text3)' }} onClick={() => { onDriveDisconnect?.(); setOpen(false); setActiveSub(null); }}>🔌 Disconnect Drive</button>
+                ) : (
+                  <button className="exmenu-sub-item" onClick={() => { onConnectDrive?.(); setOpen(false); setActiveSub(null); }}>☁ Connect to Google Drive</button>
+                )}
               </div>
             )}
           </div>
@@ -2525,6 +2530,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFrom
                 <button className="exmenu-sub-item" onClick={() => { onExportHex(); setOpen(false); setActiveSub(null); }}>.hex (Intel HEX)</button>
                 <button className="exmenu-sub-item" onClick={() => { onExportBin(); setOpen(false); setActiveSub(null); }}>.bin (raw binary)</button>
                 <button className="exmenu-sub-item" onClick={() => { onSaveToDrive(); setOpen(false); setActiveSub(null); }}>☁ Save to Google Drive</button>
+                {driveToken && <button className="exmenu-sub-item" onClick={() => { onSaveAsToDrive?.(); setOpen(false); setActiveSub(null); }}>☁ Save As to Google Drive…</button>}
                 <button className="exmenu-sub-item" onClick={() => { onSaveToGist(); setOpen(false); setActiveSub(null); }}>🐙 Save to GitHub Gist</button>
                 <button className="exmenu-sub-item" onClick={() => { onShare(); setOpen(false); setActiveSub(null); }}>⎘ Copy share link</button>
               </div>
@@ -4462,7 +4468,11 @@ function addTraceEntry(prevR) {
             onExportHex={exportHex}
             onExportBin={exportBin}
             onSaveToDrive={saveToDrive}
+            onSaveAsToDrive={saveAsToDrive}
             onSaveToGist={saveToGist}
+            driveToken={driveToken}
+            onConnectDrive={connectDrive}
+            onDriveDisconnect={handleDriveDisconnect}
             onShare={shareURL}
             onCalc={() => setShowCalc(c => !c)}
             onChat={() => setShowChat(c => !c)}
@@ -4492,29 +4502,9 @@ function addTraceEntry(prevR) {
           )}
 
         {fileName && <span className="topbar-filename" style={{ marginLeft: 0 }} title={fileName}>File: {fileName}</span>}
-
-        <div className="topbar-drive" style={{ marginLeft: 'auto', display: 'flex', gap: '6px', position: 'relative' }} ref={driveMenuRef}>
-          {driveSaveStatus === 'saving' && <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)' }}>⏳ Saving…</span>}
-          {driveSaveStatus === 'success' && <span style={{ color: 'var(--accent)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)' }}>✓ Saved</span>}
-          
-          <button className="btn" style={{ color: 'var(--blue)', borderColor: 'var(--border2)' }} onClick={() => {
-            if (driveToken) setDriveMenuOpen(o => !o)
-            else connectDrive()
-          }} title={driveToken ? "Google Drive options" : "Connect to Google Drive"}>
-            {driveToken ? <>☁ Connected <span className="exmenu-chevron">{driveMenuOpen ? '▴' : '▾'}</span></> : '☁ Connect to Drive'}
-          </button>
-
-          {driveMenuOpen && driveToken && (
-            <div className="bmenu-dropdown" style={{ right: 0, left: 'auto', top: 'calc(100% + 6px)' }}>
-              <button className="bmenu-item" onClick={() => { setDriveMenuOpen(false); loadFromDrive() }}>📂 Load from Drive...</button>
-              <button className="bmenu-item" onClick={() => { setDriveMenuOpen(false); saveToDrive() }}>💾 Save</button>
-              <button className="bmenu-item" onClick={() => { setDriveMenuOpen(false); saveAsToDrive() }}>📝 Save As...</button>
-              <div className="bmenu-sep" />
-              <button className="bmenu-item" onClick={handleDriveDisconnect}>🔌 Disconnect</button>
-            </div>
-          )}
-        </div>
-        <span className={`engine-chip engine-chip-${engineMode}`} title={engineSwitching ? 'Switching engine…' : `Engine: ${engineMode.toUpperCase()}`}>
+        {driveSaveStatus === 'saving' && <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>⏳ Saving…</span>}
+        {driveSaveStatus === 'success' && <span style={{ color: 'var(--accent)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>✓ Saved</span>}
+        <span className={`engine-chip engine-chip-${engineMode}`} style={{ marginLeft: 'auto' }} title={engineSwitching ? 'Switching engine…' : `Engine: ${engineMode.toUpperCase()}`}>
           {engineSwitching ? '…' : `Engine: ${engineMode.toUpperCase()}`}
         </span>
         <span className="build-chip" title="Build timestamp">Build: {__BUILD_TIME__}</span>
@@ -4530,10 +4520,12 @@ function addTraceEntry(prevR) {
           <button className={`btn btn-asm${isDirty ? ' btn-asm-dirty' : ''}`} onClick={() => doAssemble(srcRef.current)} title={isDirty ? "Unsaved changes — click to rebuild" : "Code is up to date"}>
             ⚙ Build{isDirty ? ' •' : ''}  <kbd>F5</kbd>
           </button>
-          <button className="btn btn-step"         onClick={doStep}      disabled={running || appState==='error'}>↓ Step    <kbd>F7</kbd></button>
-          <button className="btn btn-step-over"    onClick={doStepOver}  disabled={running || appState==='error'}>↷ Over    <kbd>F8</kbd></button>
-          <button className="btn btn-step-out"     onClick={doStepOut}   disabled={running || appState==='error'}>↵ Out     <kbd>F10</kbd></button>
-          <button className="btn btn-back"         onClick={doStepBack} disabled={running || appState==='error' || histLen === 0} title={`Undo last step (${histLen} available)`}>⟲ Back{histLen > 0 ? ` (${histLen})` : ''}</button>
+          {!running && <>
+          <button className="btn btn-step"         onClick={doStep}      disabled={appState==='error'}>↓ Step    <kbd>F7</kbd></button>
+          <button className="btn btn-step-over"    onClick={doStepOver}  disabled={appState==='error'}>↷ Over    <kbd>F8</kbd></button>
+          <button className="btn btn-step-out"     onClick={doStepOut}   disabled={appState==='error'}>↵ Out     <kbd>F10</kbd></button>
+          <button className="btn btn-back"         onClick={doStepBack} disabled={appState==='error' || histLen === 0} title={`Undo last step (${histLen} available)`}>⟲ Back{histLen > 0 ? ` (${histLen})` : ''}</button>
+          </>}
           <button className={`btn ${running ? 'btn-stop':'btn-run'}`} onClick={handleRun} disabled={!running && appState==='error'}>
             {running ? '■ Stop' : '▶ Run'}  <kbd>{running?'F9':'F9'}</kbd>
           </button>
