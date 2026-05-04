@@ -2610,7 +2610,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
               <option value={64*1024}>64 KB</option>
             </select>
           </div>
-          <div className="bmenu-mobile-hide bmenu-setting">
+          <div className="bmenu-setting">
             <span className="bmenu-setting-label">Engine</span>
             <span style={{display:'flex',gap:3}}>
               {['js','wasm'].map(m => (
