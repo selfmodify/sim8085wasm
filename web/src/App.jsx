@@ -2549,9 +2549,19 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
             {activeSub === 'theme' && (
               <div className="exmenu-sub" onClick={e => e.stopPropagation()}>
                 {[
-                  { id: 'dark',       label: '🌙  Dark'             },
-                  { id: 'dim',        label: '🌗  Dim'              },
-                  { id: 'light',      label: '☀︎  Light'            },
+                  { id: 'dark',  label: '🌙  Dark'  },
+                  { id: 'dim',   label: '🌗  Dim'   },
+                  { id: 'light', label: '☀︎  Light' },
+                ].map(({ id, label }) => (
+                  <button key={id} className="exmenu-sub-item"
+                    style={{ color: theme === id ? 'var(--accent)' : undefined,
+                             fontWeight: theme === id ? 700 : undefined }}
+                    onClick={() => { onSetTheme(id); setOpen(false); setActiveSub(null) }}>
+                    {label}
+                  </button>
+                ))}
+                <hr className="exmenu-sep" />
+                {[
                   { id: 'amber-mono', label: '🟡  Amber Monochrome' },
                   { id: 'gray-crt',   label: '⬜  Gray Retro CRT'   },
                   { id: 'green',      label: '🟢  Green CRT'        },
