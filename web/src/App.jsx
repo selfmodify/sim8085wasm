@@ -4317,7 +4317,7 @@ function addTraceEntry(prevR) {
   const isRetroTheme = ['amber-mono', 'gray-crt', 'green', 'turbo-c'].includes(theme)
 
   return (
-    <div className={`app${isRetroTheme && crtGlitch !== 'off' && !(crtGlitch === 'chaos' && chaosCalm) ? ` crt-glitch-${crtGlitch}` : ''}`} style={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}>
+    <div className={`app${isRetroTheme && crtGlitch !== 'off' ? ` crt-glitch-${crtGlitch === 'chaos' && chaosCalm ? 'chroma' : crtGlitch}` : ''}`} style={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}>
       {/* ── Topbar ── */}
       <div className="topbar">
         <div className="brand">
