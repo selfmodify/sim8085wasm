@@ -404,14 +404,7 @@ body {
     0 0 80px 20px var(--tint-accent);
 }
 
-/* Curved CRT monitor glass effect */
-:root[data-theme="amber-mono"] .app,
-:root[data-theme="gray-crt"]   .app,
-:root[data-theme="green"]      .app,
-:root[data-theme="turbo-c"]    .app {
-  box-shadow: inset 0 0 140px rgba(0,0,0,0.55), inset 0 0 40px rgba(0,0,0,0.35);
-}
-
+/* Base vignette (always on for retro themes) */
 :root[data-theme="amber-mono"] .app::before,
 :root[data-theme="gray-crt"]   .app::before,
 :root[data-theme="green"]      .app::before,
@@ -421,12 +414,24 @@ body {
   inset: 0;
   pointer-events: none;
   z-index: 998;
+  background: radial-gradient(ellipse at 50% 50%, transparent 50%, rgba(0,0,0,.72) 100%);
+}
+
+/* Curved CRT monitor glass effect — only when interference is active */
+:root[data-theme="amber-mono"] .app[class*="crt-glitch"],
+:root[data-theme="gray-crt"]   .app[class*="crt-glitch"],
+:root[data-theme="green"]      .app[class*="crt-glitch"],
+:root[data-theme="turbo-c"]    .app[class*="crt-glitch"] {
+  box-shadow: inset 0 0 140px rgba(0,0,0,0.55), inset 0 0 40px rgba(0,0,0,0.35);
+}
+
+:root[data-theme="amber-mono"] .app[class*="crt-glitch"]::before,
+:root[data-theme="gray-crt"]   .app[class*="crt-glitch"]::before,
+:root[data-theme="green"]      .app[class*="crt-glitch"]::before,
+:root[data-theme="turbo-c"]    .app[class*="crt-glitch"]::before {
   background:
-    /* Convex glass glare — faint bright band near top */
     linear-gradient(180deg, rgba(255,255,255,0.055) 0%, transparent 22%),
-    /* Left/right edge curve darkening */
     linear-gradient(90deg, rgba(0,0,0,0.18) 0%, transparent 12%, transparent 88%, rgba(0,0,0,0.18) 100%),
-    /* Strong corner+edge vignette simulating curved screen */
     radial-gradient(ellipse at 50% 50%, transparent 38%, rgba(0,0,0,0.92) 100%);
 }
 
