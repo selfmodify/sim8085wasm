@@ -2536,7 +2536,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onImport, onLoadFromDrive, 
                 <button className="exmenu-sub-item" onClick={() => { window.open('https://github.com/selfmodify/sim8085wasm', '_blank'); setOpen(false); setActiveSub(null); }}>⭐ View on GitHub</button>
                 <button className="exmenu-sub-item" onClick={() => { window.open('https://github.com/selfmodify/sim8085wasm/issues/new', '_blank'); setOpen(false); setActiveSub(null); }}>🐛 Report a Bug</button>
                 <button className="exmenu-sub-item" onClick={() => { window.open('https://github.com/selfmodify/sim8085wasm/discussions', '_blank'); setOpen(false); setActiveSub(null); }}>💬 Ask a Question</button>
-                <button className="exmenu-sub-item" onClick={() => { onManageGithub(); setOpen(false); setActiveSub(null); }}>🔑 Manage API Token</button>
+                <button className="exmenu-sub-item" onClick={() => { onManageGithub(); setOpen(false); setActiveSub(null); }}>🔑 Manage GitHub API Token</button>
                 <hr className="exmenu-sep" />
                 <button className="exmenu-sub-item" onClick={() => { window.open('./privacy.html', '_blank'); setOpen(false); setActiveSub(null); }}>🔒 Privacy Policy</button>
                 <button className="exmenu-sub-item" onClick={() => { window.open('./terms.html', '_blank'); setOpen(false); setActiveSub(null); }}>📜 Terms of Service</button>
