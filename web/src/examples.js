@@ -1696,6 +1696,70 @@ dloop:
     jnz  dloop
     ret`,
 
+    'Traffic Light': `; Traffic Light Controller — 8255 PPI (Ports 00H–03H)
+; Open the 🪟 Panels menu and enable "8255 PPI" to watch the lights.
+; Run at Fast or Turbo speed to see the full cycle.
+;
+; Port A (00H): North-South  → bit 0 = Red   bit 1 = Yellow   bit 2 = Green
+; Port B (01H): East-West    → bit 0 = Red   bit 1 = Yellow   bit 2 = Green
+;
+; Cycle: NS-Green/EW-Red → NS-Yellow/EW-Red → NS-Red/EW-Green → NS-Red/EW-Yellow
+
+    org 100H
+    kickoff 100H
+    lxi sp, 1FFH
+
+    ; Configure 8255: Mode 0, all ports output  (control word = 80H)
+    mvi a, 80H
+    out 03H
+
+main:
+    ; Phase 1: NS Green, EW Red
+    mvi a, 04H          ; NS Green  (bit 2)
+    out 00H
+    mvi a, 01H          ; EW Red    (bit 0)
+    out 01H
+    call green_dly
+
+    ; Phase 2: NS Yellow, EW Red
+    mvi a, 02H          ; NS Yellow (bit 1)
+    out 00H
+    mvi a, 01H          ; EW Red    (bit 0)
+    out 01H
+    call amber_dly
+
+    ; Phase 3: NS Red, EW Green
+    mvi a, 01H          ; NS Red    (bit 0)
+    out 00H
+    mvi a, 04H          ; EW Green  (bit 2)
+    out 01H
+    call green_dly
+
+    ; Phase 4: NS Red, EW Yellow
+    mvi a, 01H          ; NS Red    (bit 0)
+    out 00H
+    mvi a, 02H          ; EW Yellow (bit 1)
+    out 01H
+    call amber_dly
+
+    jmp main
+
+green_dly:
+    lxi d, 0C00H
+dg: dcx d
+    mov a, d
+    ora e
+    jnz dg
+    ret
+
+amber_dly:
+    lxi d, 0400H
+da: dcx d
+    mov a, d
+    ora e
+    jnz da
+    ret`,
+
     '8253 Timer': `; 8253 Programmable Interval Timer Setup
 ; Configures Counter 0 in Mode 3 (Square Wave Generator).
 ; To see this in action, open the 🪟 View Panels menu and check "8253 PIT".
