@@ -2347,10 +2347,13 @@ function PanelsMenu({ panels, onToggle }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
   const btnRef = useRef(null)
+  const dropRef = useRef(null)
 
   useEffect(() => {
     if (!open) return
-    const close = e => { if (!btnRef.current?.contains(e.target)) setOpen(false) }
+    const close = e => {
+      if (!btnRef.current?.contains(e.target) && !dropRef.current?.contains(e.target)) setOpen(false)
+    }
     document.addEventListener('mousedown', close)
     document.addEventListener('touchstart', close)
     return () => {
@@ -2373,7 +2376,7 @@ function PanelsMenu({ panels, onToggle }) {
         🪟 Panels <span className="exmenu-chevron">{open ? '▴' : '▾'}</span>
       </button>
       {open && (
-        <div className="bmenu-dropdown" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999, maxHeight: '70vh', overflowY: 'auto' }}>
+        <div ref={dropRef} className="bmenu-dropdown" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999, maxHeight: '70vh', overflowY: 'auto' }}>
           {[
             ['regs','Registers'],['pairs','Reg Pairs'],['flags','Flags'],
             ['ints','Interrupts'],['io','I/O Ports'],['memmap','Mem Map'],
