@@ -128,7 +128,7 @@ const PANEL_HELP_TEXT = {
 • Double-click a cell to edit its value
 • Arrow keys + PgUp/PgDn to navigate
 • Mouse wheel scrolls the view
-• Drag the top handle to resize the panel
+• Drag the top handle to resize the panel (desktop only)
 
 🔍 Search (hex byte):
 • Enter a hex byte and press Search
@@ -148,14 +148,16 @@ const PANEL_HELP_TEXT = {
 • Data (Green): Values injected via SETBYTE/SETWORD/DB/DW
 • Stack (Amber): Region from SP to FFFFH
 • Click any region to see its exact address bounds
-• Bright green line indicates current Program Counter (PC)`,
+• Bright green line indicates current Program Counter (PC)
+• Drag the panel header to reorder it within the column`,
 
   'REGISTERS': `• Live 8085 register values (A, B, C, D, E, H, L, PC, SP)
 • Click any value to edit it inline
 • Right-click a value to copy it to the clipboard
 • HEX / DEC / BIN toggle cycles the display format
 • Green highlight = register changed since last step
-• Bit toggles below A let you flip individual bits`,
+• Bit toggles below A let you flip individual bits
+• Drag the panel header to reorder it within the column`,
 
   'REGISTER PAIRS': `• BC, DE, HL shown as combined 16-bit pointers
 • ADDR column: the 16-bit address held by the pair
@@ -163,26 +165,37 @@ const PANEL_HELP_TEXT = {
 • Click ADDR to jump the memory view there
 • Click CONTENT to edit the byte at that address
 • Right-click either cell to copy its value
-• HEX / DEC / BIN toggle applies to both columns`,
+• HEX / DEC / BIN toggle applies to both columns
+• Drag the panel header to reorder it within the column`,
 
   'FLAGS': `• Five 8085 status flags, updated after each instruction:
   · S   Sign flag — set if result is negative
   · Z   Zero flag — set if result is zero
   · AC  Auxiliary Carry — carry from bit 3 to 4 (BCD)
   · P   Parity — set if result has even number of 1-bits
-  · CY  Carry — set if arithmetic produced a carry/borrow`,
+  · CY  Carry — set if arithmetic produced a carry/borrow
+• Drag the panel header to reorder it within the column`,
 
   'STACK': `• Shows memory at and above SP as a 16-bit value stack
 • Top entry (current SP) is highlighted green
 • PUSH rp: SP − 2, stores high byte then low byte
 • POP rp:  loads low byte then high byte, SP + 2
-• Stack grows downward — set SP before using PUSH`,
+• Stack grows downward — set SP before using PUSH
+• Drag the panel header to reorder it within the column`,
+
+  'CALL STACK': `• Shows the chain of subroutine calls (CALL and RST)
+• Target address: where the call jumped to
+• Call site: where the CALL instruction is located
+• ret: where execution will resume after RET
+• Click any address to jump the memory view there
+• Drag the panel header to reorder it within the column`,
 
   'TRACE': `• Last 50 instructions executed, newest at bottom
 • Each row: address · disassembled text · changed registers
 • Changed register values are highlighted green
 • Cleared on every Build
-• Step through code to populate the trace`,
+• Step through code to populate the trace
+• Drag the panel header to reorder it within the column`,
 
   'WATCH': `• Monitor any register or memory location in real time
 • Type a register name: A, B, BC, HL, SP, PC …
@@ -206,7 +219,8 @@ const PANEL_HELP_TEXT = {
 • KEYBOARD section: character queue for syscall C=01H
   · Type text and press Enter (or +) to enqueue characters
   · Each CALL 5 with C=01H dequeues the next char (returns 00H when empty)
-  · ✕ clears the entire queue`,
+  · ✕ clears the entire queue
+• Drag the panel header to reorder it within the column`,
 
   'CONSOLE': `• Treats bytes written by OUT to the configured port as ASCII text
 • Default port is 01H — change it in the header field
@@ -227,7 +241,8 @@ const PANEL_HELP_TEXT = {
 • RST 6.5 / RST 5.5 — level-triggered: ON holds the line high until you click OFF
 • INTR — level-triggered; select which RST n vector (0–7) appears on the data bus
 • Mask badges appear when the program has masked a line via SIM
-• Write ISRs at the vector addresses (e.g. ORG 003CH for RST 7.5) and end them with EI + RET`,
+• Write ISRs at the vector addresses (e.g. ORG 003CH for RST 7.5) and end them with EI + RET
+• Drag the panel header to reorder it within the column`,
 
   '8255 PPI': `• Programmable Peripheral Interface (Ports 00H–03H)
 • Control Word (03H) configures ports A, B, and C as Input or Output
@@ -244,7 +259,8 @@ const PANEL_HELP_TEXT = {
 • OUT 40H with a value > 0 generates a square wave tone
 • OUT 40H with 0 mutes the audio
 • Must click the ON button first to enable audio output
-• Use Fast speed (not Warp) for best playback timing`,
+• Use Fast speed (not Warp) for best playback timing
+• Drag the panel header to reorder it within the column`,
 }
 
 function PanelHelp({ panel, wide }) {
@@ -1683,7 +1699,10 @@ function CallStackPanel({ callStack, onJump, dragHandleProps, dropTargetProps, i
       <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
         <span className="panel-icon">📞</span>CALL STACK
         {callStack.length > 0 && <span className="callstack-depth">{callStack.length}</span>}
-        <span className="panel-chevron" style={{marginLeft:'auto'}}>{collapsed ? '▶' : '▼'}</span>
+        <div className="panel-hd-right" onClick={e => e.stopPropagation()} style={{marginLeft: 'auto'}}>
+          <PanelHelp panel="CALL STACK" />
+        </div>
+        <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
       </div>
       {!collapsed && (callStack.length === 0
         ? <div className="callstack-empty">— empty (step to populate) —</div>
@@ -2686,15 +2705,17 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFrom
 // ── Welcome modal ────────────────────────────────────────────────────────
 const WELCOME_FEATURES = [
   { icon: '✏️', title: 'Editor',          desc: 'Write 8085 assembly with syntax highlighting and auto-indent. Ctrl+click any mnemonic for the full instruction reference. Use ASSERT to validate registers, flags, and memory inline — any failure halts with a clear error. Load from 20+ built-in examples across six categories.' },
-  { icon: '▶',  title: 'Build & Run',     desc: 'F5 assembles, F7 steps one instruction, F9 runs/pauses, F6 resets. ⟲ Back undoes the last step. Eight speed modes from Crawl (1 step/tick) through Turbo++ to Warp, which runs flat-out until HLT with no mid-run UI overhead. Switch between the JS and WASM engine from the ☰ menu to compare throughput.' },
+  { icon: '▶',  title: 'Build & Run',     desc: 'F5 assembles, F7 steps one instruction, F9 runs/pauses, F6 resets. ⟲ Back undoes the last step. Nine speed modes from Auto-Step (classroom pace) through Turbo++ to Warp, which runs flat-out until HLT with no mid-run UI overhead. Switch between the JS and WASM engine from the ☰ menu to compare throughput.' },
   { icon: '📋', title: 'Disassembly',     desc: 'Live disassembly follows the program counter. Click any row to toggle a breakpoint — execution pauses automatically when PC hits it.' },
   { icon: '🧠', title: 'CPU State',       desc: 'Registers, flags, and register pairs update live and highlight green on every change. Click any register pair to jump the memory view to that address. Values are editable in place.' },
   { icon: '💾', title: 'Memory',          desc: 'Browse and edit all of RAM in the hex editor. Double-click any cell to change it. RAM size is configurable (16 / 32 / 64 KB) in the menu.' },
+  { icon: '🪟', title: 'Customizable Layout', desc: 'Drag panel headers in the center and right columns to rearrange your workspace. Your custom layout is saved automatically.' },
   { icon: '🕹️', title: 'I/O & Peripherals', desc: 'Interact with the 8255 PPI, 8253 PIT, Audio Output, and 7-segment LED display. Set input ports for the IN instruction, and queue keystrokes for CALL 5 C=01H syscalls.' },
   { icon: '🔔', title: 'Interrupts',      desc: 'Fire TRAP, RST 7.5, RST 6.5, or RST 5.5 mid-program with the FIRE buttons. Control the interrupt flip-flop via EI/DI/SIM/RIM. HLT pauses and resumes on the next interrupt.' },
   { icon: '🌐', title: 'Community & Challenges', desc: 'Solve auto-verified coding challenges, or explore and share 8085 scripts via GitHub Gists.' },
   { icon: '🖩', title: 'Calculator',      desc: 'Convert values between binary, octal, decimal, and hex — handy when working out immediate operands or memory addresses.' },
   { icon: '🤖', title: 'AI Assistant',    desc: 'Enter your Anthropic API key (stored only in your browser, never sent to any server) to ask questions about 8085 assembly directly in the app.' },
+  { icon: '📱', title: 'Offline Ready (PWA)', desc: 'Install the simulator as a standalone app to your desktop or mobile home screen. A built-in service worker ensures you can write and run 8085 code anywhere, even completely offline.' },
 ]
 
 function WelcomeModal({ onClose, onBrewCoffee }) {
@@ -2730,6 +2751,7 @@ function WelcomeModal({ onClose, onBrewCoffee }) {
         <div className="welcome-footer">
           <span className="welcome-tip">
             💡 Start with Examples → I/O → LED Count to see the display in action, or Examples → Interrupts → TRAP to try the interrupt system.<br/>
+            💡 You can link directly to examples using the URL hash (e.g. <code>#example=LED_Count</code>).<br/>
             <a href="./privacy.html" target="_blank" rel="noreferrer" style={{ color: 'inherit', display: 'inline-block', marginTop: 6 }}>Privacy Policy</a>
             <span style={{ margin: '0 8px', opacity: 0.5 }}>|</span>
             <span onClick={onBrewCoffee} style={{ color: 'var(--amber)', display: 'inline-block', marginTop: 6, fontWeight: 600, cursor: 'pointer' }}>☕ Brew Virtual Coffee</span>
