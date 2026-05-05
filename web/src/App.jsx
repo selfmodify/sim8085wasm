@@ -700,7 +700,6 @@ function PairPanel({ regs, prev, onJump, onEdit, regBase, onRegBase, onMemoryEdi
               ? <input autoFocus className="reg-edit-input pair-edit-input" value={buf}
                   onChange={e => setBuf(e.target.value.toUpperCase())}
                   onFocus={e => e.target.select()}
-                  onFocus={e => e.target.select()}
                   onBlur={commitEdit}
                   onKeyDown={e => { if (e.key==='Enter') commitEdit(); if (e.key==='Escape') setEditing(null) }} />
               : <span className="pair-addr"

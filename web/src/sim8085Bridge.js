@@ -446,10 +446,10 @@ function stepOne() {
     case 0xFB: iffNext = true; break;                         // EI
     case 0xF3: iff = false; iffNext = false; break;           // DI
     case 0x30: {                                              // SIM
-      if (regs.a & 0x08) intMask = regs.a & 0x07             // set masks if MSE bit set
-      if (regs.a & 0x10) rst75ff = false                     // reset RST 7.5 latch
-      if (regs.a & 0x40) sodValue = (regs.a >> 7) & 1       // SOD bit if SODE set
-      break
+      if (regs.a & 0x08) intMask = regs.a & 0x07;            // set masks if MSE bit set
+      if (regs.a & 0x10) rst75ff = false;                    // reset RST 7.5 latch
+      if (regs.a & 0x40) sodValue = (regs.a >> 7) & 1;       // SOD bit if SODE set
+      break;
     }
     case 0x20: {                                              // RIM
       regs.a = (intMask & 0x07)           |
@@ -457,8 +457,8 @@ function stepOne() {
                (intLines.rst55 ? 0x10 : 0) |
                (intLines.rst65 ? 0x20 : 0) |
                (rst75ff        ? 0x40 : 0) |
-               (sidValue       ? 0x80 : 0)
-      break
+               (sidValue       ? 0x80 : 0);
+      break;
     }
     case 0xDB: { const port = memR(pc+1); regs.a = ioIn[port]; inc=2; break; } // IN port
     case 0xD3: { const port = memR(pc+1); ioOut[port] = regs.a; ioOutTouched.add(port); inc=2;

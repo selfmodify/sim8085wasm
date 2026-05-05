@@ -14,10 +14,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/x-icon"  href="/favicon.ico">
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#0d0f14" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>8085 Simulator</title>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW registration failed: ', err));
+        });
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
