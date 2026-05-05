@@ -2457,7 +2457,7 @@ function ExampleMenu({ onLoad }) {
 }
 
 // ── Brand menu ───────────────────────────────────────────────────────────
-function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveAsToDrive, onSaveToGist, onShare, onCalc, onChat, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast, crtGlitch, onCrtGlitch, onManageGithub, panels, onTogglePanel, activeView, onSetView, driveToken, onConnectDrive, onDriveDisconnect }) {
+function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveAsToDrive, onSaveToGist, onShare, onCalc, onChat, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast, crtGlitch, onCrtGlitch, onManageGithub, panels, onTogglePanel, activeView, onSetView, driveToken, onConnectDrive, onDriveDisconnect, onBrewCoffee }) {
   const [open, setOpen] = useState(false);
   const [activeSub, setActiveSub] = useState(null);
   const wrapRef = useRef(null)
@@ -2508,7 +2508,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFrom
             <span className="exmenu-arrow">▶</span>
             {activeSub === 'import' && (
               <div className="exmenu-sub" onClick={e => e.stopPropagation()}>
-                <button className="exmenu-sub-item" onClick={() => { onNew(); setOpen(false); setActiveSub(null); }}>📄 New file</button>
+            <button className="exmenu-sub-item" onClick={() => { onNew(); setOpen(false); setActiveSub(null); }}>📄 New file</button>
                 <hr className="exmenu-sep" />
                 <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.asm / .85 source</button>
                 <button className="exmenu-sub-item" onClick={() => { onImport(); setOpen(false); setActiveSub(null); }}>.hex / .bin image</button>
@@ -2667,6 +2667,11 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFrom
               ))}
             </span>
           </div>
+          <div className="bmenu-sep" />
+          <button className="bmenu-item" onClick={() => { onBrewCoffee(); setOpen(false); setActiveSub(null) }}>
+            <span style={{ color: 'var(--amber)' }}>☕</span> Brew Virtual Coffee
+          </button>
+          <div className="bmenu-sep" />
           <div className="bmenu-mobile-hide bmenu-credits">
             <div>8085 Simulator</div>
             <div>Original: V. Kumar · 1995</div>
@@ -2692,7 +2697,7 @@ const WELCOME_FEATURES = [
   { icon: '🤖', title: 'AI Assistant',    desc: 'Enter your Anthropic API key (stored only in your browser, never sent to any server) to ask questions about 8085 assembly directly in the app.' },
 ]
 
-function WelcomeModal({ onClose }) {
+function WelcomeModal({ onClose, onBrewCoffee }) {
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
@@ -2726,6 +2731,8 @@ function WelcomeModal({ onClose }) {
           <span className="welcome-tip">
             💡 Start with Examples → I/O → LED Count to see the display in action, or Examples → Interrupts → TRAP to try the interrupt system.<br/>
             <a href="./privacy.html" target="_blank" rel="noreferrer" style={{ color: 'inherit', display: 'inline-block', marginTop: 6 }}>Privacy Policy</a>
+            <span style={{ margin: '0 8px', opacity: 0.5 }}>|</span>
+            <span onClick={onBrewCoffee} style={{ color: 'var(--amber)', display: 'inline-block', marginTop: 6, fontWeight: 600, cursor: 'pointer' }}>☕ Brew Virtual Coffee</span>
           </span>
           <button className="btn welcome-btn" onClick={onClose}>Got it, let's go →</button>
         </div>
@@ -3054,11 +3061,23 @@ function GithubSetupModal({ onClose, onSave }) {
 // ── Global UI Dialog ──────────────────────────────────────────────────────
 function UIDialog({ dialog, onClose }) {
   const [input, setInput] = useState(dialog.defaultValue || '')
+  const [msg, setMsg] = useState(dialog.message || '')
   const inputRef = useRef(null)
   useEffect(() => {
     if (dialog.type === 'prompt' && inputRef.current) {
       inputRef.current.focus()
       inputRef.current.select()
+    }
+  }, [dialog])
+
+  useEffect(() => {
+    if (dialog.frames && dialog.frames.length > 0) {
+      let i = 0;
+      const interval = setInterval(() => {
+        i = (i + 1) % dialog.frames.length;
+        setMsg(dialog.frames[i]);
+      }, dialog.animationSpeed || 300);
+      return () => clearInterval(interval);
     }
   }, [dialog])
 
@@ -3080,7 +3099,7 @@ function UIDialog({ dialog, onClose }) {
           <button className="help-close" onClick={handleCancel}>✕</button>
         </div>
         <div style={{ padding: '20px 16px' }}>
-          <p style={{ color: 'var(--text2)', fontSize: 14, whiteSpace: 'pre-wrap', marginBottom: dialog.type === 'prompt' ? 16 : 0, fontFamily: 'var(--sans)' }}>{dialog.message}</p>
+          <p style={{ color: 'var(--text2)', fontSize: 14, whiteSpace: 'pre-wrap', marginBottom: dialog.type === 'prompt' ? 16 : 0, fontFamily: 'var(--sans)' }}>{msg || dialog.message}</p>
           {dialog.type === 'prompt' && <input ref={inputRef} className="chat-input" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleConfirm()} style={{ width: '100%', fontSize: 14, padding: '6px 8px' }} />}
         </div>
         <div style={{ padding: '12px 16px', background: 'var(--bg2)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
@@ -4215,12 +4234,30 @@ function addTraceEntry(prevR) {
   }
 
   function newFile() {
-    const blank = '; New 8085 program\n\tORG 0000H\n\nSTART:\n\n\tHLT\n'
-    srcRef.current = blank
-    setSrc(blank)
-    setFileName('untitled.asm')
-    localStorage.removeItem('sim8085_filename')
-    doAssemble(blank)
+    setAppDialog({
+      type: 'confirm',
+      title: 'New File',
+      message: 'This will completely clear the editor, wipe all RAM to 00H, and remove all watches, I/O presets, and breakpoints. Proceed?',
+      confirmText: 'Yes, clear everything',
+      onConfirm: () => {
+        const blank = '; New 8085 program\n\tORG 0000H\n\nSTART:\n\n\tHLT\n'
+        srcRef.current = blank
+        setSrc(blank)
+        setFileName('untitled.asm')
+        localStorage.removeItem('sim8085_filename')
+        
+        sim.simClearAllBreakpoints()
+        if (sim.simClearAllDataBreakpoints) sim.simClearAllDataBreakpoints()
+        setBps(new Map())
+        bpsRef.current = new Map()
+        setDataBps(new Set())
+        setWatches([])
+        setInputPresets([])
+        
+        doAssemble(blank)
+        setMsg('✓ Created new file (clean slate)')
+      }
+    })
   }
 
   function importFile(e) {
@@ -4449,6 +4486,26 @@ function addTraceEntry(prevR) {
     setActiveView('simulator')
   }
 
+  function onBrewCoffee() {
+    const base = "       ###\n      #####\n       ###\n     =======\n    |       |\\\n    |       | |\n     \\_____/ /\n      ======";
+    setAppDialog({
+      type: 'alert',
+      title: 'Virtual Coffee',
+      message: "Initializing brewing sequence...\n\n      ) )\n     ( (\n" + base,
+      frames: [
+        "Initializing brewing sequence...\n\n      ) )\n     ( (\n" + base,
+        "Initializing brewing sequence...\n\n     ( (\n      ) )\n" + base,
+        "Initializing brewing sequence...\n\n       ) )\n      ( (\n" + base,
+        "Initializing brewing sequence...\n\n      ( (\n       ) )\n" + base,
+        "Initializing brewing sequence...\n\n       ( (\n      ) )\n" + base,
+        "Initializing brewing sequence...\n\n      ) )\n     ( (\n" + base
+      ],
+      animationSpeed: 300,
+      confirmText: 'Buy me a real coffee ☕',
+      onConfirm: () => window.open('https://ko-fi.com/sim8085', '_blank')
+    })
+  }
+
   useEffect(() => {
     const isRetro = ['amber-mono', 'gray-crt', 'green', 'turbo-c'].includes(theme)
     if (!isRetro || crtGlitch !== 'chaos') { setChaosCalm(false); return }
@@ -4501,7 +4558,8 @@ function addTraceEntry(prevR) {
             crtGlitch={crtGlitch} onCrtGlitch={() => { const modes = ['off','flicker','static','vsync','hsync','chroma','chaos']; const next = modes[(modes.indexOf(crtGlitch) + 1) % modes.length]; setCrtGlitch(next); localStorage.setItem('sim8085_crt_glitch', next) }}
             onManageGithub={() => setShowGithubSetup(true)}
             panels={panels} onTogglePanel={togglePanel}
-            activeView={activeView} onSetView={setActiveView} />
+            activeView={activeView} onSetView={setActiveView}
+            onBrewCoffee={onBrewCoffee} />
           <div className="view-tabs">
             <button className={`view-tab${activeView === 'simulator' ? ' active' : ''}`} onClick={() => setActiveView('simulator')}>Simulator</button>
             <button className={`view-tab${activeView === 'challenges' ? ' active' : ''}`} onClick={() => setActiveView('challenges')}>Challenges</button>
@@ -4690,7 +4748,7 @@ function addTraceEntry(prevR) {
           <span className="sbar-counter sc-mhz" title="Simulated throughput">{mhz >= 1000 ? `${(mhz/1000).toFixed(2)} GHz` : mhz >= 1 ? `${mhz.toFixed(2)} MHz` : `${(mhz*1000).toFixed(2)} kHz`}</span>
         </div>
       </div>
-      {showWelcome && <WelcomeModal onClose={dismissWelcome} />}
+      {showWelcome && <WelcomeModal onClose={dismissWelcome} onBrewCoffee={onBrewCoffee} />}
       {helpInst && <HelpModal instruction={helpInst} onClose={() => setHelpInst(null)} />}
       
       {activeView === 'simulator' && (
