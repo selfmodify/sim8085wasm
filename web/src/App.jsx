@@ -498,7 +498,7 @@ function useCollapsible(key, defaultCollapsed = false) {
   return [collapsed, toggle]
 }
 
-function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit, onShowDialog }) {
+function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit, onShowDialog, dragHandleProps, dropTargetProps, isDragOver }) {
   const [collapsed, toggleCollapsed] = useCollapsible('reg', false)
   const p = prev || {}
 
@@ -591,8 +591,8 @@ function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit, onShowDialog
   const nextBase = BASE_CYCLE[(BASE_CYCLE.indexOf(regBase) + 1) % 3]
 
   return (
-    <div className="panel reg-panel">
-      <div className={`panel-hd collapsible`} onClick={toggleCollapsed}>
+    <div className={`panel reg-panel${isDragOver ? ' drag-over' : ''}`} {...dropTargetProps}>
+      <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
         <span className="panel-icon">🧠</span>REGISTERS
         <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
           <button className="reg-base-btn" onClick={() => onRegBase(nextBase)}
@@ -640,7 +640,7 @@ const PAIR_DEFS = [
   { name: 'HL', hi: 'h', lo: 'l' },
 ]
 
-function PairPanel({ regs, prev, onJump, onEdit, regBase, onRegBase, onMemoryEdited }) {
+function PairPanel({ regs, prev, onJump, onEdit, regBase, onRegBase, onMemoryEdited, dragHandleProps, dropTargetProps, isDragOver }) {
   const [collapsed, toggleCollapsed] = useCollapsible('pairs', true)
   const [editing, setEditing] = useState(null)  // { key, field: 'addr'|'content' }
   const [buf, setBuf] = useState('')
@@ -671,8 +671,8 @@ function PairPanel({ regs, prev, onJump, onEdit, regBase, onRegBase, onMemoryEdi
   }
 
   return (
-    <div className="panel reg-panel">
-      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
+    <div className={`panel reg-panel${isDragOver ? ' drag-over' : ''}`} {...dropTargetProps}>
+      <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
         <span className="panel-icon">🔗</span>REGISTER PAIRS
         <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
           <button className="reg-base-btn" onClick={() => onRegBase(BASE_CYCLE[(BASE_CYCLE.indexOf(regBase)+1)%3])}
@@ -727,7 +727,7 @@ function PairPanel({ regs, prev, onJump, onEdit, regBase, onRegBase, onMemoryEdi
 }
 
 // ── Flags panel ──────────────────────────────────────────────────────────
-function FlagPanel({ regs }) {
+function FlagPanel({ regs, dragHandleProps, dropTargetProps, isDragOver }) {
   const [collapsed, toggleCollapsed] = useCollapsible('flags', false)
   const FLAGS = [
     { label:'S',  key:'flagS',  title:'Sign — result was negative' },
@@ -737,8 +737,8 @@ function FlagPanel({ regs }) {
     { label:'CY', key:'flagCY', title:'Carry — result overflowed' },
   ]
   return (
-    <div className="panel flag-panel">
-      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
+    <div className={`panel flag-panel${isDragOver ? ' drag-over' : ''}`} {...dropTargetProps}>
+      <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
         <span className="panel-icon">🚩</span>FLAGS
         <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
           <PanelHelp panel="FLAGS" />
@@ -1554,7 +1554,7 @@ function ChatPanel({ regs, src, onClose }) {
 }
 
 // ── Stack panel ──────────────────────────────────────────────────────────
-function StackPanel({ regs, regBase, onRegBase }) {
+function StackPanel({ regs, regBase, onRegBase, dragHandleProps, dropTargetProps, isDragOver }) {
   const [collapsed, toggleCollapsed] = useCollapsible('stack', false)
   const panelRef = useRef(null)
   const entries = useMemo(() => {
@@ -1580,8 +1580,8 @@ function StackPanel({ regs, regBase, onRegBase }) {
   }
 
   return (
-    <div className="panel stack-panel" ref={panelRef}>
-      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
+    <div className={`panel stack-panel${isDragOver ? ' drag-over' : ''}`} ref={panelRef} {...dropTargetProps}>
+      <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
         <span className="panel-icon">📚</span>STACK
         <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
           <code className="sp-val">SP={hex4(regs.sp)}</code>
@@ -1630,7 +1630,7 @@ function LedDisplay({ leds }) {
 }
 
 // ── Execution trace panel ────────────────────────────────────────────────
-function TracePanel({ trace, onClear }) {
+function TracePanel({ trace, onClear, dragHandleProps, dropTargetProps, isDragOver }) {
   const [collapsed, toggleCollapsed] = useCollapsible('trace', true)
   const bodyRef = useRef(null)
   useEffect(() => {
@@ -1638,8 +1638,8 @@ function TracePanel({ trace, onClear }) {
   }, [trace])
 
   return (
-    <div className="panel trace-panel">
-      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
+    <div className={`panel trace-panel${isDragOver ? ' drag-over' : ''}`} {...dropTargetProps}>
+      <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
         <span className="panel-icon">📜</span>TRACE
         <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
           <button className="reg-base-btn" onClick={onClear} title="Clear trace">✕</button>
@@ -1676,11 +1676,11 @@ function TracePanel({ trace, onClear }) {
 }
 
 // ── Watch panel ──────────────────────────────────────────────────────────
-function CallStackPanel({ callStack, onJump }) {
+function CallStackPanel({ callStack, onJump, dragHandleProps, dropTargetProps, isDragOver }) {
   const [collapsed, toggleCollapsed] = useCollapsible('callstack', true)
   return (
-    <div className="panel callstack-panel">
-      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
+    <div className={`panel callstack-panel${isDragOver ? ' drag-over' : ''}`} {...dropTargetProps}>
+      <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
         <span className="panel-icon">📞</span>CALL STACK
         {callStack.length > 0 && <span className="callstack-depth">{callStack.length}</span>}
         <span className="panel-chevron" style={{marginLeft:'auto'}}>{collapsed ? '▶' : '▼'}</span>
@@ -1824,7 +1824,7 @@ function ConsolePanel({ output, port, onSetPort, onClear }) {
 }
 
 // ── I/O port panel ───────────────────────────────────────────────────────
-function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput, keyQueue, onEnqueueKeys, onClearKeyQueue, sid, sod, onSetSID }) {
+function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput, keyQueue, onEnqueueKeys, onClearKeyQueue, sid, sod, onSetSID, dragHandleProps, dropTargetProps, isDragOver }) {
   const [collapsed, toggleCollapsed] = useCollapsible('ioports', true)
   const [portBuf, setPortBuf] = useState('')
   const [valBuf,  setValBuf]  = useState('')
@@ -1845,8 +1845,8 @@ function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInput, key
   }
 
   return (
-    <div className="panel ioport-panel">
-      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
+    <div className={`panel ioport-panel${isDragOver ? ' drag-over' : ''}`} {...dropTargetProps}>
+      <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
         <span className="panel-icon">🔌</span>I/O PORTS
         <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
           <PanelHelp panel="I/O PORTS" />
@@ -2086,7 +2086,7 @@ function PIT8253Panel({ outputPorts, onClose }) {
 }
 
 // ── Audio Output Panel ──────────────────────────────────────────────────
-function AudioPanel({ running, onShowDialog }) {
+function AudioPanel({ running, onShowDialog, dragHandleProps, dropTargetProps, isDragOver }) {
   const [collapsed, toggleCollapsed] = useCollapsible('audio', false)
   const [enabled, setEnabled] = useState(false)
   const [volume, setVolume] = useState(0.05)
@@ -2188,8 +2188,8 @@ function AudioPanel({ running, onShowDialog }) {
   }, [])
 
   return (
-    <div className="panel audio-panel">
-      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
+    <div className={`panel audio-panel${isDragOver ? ' drag-over' : ''}`} {...dropTargetProps}>
+      <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
         <span><span className="panel-icon">🔊</span>AUDIO (PORT 40H)</span>
         <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
           <PanelHelp panel="AUDIO OUTPUT" />
@@ -2221,7 +2221,7 @@ function AudioPanel({ running, onShowDialog }) {
 }
 
 // ── Memory Map Panel ────────────────────────────────────────────────────
-function MemMapPanel({ regs, programRegion, presetAddrs }) {
+function MemMapPanel({ regs, programRegion, presetAddrs, dragHandleProps, dropTargetProps, isDragOver }) {
   const [collapsed, toggleCollapsed] = useCollapsible('memmap', false)
   const [selectedInfo, setSelectedInfo] = useState('Click a region for details')
 
@@ -2240,8 +2240,8 @@ function MemMapPanel({ regs, programRegion, presetAddrs }) {
   }, [presetAddrs])
 
   return (
-    <div className="panel memmap-panel">
-      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
+    <div className={`panel memmap-panel${isDragOver ? ' drag-over' : ''}`} {...dropTargetProps}>
+      <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
         <span><span className="panel-icon">🗺️</span>MEMORY MAP</span>
         <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
           <PanelHelp panel="MEMORY MAP" />
@@ -2277,7 +2277,7 @@ function MemMapPanel({ regs, programRegion, presetAddrs }) {
 }
 
 // ── Interrupt panel ──────────────────────────────────────────────────────
-function IntPanel({ intState, onAssert, onDeassert }) {
+function IntPanel({ intState, onAssert, onDeassert, dragHandleProps, dropTargetProps, isDragOver }) {
   const [collapsed, toggleCollapsed] = useCollapsible('interrupts', true)
   const { iff, intMask, rst75ff, trapPend, rst65, rst55, intr } = intState
   const [intrRst, setIntrRst] = useState(7)
@@ -2293,8 +2293,8 @@ function IntPanel({ intState, onAssert, onDeassert }) {
   const lineOn = { TRAP: trapPend, RST75: rst75ff, RST65: rst65, RST55: rst55, INTR: intr }
 
   return (
-    <div className="panel int-panel">
-      <div className="panel-hd collapsible" onClick={toggleCollapsed}>
+    <div className={`panel int-panel${isDragOver ? ' drag-over' : ''}`} {...dropTargetProps}>
+      <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
         <span className="panel-icon">🔔</span>INTERRUPTS
         <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
           <PanelHelp panel="INTERRUPTS" />
@@ -3245,6 +3245,68 @@ export default function App() {
     setPanels(p => {
       const next = { ...p, [key]: !p[key] }; localStorage.setItem('sim8085_panels', JSON.stringify(next)); return next
     })
+  }
+
+  const [draggedPanel, setDraggedPanel] = useState(null)
+  const [dragOverPanel, setDragOverPanel] = useState(null)
+  const [rightPanelOrder, setRightPanelOrder] = useState(() => {
+    const defaultOrder = ['regs', 'pairs', 'flags', 'ints', 'io', 'memmap', 'audio']
+    try { 
+      const saved = JSON.parse(localStorage.getItem('sim8085_right_panels')) || []
+      const missing = defaultOrder.filter(k => !saved.includes(k))
+      return saved.concat(missing)
+    }
+    catch { return defaultOrder }
+  })
+  const [centerPanelOrder, setCenterPanelOrder] = useState(() => {
+    const defaultOrder = ['stack', 'callstack', 'trace']
+    try { 
+      const saved = JSON.parse(localStorage.getItem('sim8085_center_panels')) || []
+      const missing = defaultOrder.filter(k => !saved.includes(k))
+      return saved.concat(missing)
+    }
+    catch { return defaultOrder }
+  })
+
+  function getDragProps(id, orderList, setOrderList, storageKey) {
+    return {
+      dragHandleProps: {
+        draggable: true,
+        title: "Drag to reorder",
+        onDragStart: (e) => {
+          setDraggedPanel(id)
+          e.dataTransfer.effectAllowed = 'move'
+          const panel = e.currentTarget.closest('.panel')
+          if (panel) {
+            e.dataTransfer.setDragImage(panel, 20, 20)
+            setTimeout(() => { panel.style.opacity = '0.4' }, 0)
+          }
+        },
+        onDragEnd: (e) => {
+          const panel = e.currentTarget.closest('.panel')
+          if (panel) panel.style.opacity = '1'
+          setDraggedPanel(null)
+          setDragOverPanel(null)
+        }
+      },
+      dropTargetProps: {
+        onDragOver: (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (draggedPanel && draggedPanel !== id && orderList.includes(draggedPanel)) setDragOverPanel(id) },
+        onDragLeave: (e) => { if (dragOverPanel === id) setDragOverPanel(null) },
+        onDrop: (e) => {
+          e.preventDefault(); const panel = e.currentTarget.closest('.panel'); if (panel) panel.style.opacity = '1'
+          setDragOverPanel(null)
+          if (draggedPanel && draggedPanel !== id && orderList.includes(draggedPanel)) {
+            setOrderList(prev => {
+              const next = [...prev]; const from = next.indexOf(draggedPanel); const to = next.indexOf(id)
+              if (from === -1 || to === -1) return prev; next.splice(from, 1); next.splice(to, 0, draggedPanel)
+              localStorage.setItem(storageKey, JSON.stringify(next)); return next
+            })
+          }
+          setDraggedPanel(null)
+        }
+      },
+      isDragOver: dragOverPanel === id
+    }
   }
 
   const [showWelcome,    setShowWelcome]    = useState(() => !localStorage.getItem('sim8085_welcomed'))
@@ -4654,9 +4716,14 @@ function addTraceEntry(prevR) {
               <>
                 <div className="mem-watch-divider" onMouseDown={onDisasmStackDividerDown} />
                 <div className="disasm-trace-stack" ref={disasmStackRef}>
-                  {panels.stack     && <StackPanel regs={regs} regBase={regBase} onRegBase={setRegBase} />}
-                  {panels.callstack && <CallStackPanel callStack={callStack} onJump={setMemStart} />}
-                  {panels.trace     && <TracePanel trace={trace} onClear={() => setTrace([])} />}
+                  {centerPanelOrder.map(key => {
+                    if (!panels[key]) return null;
+                    const dp = getDragProps(key, centerPanelOrder, setCenterPanelOrder, 'sim8085_center_panels')
+                    if (key === 'stack') return <StackPanel key={key} regs={regs} regBase={regBase} onRegBase={setRegBase} {...dp} />
+                    if (key === 'callstack') return <CallStackPanel key={key} callStack={callStack} onJump={setMemStart} {...dp} />
+                    if (key === 'trace') return <TracePanel key={key} trace={trace} onClear={() => setTrace([])} {...dp} />
+                    return null
+                  })}
                 </div>
               </>
             )}
@@ -4705,16 +4772,18 @@ function addTraceEntry(prevR) {
 
         {/* Registers column */}
         <div className={`col col-right${mobileTab!=='regs' ? ' mobile-hidden' : ''}`} ref={rightColRef}>
-          {panels.regs      && <RegPanel   regs={regs} prev={prevRegs} onJump={setMemStart} regBase={regBase} onRegBase={setRegBase} onEdit={refresh} onShowDialog={setAppDialog} />}
-          {panels.pairs     && <PairPanel  regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh} regBase={regBase} onRegBase={setRegBase} onMemoryEdited={() => setBuildId(id => id + 1)} />}
-          {panels.flags     && <FlagPanel  regs={regs} />}
-          {panels.ints      && <IntPanel intState={intState} onAssert={assertInterrupt} onDeassert={deassertInterrupt} />}
-          {panels.io        && <IOPortPanel outputPorts={outputPorts} inputPresets={inputPresets}
-            onSetInput={setInputPort} onRemoveInput={removeInputPort}
-            keyQueue={keyQueue} onEnqueueKeys={enqueueKeys} onClearKeyQueue={clearKeyQueue}
-            sid={sid} sod={sod} onSetSID={v => { sim.simSetSID(v); setSid(v); }} />}
-          {panels.memmap    && <MemMapPanel regs={regs} programRegion={programRegion} presetAddrs={presetAddrs} />}
-          {panels.audio     && <AudioPanel outputPorts={outputPorts} running={running} />}
+          {rightPanelOrder.map(key => {
+            if (!panels[key]) return null;
+            const dp = getDragProps(key, rightPanelOrder, setRightPanelOrder, 'sim8085_right_panels')
+            if (key === 'regs')   return <RegPanel key={key} regs={regs} prev={prevRegs} onJump={setMemStart} regBase={regBase} onRegBase={setRegBase} onEdit={refresh} onShowDialog={setAppDialog} {...dp} />
+            if (key === 'pairs')  return <PairPanel key={key} regs={regs} prev={prevRegs} onJump={setMemStart} onEdit={refresh} regBase={regBase} onRegBase={setRegBase} onMemoryEdited={() => setBuildId(id => id + 1)} {...dp} />
+            if (key === 'flags')  return <FlagPanel key={key} regs={regs} {...dp} />
+            if (key === 'ints')   return <IntPanel key={key} intState={intState} onAssert={assertInterrupt} onDeassert={deassertInterrupt} {...dp} />
+            if (key === 'io')     return <IOPortPanel key={key} outputPorts={outputPorts} inputPresets={inputPresets} onSetInput={setInputPort} onRemoveInput={removeInputPort} keyQueue={keyQueue} onEnqueueKeys={enqueueKeys} onClearKeyQueue={clearKeyQueue} sid={sid} sod={sod} onSetSID={v => { sim.simSetSID(v); setSid(v); }} {...dp} />
+            if (key === 'memmap') return <MemMapPanel key={key} regs={regs} programRegion={programRegion} presetAddrs={presetAddrs} {...dp} />
+            if (key === 'audio')  return <AudioPanel key={key} outputPorts={outputPorts} running={running} onShowDialog={setAppDialog} {...dp} />
+            return null
+          })}
         </div>
       </div>
       </div>
