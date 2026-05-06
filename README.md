@@ -7,13 +7,58 @@ by Vijay Kumar (1995) to a modern web platform.
 
 ---
 
-![sim8085 — LED counter running at turbo speed](screenshots/01-led-count.png)
+![sim8085 — LED counter running at turbo speed](screenshots/gif-01-turbo-led.gif)
 
 <table>
 <tr>
-<td><img src="screenshots/02-editor-panel.png" alt="Editor panel — write 8085 assembly with syntax highlighting and 20+ built-in examples"></td>
-<td><img src="screenshots/03-center-panel.png" alt="Center panel — live disassembly and hex memory editor"></td>
-<td><img src="screenshots/04-right-panel.png" alt="Right panel — registers, flags, interrupts, and I/O ports"></td>
+<td><img src="screenshots/02-editor-panel.png" alt="Editor — write 8085 assembly with syntax highlighting and 20+ built-in examples"></td>
+<td><img src="screenshots/03-center-panel.png" alt="Center — live disassembly and hex memory editor"></td>
+<td><img src="screenshots/04-right-panel.png" alt="Right — registers, flags, interrupts, and I/O ports"></td>
+</tr>
+<tr>
+<td align="center"><sub>Editor · 20+ built-in examples</sub></td>
+<td align="center"><sub>Live disassembly · hex memory editor</sub></td>
+<td align="center"><sub>Registers · flags · interrupts · I/O ports</sub></td>
+</tr>
+</table>
+
+---
+
+## Debugger
+
+<table>
+<tr>
+<td><img src="screenshots/gif-02-step-debug.gif" alt="Single-step debugging — registers highlight green on each step"></td>
+<td><img src="screenshots/gif-04-breakpoint.gif" alt="Breakpoints — click any instruction in the disassembly to set one"></td>
+</tr>
+<tr>
+<td align="center"><sub>Single-step · registers highlight on change</sub></td>
+<td align="center"><sub>Breakpoints · click any disassembly row</sub></td>
+</tr>
+<tr>
+<td><img src="screenshots/gif-03-step-over.gif" alt="Step-over — skips subroutines and system calls atomically"></td>
+<td><img src="screenshots/gif-05-step-back.gif" alt="Step-back — time-travel through execution history"></td>
+</tr>
+<tr>
+<td align="center"><sub>Step-over · skips subroutines atomically</sub></td>
+<td align="center"><sub>Step-back · time-travel through history</sub></td>
+</tr>
+</table>
+
+---
+
+## Interrupts & I/O
+
+<table>
+<tr>
+<td><img src="screenshots/05-breakpoint.png" alt="Breakpoint paused in disassembly view"></td>
+<td><img src="screenshots/06-interrupt.png" alt="TRAP interrupt fired mid-program"></td>
+<td><img src="screenshots/07-keyboard.png" alt="Keyboard queue — keystrokes dequeued via CALL 5"></td>
+</tr>
+<tr>
+<td align="center"><sub>Breakpoint paused · inspect state</sub></td>
+<td align="center"><sub>TRAP · RST 7.5 / 6.5 / 5.5 interrupts</sub></td>
+<td align="center"><sub>Keyboard queue · CALL 5 read-key syscall</sub></td>
 </tr>
 </table>
 
