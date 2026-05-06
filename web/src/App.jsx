@@ -4604,7 +4604,7 @@ function addTraceEntry(prevR) {
   }
 
   function loadSolution(c) {
-    const code = `; Solution: ${c.title}\n; ${c.desc}\n\n${c.setup ? c.setup + '\n\n' : ''}    org 100H\n    kickoff 100H\n\n${c.solution}\n\n    hlt\n`
+    const code = `; Solution: ${c.title}\n; ${c.desc}\n\n${c.setup ? c.setup + '\n\n' : ''}    org 100H\n    kickoff 100H\n\n; ── SOLUTION STARTS HERE ────────────────────────────\n${c.solution}\n; ── SOLUTION ENDS HERE ──────────────────────────────\n\n    hlt\n`
     srcRef.current = code
     setSrc(code)
     doAssemble(code)
