@@ -471,13 +471,13 @@ async function shot07_keyboard(page) {
 
 async function shotTheme(page, theme, filename) {
   console.log(`  Theme shot — ${theme}…`)
-  await setTheme(page, theme)
   await loadExample(page, 'I/O', 'LED Count')
   await build(page)
   await setSpeed(page, 4)
   await run(page)
   await sleep(2000)
   await stop(page)
+  await setTheme(page, theme)
   await page.screenshot({ path: path.join(OUT, filename) })
   console.log(`  Saved: ${filename}`)
 }
