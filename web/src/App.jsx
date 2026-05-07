@@ -2627,6 +2627,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFrom
                   { id: 'gray-crt',   label: '⬜  Gray Retro CRT'   },
                   { id: 'green',      label: '🟢  Green CRT'        },
                   { id: 'turbo-c',    label: '🟦  Turbo C'          },
+                  { id: 'cp437',      label: '🔳  DOS CP437'        },
                 ].map(({ id, label }) => (
                   <button key={id} className="exmenu-sub-item"
                     style={{ color: theme === id ? 'var(--accent)' : undefined,
@@ -2638,7 +2639,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFrom
               </div>
             )}
           </div>
-          {['amber-mono', 'gray-crt', 'green', 'turbo-c'].includes(theme) && (
+          {['amber-mono', 'gray-crt', 'green', 'turbo-c', 'cp437'].includes(theme) && (
             <>
               <div className="bmenu-setting">
                 <span className="bmenu-setting-label">CRT Brightness</span>
@@ -4658,7 +4659,7 @@ function addTraceEntry(prevR) {
   }
 
   useEffect(() => {
-    const isRetro = ['amber-mono', 'gray-crt', 'green', 'turbo-c'].includes(theme)
+    const isRetro = ['amber-mono', 'gray-crt', 'green', 'turbo-c', 'cp437'].includes(theme)
     if (!isRetro || crtGlitch !== 'chaos') { setChaosCalm(false); return }
     let id
     const tick = (calm) => { id = setTimeout(() => { setChaosCalm(!calm); tick(!calm) }, calm ? 1000 : 4000) }
@@ -4669,10 +4670,50 @@ function addTraceEntry(prevR) {
 
   const running = appState === 'running'
   const isDirty = src !== lastBuiltSrcRef.current
-  const isRetroTheme = ['amber-mono', 'gray-crt', 'green', 'turbo-c'].includes(theme)
+  const isRetroTheme = ['amber-mono', 'gray-crt', 'green', 'turbo-c', 'cp437'].includes(theme)
 
   return (
     <div className={`app${isRetroTheme && crtGlitch !== 'off' ? ` crt-glitch-${crtGlitch}` : ''}`} style={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}>
+      {theme === 'cp437' && (
+        <style>{`
+          :root[data-theme="cp437"] {
+            --bg: #000000;
+            --bg2: #000000;
+            --bg3: #000000;
+            --text: #AAAAAA;
+            --text2: #AAAAAA;
+            --text3: #555555;
+            --accent: #FFFFFF;
+            --border: #AAAAAA;
+            --radius-sm: 0;
+            --radius-md: 0;
+            --radius-lg: 0;
+          }
+          :root[data-theme="cp437"] .panel,
+          :root[data-theme="cp437"] .btn,
+          :root[data-theme="cp437"] .bmenu-dropdown,
+          :root[data-theme="cp437"] .exmenu-dropdown,
+          :root[data-theme="cp437"] .welcome-modal,
+          :root[data-theme="cp437"] .help-modal,
+          :root[data-theme="cp437"] .ctx-menu {
+            border: 3px double var(--border) !important;
+            border-radius: 0 !important;
+            background: var(--bg);
+          }
+          :root[data-theme="cp437"] .panel-hd {
+            border-bottom: 3px double var(--border) !important;
+          }
+          :root[data-theme="cp437"] .disasm-row.cur,
+          :root[data-theme="cp437"] .mem-cell.mem-pc {
+            background: var(--text) !important;
+            color: var(--bg) !important;
+          }
+          :root[data-theme="cp437"] .mem-cell.mem-sp {
+            background: var(--text3) !important;
+            color: var(--accent) !important;
+          }
+        `}</style>
+      )}
       {isRetroTheme && crtGlitch === 'chaos' && chaosCalm && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 99999, pointerEvents: 'none',
           background: 'repeating-linear-gradient(90deg, rgba(255,0,0,.35) 0px, rgba(255,0,0,.35) 1px, rgba(0,255,0,.28) 1px, rgba(0,255,0,.28) 2px, rgba(0,0,255,.35) 2px, rgba(0,0,255,.35) 3px, transparent 3px, transparent 4px)'
