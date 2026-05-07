@@ -55,48 +55,116 @@ async function setSpeed(page, index) {
   await sleep(150)
 }
 
-async function run(page) {
-  await page.click('.btn-run')
-}
-
+async function run(page)  { await page.click('.btn-run') }
 async function stop(page) {
   const btn = await page.$('.btn-stop')
   if (btn) { await btn.click(); await sleep(400) }
 }
 
-// ── Annotation helpers ────────────────────────────────────────────────────────
+async function setTheme(page, theme) {
+  await page.evaluate(t => {
+    document.documentElement.setAttribute('data-theme', t)
+    localStorage.setItem('sim8085_theme', t)
+  }, theme)
+  await sleep(300)
+}
 
-const ANN_STYLE = `
-  position: fixed;
-  z-index: 999999;
-  font: 600 13px/1.45 ui-monospace, 'Cascadia Code', monospace;
-  color: #0d0d0d;
-  background: rgba(255, 210, 60, 0.97);
-  border: 1.5px solid rgba(0,0,0,0.3);
-  border-radius: 5px;
-  padding: 7px 12px;
-  box-shadow: 0 3px 14px rgba(0,0,0,0.55);
-  white-space: pre;
-  max-width: 360px;
-  pointer-events: none;
-`
+// ── Annotation system ─────────────────────────────────────────────────────────
+// Labels float OUTSIDE panel content; dashed arrows point to the feature.
 
-async function injectAnnotations(page, labels) {
-  await page.evaluate((labels, style) => {
-    labels.forEach(({ text, x, y }) => {
+const LABEL_BG     = 'rgba(185, 168, 98, 0.94)'   // muted amber-gold
+const LABEL_FG     = '#0e0e0e'
+const ARROW_COLOR  = '#c4aa54'
+
+async function injectAnnotations(page, anns) {
+  // Step 1: inject label divs
+  await page.evaluate((anns, bg, fg) => {
+    for (const { text, x, y } of anns) {
       const el = document.createElement('div')
       el.className = '__sc_ann'
-      el.style.cssText = style + `left:${x}px; top:${y}px;`
+      el.dataset.annText = text
+      Object.assign(el.style, {
+        position: 'fixed', left: x + 'px', top: y + 'px',
+        zIndex: '999999',
+        font: '600 11px/1.45 ui-monospace, "Cascadia Code", monospace',
+        color: fg, background: bg,
+        border: '1px solid rgba(0,0,0,0.22)',
+        borderRadius: '5px',
+        padding: '5px 10px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.45)',
+        whiteSpace: 'pre', maxWidth: '260px',
+        pointerEvents: 'none',
+      })
       el.textContent = text
       document.body.appendChild(el)
+    }
+  }, anns, LABEL_BG, LABEL_FG)
+
+  await sleep(120) // let layout settle so getBoundingClientRect is accurate
+
+  // Step 2: measure label positions and draw SVG arrows
+  await page.evaluate((anns, arrowCol) => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.id = '__sc_ann_svg'
+    Object.assign(svg.style, {
+      position: 'fixed', top: '0', left: '0',
+      width: '100vw', height: '100vh',
+      pointerEvents: 'none', zIndex: '999998',
+      overflow: 'visible',
     })
-  }, labels, ANN_STYLE)
-  await sleep(120)
+
+    // Arrowhead marker
+    const defs   = document.createElementNS('http://www.w3.org/2000/svg', 'defs')
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker')
+    marker.setAttribute('id', '__sc_arrow')
+    marker.setAttribute('markerWidth', '7')
+    marker.setAttribute('markerHeight', '5')
+    marker.setAttribute('refX', '6')
+    marker.setAttribute('refY', '2.5')
+    marker.setAttribute('orient', 'auto')
+    const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon')
+    poly.setAttribute('points', '0 0, 7 2.5, 0 5')
+    poly.setAttribute('fill', arrowCol)
+    marker.appendChild(poly)
+    defs.appendChild(marker)
+    svg.appendChild(defs)
+
+    for (const { text, tx, ty } of anns) {
+      if (tx == null || ty == null) continue
+      const div = [...document.querySelectorAll('.__sc_ann')]
+        .find(d => d.dataset.annText === text)
+      if (!div) continue
+      const r = div.getBoundingClientRect()
+
+      // Pick nearest edge of label to target as line start
+      const cx = r.left + r.width  / 2
+      const cy = r.top  + r.height / 2
+      // clamp start to label edge toward target
+      const dx = tx - cx, dy = ty - cy
+      const len = Math.sqrt(dx*dx + dy*dy)
+      if (len < 1) continue
+      const ux = dx / len, uy = dy / len
+      const startX = Math.min(Math.max(cx + ux * r.width  / 2, r.left), r.right)
+      const startY = Math.min(Math.max(cy + uy * r.height / 2, r.top ), r.bottom)
+
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+      line.setAttribute('x1', startX); line.setAttribute('y1', startY)
+      line.setAttribute('x2', tx);     line.setAttribute('y2', ty)
+      line.setAttribute('stroke', arrowCol)
+      line.setAttribute('stroke-width', '1.5')
+      line.setAttribute('stroke-dasharray', '5 3')
+      line.setAttribute('marker-end', 'url(#__sc_arrow)')
+      svg.appendChild(line)
+    }
+    document.body.appendChild(svg)
+  }, anns, ARROW_COLOR)
+
+  await sleep(80)
 }
 
 async function removeAnnotations(page) {
   await page.evaluate(() =>
-    document.querySelectorAll('.__sc_ann').forEach(el => el.remove())
+    document.querySelectorAll('.__sc_ann, #__sc_ann_svg').forEach(el => el.remove())
   )
 }
 
@@ -109,27 +177,12 @@ async function getRect(page, selector) {
   }, selector)
 }
 
-async function shotClip(page, filename, selector, labels, extraTop = 0) {
-  const r = await getRect(page, selector)
-  if (!r) throw new Error(`Selector not found: ${selector}`)
-  await injectAnnotations(page, labels)
-  const clip = {
-    x: r.x,
-    y: Math.max(0, r.y - extraTop),
-    width: r.w,
-    height: r.h + extraTop,
-  }
-  await page.screenshot({ path: path.join(OUT, filename), clip })
-  await removeAnnotations(page)
-  console.log(`  Saved: ${filename}`)
-}
-
 // ── Shot 01: Full app — LED counter running ───────────────────────────────────
 async function shot01_ledCount(page) {
   console.log('  Shot 01 — LED Count (full view)…')
   await loadExample(page, 'I/O', 'LED Count')
   await build(page)
-  await setSpeed(page, 4)   // Turbo
+  await setSpeed(page, 4)
   await run(page)
   await sleep(3000)
   await stop(page)
@@ -144,32 +197,38 @@ async function shot02_editor(page) {
   const toolbar = await getRect(page, '.toolbar')
   const col     = await getRect(page, '.col-editor')
   const led     = await getRect(page, '.led-panel')
+  const editor  = await getRect(page, '.cm-editor')
 
-  const ty = toolbar ? toolbar.y : 0
-  const th = toolbar ? toolbar.h : 40
+  const ty = toolbar?.y ?? 0
+  const th = toolbar?.h ?? 44
 
-  const labels = [
+  // Labels sit ABOVE the content they describe (in the toolbar strip or just above panel)
+  const anns = [
     {
       text: '✏️  Write 8085 assembly\nSyntax highlighting · auto-indent',
-      x: col.x + 12,
-      y: col.y + 52,
+      x: col.x + 8, y: ty + 6,
+      tx: editor ? editor.x + editor.w * 0.5 : col.x + col.w * 0.5,
+      ty: editor ? editor.y + 80 : col.y + th + 80,
     },
     {
-      text: '📂  20+ built-in examples\nArithmetic · Strings · I/O\nInterrupts · Algorithms',
-      x: col.x + 12,
-      y: col.y + 220,
+      text: '📂  20+ built-in examples\nArithmetic · Strings · I/O · Interrupts',
+      x: col.x + 8, y: ty + 56,
+      tx: col.x + col.w * 0.85,
+      ty: ty + 22,
     },
     {
       text: '💡  7-segment LED display\nDriven by Intel SDK CALL 5',
-      x: col.x + 12,
-      y: (led ? led.y : col.y + col.h - 130) + 8,
+      x: col.x + 8,
+      y: led ? led.y - 58 : col.y + col.h - 160,
+      tx: led ? led.x + led.w * 0.5 : col.x + col.w * 0.5,
+      ty: led ? led.y + led.h * 0.4 : col.y + col.h - 80,
     },
   ]
 
-  await injectAnnotations(page, labels)
+  await injectAnnotations(page, anns)
   await page.screenshot({
     path: path.join(OUT, '02-editor-panel.png'),
-    clip: { x: col.x, y: ty, width: col.w, height: th + col.h },
+    clip: { x: Math.round(col.x), y: Math.round(ty), width: Math.round(col.w), height: Math.round(th + col.h) },
   })
   await removeAnnotations(page)
   console.log('  Saved: 02-editor-panel.png')
@@ -184,26 +243,31 @@ async function shot03_center(page) {
   const disasm  = await getRect(page, '.disasm-panel')
   const mem     = await getRect(page, '.mem-panel')
 
-  const ty = toolbar ? toolbar.y : 0
-  const th = toolbar ? toolbar.h : 40
+  const ty = toolbar?.y ?? 0
+  const th = toolbar?.h ?? 44
 
-  const labels = [
+  const disY = disasm?.y ?? col.y + th
+  const memY = mem?.y    ?? col.y + th + col.h * 0.5
+
+  const anns = [
     {
-      text: '📋  Live disassembly\nClick any row to set a breakpoint',
-      x: col.x + 12,
-      y: (disasm ? disasm.y : col.y) + 44,
+      text: '📋  Live disassembly\nPC highlighted · click row to set breakpoint',
+      x: col.x + 8, y: ty + 6,
+      tx: col.x + col.w * 0.5,
+      ty: disY + 60,
     },
     {
-      text: '💾  Hex memory editor\nDouble-click any cell to edit\nPC and SP highlighted',
-      x: col.x + 12,
-      y: (mem ? mem.y : col.y + col.h / 2) + 44,
+      text: '💾  Hex memory editor\nDouble-click any cell to edit\nPC and SP highlighted in colour',
+      x: col.x + 8, y: memY - 70,
+      tx: col.x + col.w * 0.5,
+      ty: memY + 80,
     },
   ]
 
-  await injectAnnotations(page, labels)
+  await injectAnnotations(page, anns)
   await page.screenshot({
     path: path.join(OUT, '03-center-panel.png'),
-    clip: { x: col.x, y: ty, width: col.w, height: th + col.h },
+    clip: { x: Math.round(col.x), y: Math.round(ty), width: Math.round(col.w), height: Math.round(th + col.h) },
   })
   await removeAnnotations(page)
   console.log('  Saved: 03-center-panel.png')
@@ -219,31 +283,38 @@ async function shot04_right(page) {
   const intp    = await getRect(page, '.int-panel')
   const iop     = await getRect(page, '.ioport-panel')
 
-  const ty = toolbar ? toolbar.y : 0
-  const th = toolbar ? toolbar.h : 40
+  const ty = toolbar?.y ?? 0
+  const th = toolbar?.h ?? 44
 
-  const labels = [
+  const regsY = regs?.y ?? col.y + th
+  const intY  = intp?.y ?? col.y + th + 300
+  const ioY   = iop?.y  ?? col.y + th + 500
+
+  const anns = [
     {
       text: '🧠  Registers & flags\nHighlighted green on each step',
-      x: col.x + 8,
-      y: (regs ? regs.y : col.y) + 44,
+      x: col.x + 6, y: ty + 6,
+      tx: col.x + col.w * 0.5,
+      ty: regsY + 60,
     },
     {
-      text: '🔔  TRAP · RST 7.5/6.5/5.5\nFire interrupts mid-program',
-      x: col.x + 8,
-      y: (intp ? intp.y : col.y + 400) + 10,
+      text: '🔔  TRAP · RST 7.5 / 6.5 / 5.5\nFire interrupts mid-program',
+      x: col.x + 6, y: intY - 62,
+      tx: col.x + col.w * 0.5,
+      ty: intY + 40,
     },
     {
-      text: '🔌  I/O ports · keyboard queue\nRead ports · queue keystrokes',
-      x: col.x + 8,
-      y: (iop ? iop.y : col.y + 540) + 10,
+      text: '🔌  I/O ports · keyboard queue\nRead port values · queue keystrokes',
+      x: col.x + 6, y: ioY - 62,
+      tx: col.x + col.w * 0.5,
+      ty: ioY + 40,
     },
   ]
 
-  await injectAnnotations(page, labels)
+  await injectAnnotations(page, anns)
   await page.screenshot({
     path: path.join(OUT, '04-right-panel.png'),
-    clip: { x: col.x, y: ty, width: col.w, height: th + col.h },
+    clip: { x: Math.round(col.x), y: Math.round(ty), width: Math.round(col.w), height: Math.round(th + col.h) },
   })
   await removeAnnotations(page)
   console.log('  Saved: 04-right-panel.png')
@@ -256,43 +327,40 @@ async function shot05_breakpoint(page) {
   await build(page)
   await sleep(300)
 
-  // Set a breakpoint on the 5th disasm row (should land in the loop body)
   const rows = await page.$$('.disasm-row')
   const target = rows[5] ?? rows[Math.floor(rows.length / 2)]
   if (target) {
     const bp = await target.$('.disasm-bp')
     if (bp) await bp.click()
-    else await target.click()
+    else    await target.click()
     await sleep(200)
   }
 
-  await setSpeed(page, 3)  // Fast — hit breakpoint quickly
+  await setSpeed(page, 3)
   await run(page)
   try {
-    await page.waitForFunction(
-      () => !!document.querySelector('.btn-run'),
-      { timeout: 5000 }
-    )
+    await page.waitForFunction(() => !!document.querySelector('.btn-run'), { timeout: 5000 })
   } catch { await stop(page) }
   await sleep(400)
 
   const toolbar = await getRect(page, '.toolbar')
   const col     = await getRect(page, '.col-center')
   const disasm  = await getRect(page, '.disasm-panel')
-  const ty = toolbar ? toolbar.y : 0
-  const th = toolbar ? toolbar.h : 40
+  const ty = toolbar?.y ?? 0
+  const th = toolbar?.h ?? 44
 
-  const labels = [
+  const anns = [
     {
-      text: '🔴  Paused at breakpoint\nClick any disasm row to toggle one',
-      x: col.x + 12,
-      y: (disasm ? disasm.y : col.y) + 46,
+      text: '🔴  Paused at breakpoint\nClick any disasm row to toggle one\nResume with Run or continue stepping',
+      x: col.x + 8, y: ty + 6,
+      tx: col.x + col.w * 0.5,
+      ty: (disasm?.y ?? col.y + th) + 80,
     },
   ]
-  await injectAnnotations(page, labels)
+  await injectAnnotations(page, anns)
   await page.screenshot({
     path: path.join(OUT, '05-breakpoint.png'),
-    clip: { x: col.x, y: ty, width: col.w, height: th + col.h },
+    clip: { x: Math.round(col.x), y: Math.round(ty), width: Math.round(col.w), height: Math.round(th + col.h) },
   })
   await removeAnnotations(page)
   console.log('  Saved: 05-breakpoint.png')
@@ -303,11 +371,10 @@ async function shot06_interrupt(page) {
   console.log('  Shot 06 — TRAP interrupt…')
   await loadExample(page, 'Interrupts', 'TRAP (NMI)')
   await build(page)
-  await setSpeed(page, 0)  // Crawl — gives time to screenshot PEND state
+  await setSpeed(page, 0)
   await run(page)
   await sleep(600)
 
-  // Fire TRAP — first int-btn is TRAP
   const fireBtns = await page.$$('.int-btn')
   if (fireBtns[0]) { await fireBtns[0].click(); await sleep(300) }
   await stop(page)
@@ -316,25 +383,27 @@ async function shot06_interrupt(page) {
   const col     = await getRect(page, '.col-right')
   const intp    = await getRect(page, '.int-panel')
   const iop     = await getRect(page, '.ioport-panel')
-  const ty = toolbar ? toolbar.y : 0
-  const th = toolbar ? toolbar.h : 40
+  const ty = toolbar?.y ?? 0
+  const th = toolbar?.h ?? 44
 
-  const labels = [
+  const anns = [
     {
       text: '🔔  TRAP fired mid-program\nNon-maskable · ignores IFF and masks',
-      x: col.x + 8,
-      y: (intp ? intp.y : col.y + 380) - 52,
+      x: col.x + 6, y: ty + 6,
+      tx: col.x + col.w * 0.5,
+      ty: (intp?.y ?? col.y + th + 280) + 60,
     },
     {
-      text: '📊  ISR updated output port 02H\nPort values visible in I/O panel',
-      x: col.x + 8,
-      y: (iop ? iop.y : col.y + 560) + 10,
+      text: '📊  ISR wrote to output port 02H\nI/O port values live in this panel',
+      x: col.x + 6, y: (iop?.y ?? col.y + th + 480) - 62,
+      tx: col.x + col.w * 0.5,
+      ty: (iop?.y ?? col.y + th + 480) + 40,
     },
   ]
-  await injectAnnotations(page, labels)
+  await injectAnnotations(page, anns)
   await page.screenshot({
     path: path.join(OUT, '06-interrupt.png'),
-    clip: { x: col.x, y: ty, width: col.w, height: th + col.h },
+    clip: { x: Math.round(col.x), y: Math.round(ty), width: Math.round(col.w), height: Math.round(th + col.h) },
   })
   await removeAnnotations(page)
   console.log('  Saved: 06-interrupt.png')
@@ -346,14 +415,11 @@ async function shot07_keyboard(page) {
   await loadExample(page, 'I/O', 'Keyboard Read')
   await build(page)
 
-  // Type into the keyboard input and submit via JS (more reliable than ElementHandle click)
   await page.evaluate(() => {
     const inp = document.querySelector('.ioport-kbd-input')
     if (!inp) return
-    const nativeInputSetter = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype, 'value'
-    ).set
-    nativeInputSetter.call(inp, 'Hello 8085')
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+    nativeSetter.call(inp, 'Hello 8085')
     inp.dispatchEvent(new Event('input', { bubbles: true }))
   })
   await sleep(150)
@@ -363,7 +429,6 @@ async function shot07_keyboard(page) {
   })
   await sleep(400)
 
-  // Scroll col-right to bottom so the keyboard chips are visible
   await page.evaluate(() => {
     const col = document.querySelector('.col-right')
     if (col) { col.style.overflow = 'auto'; col.scrollTop = col.scrollHeight }
@@ -372,37 +437,58 @@ async function shot07_keyboard(page) {
 
   const toolbar = await getRect(page, '.toolbar')
   const col     = await getRect(page, '.col-right')
-  const ty = toolbar ? toolbar.y : 0
-  const th = toolbar ? toolbar.h : 40
+  const ty = toolbar?.y ?? 0
+  const th = toolbar?.h ?? 44
 
-  // Measure keyboard section position now that column is scrolled
   const kbdY = await page.evaluate(() => {
     const chips = document.querySelector('.ioport-kbd-chips')
-    if (!chips) return null
-    return chips.getBoundingClientRect().y
+    return chips ? chips.getBoundingClientRect().y : null
   })
 
-  const labelY = kbdY != null ? kbdY - 52 : col.y + 200
-  const labels = [
+  const anns = [
     {
-      text: '⌨️  Keyboard queue\nDequeued one-by-one via CALL 5 C=01H',
-      x: col.x + 8,
-      y: labelY,
+      text: '⌨️  Keyboard queue\nChars dequeued via CALL 5 / C=01H',
+      x: col.x + 6, y: ty + 6,
+      tx: col.x + col.w * 0.5,
+      ty: kbdY != null ? kbdY + 40 : col.y + th + 200,
     },
   ]
-  await injectAnnotations(page, labels)
+  await injectAnnotations(page, anns)
   await page.screenshot({
     path: path.join(OUT, '07-keyboard.png'),
-    clip: { x: col.x, y: ty, width: col.w, height: th + col.h },
+    clip: { x: Math.round(col.x), y: Math.round(ty), width: Math.round(col.w), height: Math.round(th + col.h) },
   })
   await removeAnnotations(page)
 
-  // Restore col-right overflow
   await page.evaluate(() => {
     const col = document.querySelector('.col-right')
     if (col) { col.style.overflow = 'hidden'; col.scrollTop = 0 }
   })
   console.log('  Saved: 07-keyboard.png')
+}
+
+// ── CRT Green theme shots ─────────────────────────────────────────────────────
+async function shotGreen01_ledCount(page) {
+  console.log('  Shot green-01 — CRT Green · LED Count…')
+  await setTheme(page, 'green')
+  await loadExample(page, 'I/O', 'LED Count')
+  await build(page)
+  await setSpeed(page, 4)
+  await run(page)
+  await sleep(2500)
+  await stop(page)
+  await page.screenshot({ path: path.join(OUT, 'green-01-led-count.png') })
+  console.log('  Saved: green-01-led-count.png')
+}
+
+async function shotGreen02_stepDebug(page) {
+  console.log('  Shot green-02 — CRT Green · Step debug…')
+  await setTheme(page, 'green')
+  await loadExample(page, 'I/O', 'LED Count')
+  await build(page)
+  for (let i = 0; i < 6; i++) { await page.click('.btn-step'); await sleep(200) }
+  await page.screenshot({ path: path.join(OUT, 'green-02-step-debug.png') })
+  console.log('  Saved: green-02-step-debug.png')
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -428,12 +514,20 @@ async function main() {
 
     await page.evaluateOnNewDocument(() => {
       localStorage.setItem('sim8085_welcomed', '1')
+      localStorage.setItem('sim8085_theme', 'dark')
+      // Hide 8255 PPI floating panel (and 8253 PIT)
+      localStorage.setItem('sim8085_panels', JSON.stringify({
+        regs: true, pairs: true, flags: true, ints: true, io: true,
+        memmap: false, ppi: false, pit: false, audio: true,
+        stack: true, callstack: true, trace: true,
+      }))
     })
 
     await page.goto(BASE, { waitUntil: 'networkidle0' })
     await sleep(600)
-    console.log('App loaded.')
+    console.log('App loaded (dark theme, PPI/PIT hidden).')
 
+    // Dark theme shots
     await shot01_ledCount(page)
     await shot02_editor(page)
     await shot03_center(page)
@@ -441,6 +535,10 @@ async function main() {
     await shot05_breakpoint(page)
     await shot06_interrupt(page)
     await shot07_keyboard(page)
+
+    // CRT Green theme shots
+    await shotGreen01_ledCount(page)
+    await shotGreen02_stepDebug(page)
 
     await browser.close()
   } finally {

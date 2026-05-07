@@ -64,6 +64,21 @@ by Vijay Kumar (1995) to a modern web platform.
 
 ---
 
+## Themes
+
+<table>
+<tr>
+<td><img src="screenshots/green-01-led-count.png" alt="Green CRT theme — LED counter running"></td>
+<td><img src="screenshots/green-02-step-debug.png" alt="Green CRT theme — step debugging with register highlights"></td>
+</tr>
+<tr>
+<td align="center"><sub>🟢 Green CRT · LED counter</sub></td>
+<td align="center"><sub>🟢 Green CRT · step debugging</sub></td>
+</tr>
+</table>
+
+---
+
 ## Features
 
 - **Full 8085 instruction set** — all 256 opcodes, correct flag behavior, HLT halt-wait with interrupt resume
