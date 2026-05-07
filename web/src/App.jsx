@@ -3173,6 +3173,18 @@ function UIDialog({ dialog, onClose }) {
   )
 }
 
+const BUILD_TIME_STR = (() => {
+  const d = new Date(__BUILD_TIME__)
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hours = d.getHours()
+  const mins = String(d.getMinutes()).padStart(2, '0')
+  const ampm = hours >= 12 ? 'PM' : 'AM'
+  const h12 = hours % 12 || 12
+  return `${yyyy}-${mm}-${dd} ${String(h12).padStart(2, '0')}:${mins} ${ampm}`
+})()
+
 // ── Root app ─────────────────────────────────────────────────────────────
 export default function App() {
   const [src, setSrc]           = useState(() => {
@@ -4738,7 +4750,7 @@ function addTraceEntry(prevR) {
         <span className={`engine-chip engine-chip-${engineMode}`} style={{ marginLeft: 'auto' }} title={engineSwitching ? 'Switching engine…' : `Engine: ${engineMode.toUpperCase()}`}>
           {engineSwitching ? '…' : `Engine: ${engineMode.toUpperCase()}`}
         </span>
-        <span className="build-chip" title="Build timestamp">Build: {__BUILD_TIME__}</span>
+        <span className="build-chip" title="Build timestamp">Build: {BUILD_TIME_STR}</span>
       </div>
 
 
