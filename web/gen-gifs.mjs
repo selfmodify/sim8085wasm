@@ -284,6 +284,12 @@ async function main() {
 
     await page.evaluateOnNewDocument(() => {
       localStorage.setItem('sim8085_welcomed', '1')
+      localStorage.setItem('sim8085_theme', 'dark')
+      localStorage.setItem('sim8085_panels', JSON.stringify({
+        regs: true, pairs: true, flags: true, ints: true, io: true,
+        memmap: false, ppi: false, pit: false, audio: true,
+        stack: true, callstack: true, trace: true,
+      }))
     })
 
     await page.goto(BASE, { waitUntil: 'networkidle0' })
