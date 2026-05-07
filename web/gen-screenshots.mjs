@@ -467,28 +467,19 @@ async function shot07_keyboard(page) {
   console.log('  Saved: 07-keyboard.png')
 }
 
-// ── CRT Green theme shots ─────────────────────────────────────────────────────
-async function shotGreen01_ledCount(page) {
-  console.log('  Shot green-01 — CRT Green · LED Count…')
-  await setTheme(page, 'green')
+// ── Theme showcase shots (one full-viewport per theme) ───────────────────────
+
+async function shotTheme(page, theme, filename) {
+  console.log(`  Theme shot — ${theme}…`)
+  await setTheme(page, theme)
   await loadExample(page, 'I/O', 'LED Count')
   await build(page)
   await setSpeed(page, 4)
   await run(page)
-  await sleep(2500)
+  await sleep(2000)
   await stop(page)
-  await page.screenshot({ path: path.join(OUT, 'green-01-led-count.png') })
-  console.log('  Saved: green-01-led-count.png')
-}
-
-async function shotGreen02_stepDebug(page) {
-  console.log('  Shot green-02 — CRT Green · Step debug…')
-  await setTheme(page, 'green')
-  await loadExample(page, 'I/O', 'LED Count')
-  await build(page)
-  for (let i = 0; i < 6; i++) { await page.click('.btn-step'); await sleep(200) }
-  await page.screenshot({ path: path.join(OUT, 'green-02-step-debug.png') })
-  console.log('  Saved: green-02-step-debug.png')
+  await page.screenshot({ path: path.join(OUT, filename) })
+  console.log(`  Saved: ${filename}`)
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -536,9 +527,14 @@ async function main() {
     await shot06_interrupt(page)
     await shot07_keyboard(page)
 
-    // CRT Green theme shots
-    await shotGreen01_ledCount(page)
-    await shotGreen02_stepDebug(page)
+    // Theme showcase shots
+    await shotTheme(page, 'green',      'theme-green.png')
+    await shotTheme(page, 'dim',        'theme-dim.png')
+    await shotTheme(page, 'light',      'theme-light.png')
+    await shotTheme(page, 'amber-mono', 'theme-amber-mono.png')
+    await shotTheme(page, 'gray-crt',   'theme-gray-crt.png')
+    await shotTheme(page, 'turbo-c',    'theme-turbo-c.png')
+    await shotTheme(page, 'cp437',      'theme-cp437.png')
 
     await browser.close()
   } finally {

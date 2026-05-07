@@ -68,12 +68,28 @@ by Vijay Kumar (1995) to a modern web platform.
 
 <table>
 <tr>
-<td><img src="screenshots/green-01-led-count.png" alt="Green CRT theme — LED counter running"></td>
-<td><img src="screenshots/green-02-step-debug.png" alt="Green CRT theme — step debugging with register highlights"></td>
+<td><img src="screenshots/theme-green.png"      alt="Green CRT theme"></td>
+<td><img src="screenshots/theme-dim.png"        alt="Dim theme"></td>
+<td><img src="screenshots/theme-light.png"      alt="Light theme"></td>
+<td><img src="screenshots/theme-amber-mono.png" alt="Amber monochrome CRT theme"></td>
 </tr>
 <tr>
-<td align="center"><sub>🟢 Green CRT · LED counter</sub></td>
-<td align="center"><sub>🟢 Green CRT · step debugging</sub></td>
+<td align="center"><sub>🟢 Green CRT</sub></td>
+<td align="center"><sub>🌗 Dim</sub></td>
+<td align="center"><sub>☀︎ Light</sub></td>
+<td align="center"><sub>🟡 Amber mono</sub></td>
+</tr>
+<tr>
+<td><img src="screenshots/theme-gray-crt.png"   alt="Gray CRT theme"></td>
+<td><img src="screenshots/theme-turbo-c.png"    alt="Turbo C theme"></td>
+<td><img src="screenshots/theme-cp437.png"      alt="DOS CP437 theme"></td>
+<td></td>
+</tr>
+<tr>
+<td align="center"><sub>⬜ Gray CRT</sub></td>
+<td align="center"><sub>🔵 Turbo C</sub></td>
+<td align="center"><sub>🔳 DOS CP437</sub></td>
+<td></td>
 </tr>
 </table>
 
