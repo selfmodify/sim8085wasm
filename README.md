@@ -102,11 +102,17 @@ by Vijay Kumar (1995) to a modern web platform.
 - **Interactive debugger** — step, run, breakpoints (click any instruction in disassembly)
 - **Live register panel** — changed registers highlighted in green after every step
 - **Flag display** — S, Z, AC, P, CY decoded and shown
+- **Watch variables** — monitor any register or memory address in real time
 - **Hex memory editor** — double-click any cell to edit; PC and SP highlighted
+- **Memory tools** — search for bytes, fill ranges, and export to `.bin`
 - **Disassembly view** — live disassembly following PC
 - **Stack inspector** — top-of-stack shown with decoded values
+- **Call stack** — tracks active `CALL` and `RST` subroutines
+- **Execution trace** — logs the last 50 executed instructions and register deltas
+- **Memory map** — visual representation of Code, Data, and Stack regions in RAM
 - **Interrupt support** — TRAP, RST 7.5, RST 6.5, RST 5.5 with enable/disable controls
 - **Hardware Peripherals** — 8255 PPI, 8253 PIT, Audio Output, and 7-segment LED display
+- **ASCII Console** — view characters written via `OUT` to the console port
 - **Keyboard input** — queue keystrokes for `CALL 5 / C=01H` read-key syscall
 - **Configurable RAM** — 16 KB, 32 KB, or 64 KB selectable from the menu
 - **20+ built-in examples** — Arithmetic, Algorithms, I/O, Strings, Interrupts categories
@@ -114,6 +120,20 @@ by Vijay Kumar (1995) to a modern web platform.
 - **Cloud Storage** — Native Google Drive and GitHub integration to seamlessly save and load scripts
 - **AI Assistant & Tools** — Built-in multi-base calculator and Anthropic Claude AI integration
 - **Zero runtime dependencies** — pure JS, no server, works fully offline
+
+---
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `F5` / `F6` | Assemble (Build) / Reset |
+| `F7` / `F8` | Step one instruction / Step over subroutine |
+| `F9` / `F10` | Run/Stop / Step out of subroutine |
+| `Ctrl + F` | Find / Replace in editor |
+| `Ctrl + Click` | Open inline instruction reference for mnemonic |
+| `Right-Click` | Context menu (Run to here, Conditional Breakpoints) |
+| `?` | Show keyboard shortcuts modal |
 
 ---
 

@@ -2710,12 +2710,14 @@ const WELCOME_FEATURES = [
   { icon: '📋', title: 'Disassembly',     desc: 'Live disassembly follows the program counter. Click any row to toggle a breakpoint — execution pauses automatically when PC hits it.' },
   { icon: '🧠', title: 'CPU State',       desc: 'Registers, flags, and register pairs update live and highlight green on every change. Click any register pair to jump the memory view to that address. Values are editable in place.' },
   { icon: '💾', title: 'Memory',          desc: 'Browse and edit all of RAM in the hex editor. Double-click any cell to change it. RAM size is configurable (16 / 32 / 64 KB) in the menu.' },
-  { icon: '🪟', title: 'Customizable Layout', desc: 'Drag panel headers in the center and right columns to rearrange your workspace. Your custom layout is saved automatically.' },
+  { icon: '🔍', title: 'Analysis Tools',  desc: 'Debug with precision using the live Call Stack, Execution Trace, graphical Memory Map, and Watch variables. Use the ASCII Console to view serial output.' },
   { icon: '🕹️', title: 'I/O & Peripherals', desc: 'Interact with the 8255 PPI, 8253 PIT, Audio Output, and 7-segment LED display. Set input ports for the IN instruction, and queue keystrokes for CALL 5 C=01H syscalls.' },
   { icon: '🔔', title: 'Interrupts',      desc: 'Fire TRAP, RST 7.5, RST 6.5, or RST 5.5 mid-program with the FIRE buttons. Control the interrupt flip-flop via EI/DI/SIM/RIM. HLT pauses and resumes on the next interrupt.' },
   { icon: '🌐', title: 'Community & Challenges', desc: 'Solve auto-verified coding challenges, or explore and share 8085 scripts via GitHub Gists.' },
+  { icon: '☁️', title: 'Cloud Sync',      desc: 'Connect your Google Drive or provide a GitHub API token to seamlessly save, load, and share your 8085 programs across devices.' },
   { icon: '🖩', title: 'Calculator',      desc: 'Convert values between binary, octal, decimal, and hex — handy when working out immediate operands or memory addresses.' },
   { icon: '🤖', title: 'AI Assistant',    desc: 'Enter your Anthropic API key (stored only in your browser, never sent to any server) to ask questions about 8085 assembly directly in the app.' },
+  { icon: '🪟', title: 'Customizable Layout', desc: 'Drag panel headers in the center and right columns to rearrange your workspace. Your custom layout is saved automatically.' },
   { icon: '📱', title: 'Offline Ready (PWA)', desc: 'Install the simulator as a standalone app to your desktop or mobile home screen. A built-in service worker ensures you can write and run 8085 code anywhere, even completely offline.' },
 ]
 
@@ -2789,6 +2791,7 @@ const SHORTCUTS = [
   { group: 'Memory panel',
     rows: [
       { keys: ['↑ ↓ ← →'],     desc: 'Move cursor' },
+      { keys: ['PgUp / PgDn'],  desc: 'Page up / down' },
       { keys: ['Enter'],        desc: 'Edit byte at cursor' },
       { keys: ['Esc'],          desc: 'Cancel edit' },
     ]
@@ -2797,6 +2800,8 @@ const SHORTCUTS = [
     rows: [
       { keys: ['Click gutter'], desc: 'Toggle breakpoint' },
       { keys: ['Right-click'],  desc: 'Set conditional breakpoint / Run to' },
+      { keys: ['↑ ↓ PgUp PgDn'],desc: 'Scroll view manually' },
+      { keys: ['Home / End'],   desc: 'Jump to start / end of memory' },
     ]
   },
   { group: 'Global',
