@@ -105,11 +105,14 @@ by Vijay Kumar (1995) to a modern web platform.
 - **Hex memory editor** — double-click any cell to edit; PC and SP highlighted
 - **Disassembly view** — live disassembly following PC
 - **Stack inspector** — top-of-stack shown with decoded values
-- **7-segment LED display** — Intel SDK system calls (`CALL 5`) drive the LEDs
 - **Interrupt support** — TRAP, RST 7.5, RST 6.5, RST 5.5 with enable/disable controls
+- **Hardware Peripherals** — 8255 PPI, 8253 PIT, Audio Output, and 7-segment LED display
 - **Keyboard input** — queue keystrokes for `CALL 5 / C=01H` read-key syscall
 - **Configurable RAM** — 16 KB, 32 KB, or 64 KB selectable from the menu
 - **20+ built-in examples** — Arithmetic, Algorithms, I/O, Strings, Interrupts categories
+- **Community Gallery & Challenges** — Load/share GitHub Gists and solve auto-verified coding challenges
+- **Cloud Storage** — Native Google Drive and GitHub integration to seamlessly save and load scripts
+- **AI Assistant & Tools** — Built-in multi-base calculator and Anthropic Claude AI integration
 - **Zero runtime dependencies** — pure JS, no server, works fully offline
 
 ---
@@ -278,7 +281,7 @@ them requires changing only the import in `App.jsx`.
 
 ## Original Project
 
-Based on **sim8085** by V. Kumar, originally distributed via Simtel.Net (1995).
+Based on **sim8085** by Vijay Kumar, originally distributed via Simtel.Net (1995).
 The original was a 16-bit DOS application using Borland C++ with direct video
 RAM writes, BIOS interrupts, and CP437 box-drawing characters.
 

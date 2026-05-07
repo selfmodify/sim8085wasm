@@ -1,6 +1,6 @@
 # sim8085 — Design System
 
-> 8085 Microprocessor Simulator. A single-page React web app that ports the original 1995 DOS-era **sim8085** by V. Kumar to a modern web platform. The aesthetic is unapologetically **retro-terminal** — dark slate background, terminal green primary, amber/red signal colors, monospace-forward typography, dense panels with thin borders.
+> 8085 Microprocessor Simulator. A single-page React web app that ports the original 1995 DOS-era **sim8085** by Vijay Kumar to a modern web platform. The aesthetic is unapologetically **retro-terminal** — dark slate background, terminal green primary, amber/red signal colors, monospace-forward typography, dense panels with thin borders.
 
 **Live demo:** https://selfmodify.github.io/sim8085wasm/
 

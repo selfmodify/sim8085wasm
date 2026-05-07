@@ -2694,7 +2694,7 @@ function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFrom
           <div className="bmenu-sep" />
           <div className="bmenu-mobile-hide bmenu-credits">
             <div>8085 Simulator</div>
-            <div>Original: V. Kumar · 1995</div>
+            <div>Original: Vijay Kumar · 1995</div>
             <div>Web port: 2026</div>
           </div>
         </div>
