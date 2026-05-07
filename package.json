@@ -1,7 +1,5 @@
 {
-  "devDependencies": {
-    "vite-plugin-pwa": "^1.3.0"
-  },
+  "devDependencies": {},
   "overrides": {
     "source-map": "^0.7.4",
     "glob": "latest"

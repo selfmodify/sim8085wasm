@@ -3,7 +3,6 @@ import react from '@vitejs/plugin-react'
 import { exec } from 'child_process'
 import { existsSync } from 'fs'
 import path from 'path'
-import { VitePWA } from 'vite-plugin-pwa'
 
 function runWasmBuild() {
   return new Promise((resolve, reject) => {
@@ -63,21 +62,6 @@ export default defineConfig({
   plugins: [
     react(),
     wasmBuildPlugin(),
-    VitePWA({
-      registerType: 'prompt',
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,wasm}']
-      },
-      manifest: {
-        name: '8085 Simulator',
-        short_name: 'sim8085',
-        description: 'Intel 8085 microprocessor simulator',
-        theme_color: '#0d0f14',
-        background_color: '#0d0f14',
-        display: 'standalone',
-        icons: [{ src: 'favicon.svg', sizes: '192x192', type: 'image/svg+xml' }]
-      }
-    })
   ],
   base: '/sim8085wasm/',   // ← must match your repo name exactly
   define: { __BUILD_TIME__: JSON.stringify(buildTime) },
