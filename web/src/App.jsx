@@ -4674,46 +4674,6 @@ function addTraceEntry(prevR) {
 
   return (
     <div className={`app${isRetroTheme && crtGlitch !== 'off' ? ` crt-glitch-${crtGlitch}` : ''}`} style={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}>
-      {theme === 'cp437' && (
-        <style>{`
-          :root[data-theme="cp437"] {
-            --bg: #000000;
-            --bg2: #000000;
-            --bg3: #000000;
-            --text: #AAAAAA;
-            --text2: #AAAAAA;
-            --text3: #555555;
-            --accent: #FFFFFF;
-            --border: #AAAAAA;
-            --radius-sm: 0;
-            --radius-md: 0;
-            --radius-lg: 0;
-          }
-          :root[data-theme="cp437"] .panel,
-          :root[data-theme="cp437"] .btn,
-          :root[data-theme="cp437"] .bmenu-dropdown,
-          :root[data-theme="cp437"] .exmenu-dropdown,
-          :root[data-theme="cp437"] .welcome-modal,
-          :root[data-theme="cp437"] .help-modal,
-          :root[data-theme="cp437"] .ctx-menu {
-            border: 3px double var(--border) !important;
-            border-radius: 0 !important;
-            background: var(--bg);
-          }
-          :root[data-theme="cp437"] .panel-hd {
-            border-bottom: 3px double var(--border) !important;
-          }
-          :root[data-theme="cp437"] .disasm-row.cur,
-          :root[data-theme="cp437"] .mem-cell.mem-pc {
-            background: var(--text) !important;
-            color: var(--bg) !important;
-          }
-          :root[data-theme="cp437"] .mem-cell.mem-sp {
-            background: var(--text3) !important;
-            color: var(--accent) !important;
-          }
-        `}</style>
-      )}
       {isRetroTheme && crtGlitch === 'chaos' && chaosCalm && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 99999, pointerEvents: 'none',
           background: 'repeating-linear-gradient(90deg, rgba(255,0,0,.35) 0px, rgba(255,0,0,.35) 1px, rgba(0,255,0,.28) 1px, rgba(0,255,0,.28) 2px, rgba(0,0,255,.35) 2px, rgba(0,0,255,.35) 3px, transparent 3px, transparent 4px)'
