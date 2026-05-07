@@ -4,7 +4,6 @@ import { EditorState, StateEffect, StateField, RangeSetBuilder, Compartment } fr
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { search, searchKeymap } from '@codemirror/search'
 import * as sim from './simProxy.js'
-import { useRegisterSW } from 'virtual:pwa-register/react'
 import { getEngineMode, switchEngine } from './simProxy.js'
 import { EXAMPLES } from './examples.js'
 import { INST_HELP } from './instHelp.js'
@@ -3291,26 +3290,6 @@ export default function App() {
   const [challengeResult, setChallengeResult] = useState(null)
   const [appDialog, setAppDialog]             = useState(null)
   const [showGithubSetup, setShowGithubSetup] = useState(false)
-
-  const {
-    needRefresh: [needRefresh, setNeedRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
-    onRegisterError(error) { console.error('SW registration error', error) }
-  })
-
-  useEffect(() => {
-    if (needRefresh) {
-      setAppDialog({
-        type: 'confirm',
-        title: 'Update Available',
-        message: 'A new version of the simulator is available. Reload to update?',
-        confirmText: 'Reload',
-        onConfirm: () => updateServiceWorker(true),
-        onCancel: () => setNeedRefresh(false)
-      })
-    }
-  }, [needRefresh, updateServiceWorker])
 
   const [haltTrigger, setHaltTrigger]         = useState(0)
   const lastHaltRef                           = useRef(0)
