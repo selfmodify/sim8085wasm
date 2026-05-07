@@ -184,11 +184,11 @@ A 60px topbar holds the brand chip ("8085" — green block, mono, kerned), an Ex
 The product uses **three distinct icon sources** depending on context:
 
 1. **Unicode glyphs as toolbar/inline icons.** Most "icons" in the live app are typed unicode chars rendered in the same font as text. This is the dominant approach.
-   - Run: `▶`   Build: `↓`   Step: `↻`/`▼`   Back: `⌂`   Reset: `↻`
+   - Run/Stop: `▶`/`■`   Build: `⚙`   Step: `↓`   Step Over: `↷`   Step Out: `↵`   Back: `⟲`   Reset: `↺`
    - Memory paging: `«` `»` `▲` `▼`
    - Legend swatches: `■` (colored)
    - Settings: `⚙`   Help: `?` (in an amber bordered button)
-   - Status icons: `▶` (running), `⏸` (halted), `✕` (error)
+   - Status icons: `▶` (running), `⏸` (halted), `■` (stopped), `✕` (error)
    - **Never substitute these with SVG icon-set icons** — the unicode rendering is part of the look.
 
 2. **Emoji as panel-header glyphs.** A small fixed set, never used in prose:

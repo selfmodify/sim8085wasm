@@ -243,8 +243,13 @@ mysub:
 |-----------|---------|--------|
 | `ORG`     | `org 100H` | Set assembly pointer |
 | `KICKOFF` | `kickoff 100H` | Set execution entry point |
+| `EQU`     | `MAX EQU 0FFH` | Equate a symbol to a constant value |
+| `DB`      | `db 10H, 20H` | Define Byte(s) in memory |
+| `DW`      | `dw 1234H` | Define Word(s) in memory (little-endian) |
+| `DS`      | `ds 10H` | Define Storage (reserve zero-filled bytes) |
 | `SETBYTE` | `setbyte 300H, 42H` | Pre-load one byte |
 | `SETWORD` | `setword 300H, 1234H` | Pre-load two bytes |
+| `ASSERT`  | `assert A, 42H` | Halt execution if assertion fails |
 
 **Number formats:** `42H` or `42h` (hex), `42` (hex by default),
 `42D` (decimal), `00101010B` (binary)

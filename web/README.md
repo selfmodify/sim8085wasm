@@ -1,16 +1,17 @@
-# React + Vite
+# sim8085 — Web Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This directory contains the React + Vite single-page application that serves as the user interface for the sim8085 simulator.
 
-Currently, two official plugins are available:
+## Key Files
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **`src/App.jsx`**: The root React component containing all UI panels, state management, and logic for interacting with the simulator engine.
+- **`src/simProxy.js`**: A module that abstracts the simulator engine, allowing the UI to seamlessly switch between the pure JavaScript fallback (`sim8085Bridge.js`) and the compiled WebAssembly core.
+- **`src/sim8085Bridge.js`**: A complete, pure JavaScript implementation of the 8085 CPU, assembler, and system calls. It serves as a fallback when WebAssembly is unavailable or for comparison.
+- **`public/sim8085.js`**: The Emscripten-generated WebAssembly module, built from the C code in the `core/` directory.
 
-## React Compiler
+## Local Development
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+npm run dev
+```
