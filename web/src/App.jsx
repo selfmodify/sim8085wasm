@@ -2718,7 +2718,6 @@ const WELCOME_FEATURES = [
   { icon: '🖩', title: 'Calculator',      desc: 'Convert values between binary, octal, decimal, and hex — handy when working out immediate operands or memory addresses.' },
   { icon: '🤖', title: 'AI Assistant',    desc: 'Enter your Anthropic API key (stored only in your browser, never sent to any server) to ask questions about 8085 assembly directly in the app.' },
   { icon: '🪟', title: 'Customizable Layout', desc: 'Drag panel headers in the center and right columns to rearrange your workspace. Your custom layout is saved automatically.' },
-  { icon: '📱', title: 'Offline Ready (PWA)', desc: 'Install the simulator as a standalone app to your desktop or mobile home screen. A built-in service worker ensures you can write and run 8085 code anywhere, even completely offline.' },
 ]
 
 function WelcomeModal({ onClose, onBrewCoffee }) {

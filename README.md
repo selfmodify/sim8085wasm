@@ -119,7 +119,7 @@ by Vijay Kumar (1995) to a modern web platform.
 - **Community Gallery & Challenges** — Load/share GitHub Gists and solve auto-verified coding challenges
 - **Cloud Storage** — Native Google Drive and GitHub integration to seamlessly save and load scripts
 - **AI Assistant & Tools** — Built-in multi-base calculator and Anthropic Claude AI integration
-- **Zero runtime dependencies** — pure JS, no server, works fully offline
+- **Zero runtime dependencies** — pure JS, no server
 
 ---
 
