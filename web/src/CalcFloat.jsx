@@ -1,0 +1,56 @@
+import { useState, useRef } from 'react';
+
+const CALC_BASES = [
+  { key: 'bin', label: 'BIN', radix:  2, maxLen: 16, placeholder: '1111111111111111' },
+  { key: 'oct', label: 'OCT', radix:  8, maxLen:  6, placeholder: '177777' },
+  { key: 'dec', label: 'DEC', radix: 10, maxLen:  5, placeholder: '65535' },
+  { key: 'hex', label: 'HEX', radix: 16, maxLen:  4, placeholder: 'FFFF' },
+]
+const EMPTY_VALS = { bin: '', oct: '', dec: '', hex: '' }
+
+export function CalcFloat({ onClose }) {
+  const [vals, setVals] = useState(EMPTY_VALS)
+  const [pos,  setPos]  = useState({ x: Math.max(0, window.innerWidth / 2 - 120), y: 100 })
+  const posRef = useRef(pos)
+
+  function update(key, raw) {
+    const { radix } = CALC_BASES.find(b => b.key === key)
+    const input = key === 'hex' ? raw.toUpperCase() : raw
+    if (input === '') { setVals(EMPTY_VALS); return }
+    const n = parseInt(input, radix)
+    if (isNaN(n) || n < 0 || n > 0xFFFF) { setVals(v => ({ ...v, [key]: input })); return }
+    setVals({ bin: n.toString(2), oct: n.toString(8), dec: String(n), hex: n.toString(16).toUpperCase(), [key]: input })
+  }
+
+  function onDragDown(e) {
+    if (e.target.closest('button')) return
+    e.preventDefault()
+    const ox = e.clientX - posRef.current.x, oy = e.clientY - posRef.current.y
+    function onMove(ev) {
+      const p = { x: ev.clientX - ox, y: Math.max(0, ev.clientY - oy) }
+      posRef.current = p; setPos(p)
+    }
+    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
+  }
+
+  return (
+    <div className="calc-float" style={{ left: pos.x, top: pos.y }}>
+      <div className="calc-float-hd" onMouseDown={onDragDown}>
+        <span><span className="panel-icon">🖩</span>CALCULATOR</span>
+        <button className="calc-float-close" onClick={onClose} title="Close">✕</button>
+      </div>
+      <div className="calc-body">
+        {CALC_BASES.map(({ key, label, maxLen, placeholder }) => (
+          <div key={key} className="calc-row">
+            <span className="calc-lbl">{label}</span>
+            <input className="calc-input" value={vals[key]} maxLength={maxLen}
+              placeholder={placeholder} spellCheck={false}
+              onChange={e => update(key, e.target.value)}
+              onFocus={e => e.target.select()} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}

@@ -3,6 +3,7 @@ import * as sim from './simProxy.js';
 import { useCollapsible } from './hooks.js';
 import { PanelHelp } from './PanelHelp.jsx';
 import { hex2, hex4, fmtByte, fmtWord, BASE_CYCLE } from './utils.js';
+import { useSimulator } from './SimulatorContext.jsx';
 
 const PAIR_DEFS = [
   { name: 'BC', hi: 'b', lo: 'c' },
@@ -10,7 +11,8 @@ const PAIR_DEFS = [
   { name: 'HL', hi: 'h', lo: 'l' },
 ]
 
-export function PairPanel({ regs, prev, onJump, onEdit, regBase, onRegBase, onMemoryEdited, dragHandleProps, dropTargetProps, isDragOver }) {
+export function PairPanel({ regs, prev, onJump, onMemoryEdited, dragHandleProps, dropTargetProps, isDragOver }) {
+  const { regBase, onRegBase, onEdit } = useSimulator()
   const [collapsed, toggleCollapsed] = useCollapsible('pairs', true)
   const [editing, setEditing] = useState(null)  // { key, field: 'addr'|'content' }
   const [buf, setBuf] = useState('')

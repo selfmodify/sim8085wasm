@@ -183,6 +183,8 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
               onContextMenu={e => { e.preventDefault(); setCtxMenu({ addr: row.addr, x: e.clientX, y: e.clientY }) }}
             >
               <span className="disasm-bp"
+                role="button"
+                aria-label={bp ? (cond ? `Conditional breakpoint at ${hex4(row.addr)}H` : `Breakpoint at ${hex4(row.addr)}H — click to remove`) : `Set breakpoint at ${hex4(row.addr)}H`}
                 title={bp ? (cond ? `Condition: ${cond} — right-click to edit` : 'Breakpoint — right-click to add condition') : 'Click to set breakpoint'}
                 onClick={e => { e.stopPropagation(); onToggleBp(row.addr) }}
                 onContextMenu={e => { e.preventDefault(); e.stopPropagation(); bp && onSetCondition?.(row.addr) }}

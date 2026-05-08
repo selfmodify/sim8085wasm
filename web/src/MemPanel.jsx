@@ -2,8 +2,11 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import * as sim from './simProxy.js';
 import { PanelHelp } from './PanelHelp.jsx';
 import { hex2, hex4 } from './utils.js';
+import { useSimulator } from './SimulatorContext.jsx';
 
-export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion, presetAddrs, onMemoryEdited, onShowDialog }) {
+export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion, presetAddrs, onMemoryEdited }) {
+  const { onShowDialog } = useSimulator()
+  const memCacheRef = useRef(null) // { buildId, data: Uint8Array } — avoid re-fetching 64KB on each search
   const [mem, setMem] = useState(new Uint8Array(128))
   const [followPC, setFollowPC] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -129,10 +132,14 @@ export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, progra
   function runSearch() {
     const v = parseInt(searchVal, 16)
     if (isNaN(v)) return
-    const allMem = sim.simGetMemory(0, 0x10000)
+    if (!memCacheRef.current || memCacheRef.current.buildId !== buildId) {
+      memCacheRef.current = { buildId, data: sim.simGetMemory(0, 0x10000) }
+    }
+    const allMem = memCacheRef.current.data
+    const byte = v & 0xFF
     const matches = []
     for (let i = 0; i < allMem.length; i++) {
-      if (allMem[i] === (v & 0xFF)) matches.push(i)
+      if (allMem[i] === byte) matches.push(i)
     }
     setSearchMatches(matches)
     setSearchIdx(0)

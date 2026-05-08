@@ -3,8 +3,10 @@ import * as sim from './simProxy.js';
 import { useCopy, useCollapsible } from './hooks.js';
 import { PanelHelp } from './PanelHelp.jsx';
 import { hex4, fmtWord, fmtByte, BASE_CYCLE } from './utils.js';
+import { useSimulator } from './SimulatorContext.jsx';
 
-export function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit, onShowDialog, dragHandleProps, dropTargetProps, isDragOver }) {
+export function RegPanel({ regs, prev, onJump, dragHandleProps, dropTargetProps, isDragOver }) {
+  const { regBase, onRegBase, onEdit, onShowDialog } = useSimulator()
   const [collapsed, toggleCollapsed] = useCollapsible('reg', false)
   const p = prev || {}
 
@@ -112,6 +114,8 @@ export function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit, onSho
         <div className="reg-bits">
           {[7,6,5,4,3,2,1,0].map(bit => (
             <div key={bit} className={`reg-bit${(regs.a>>bit)&1 ? ' reg-bit-on' : ''}`}
+                 role="button"
+                 aria-label={`Bit ${bit} of A: ${(regs.a>>bit)&1} — click to toggle`}
                  title={`bit ${bit} — click to toggle`}
                  onClick={() => { const v = regs.a ^ (1<<bit); sim.simSetRegisters({a:v}); onEdit() }}>
               <div className="reg-bit-lbl">{bit}</div>
