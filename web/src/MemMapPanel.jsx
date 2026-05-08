@@ -31,7 +31,7 @@ export function MemMapPanel({ regs, programRegion, presetAddrs, dragHandleProps,
         <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
       </div>
       {!collapsed && (
-        <div className="memmap-body">
+        <div className="panel-anim-body memmap-body">
           <div className="memmap-bar-container">
             <div className="memmap-bar">
               {programRegion && <div className="memmap-region memmap-code" style={{ top: `${(programRegion.start/65535)*100}%`, height: `${Math.max(0.5, ((programRegion.end-programRegion.start)/65535)*100)}%` }} onClick={() => setSelectedInfo(`Code: ${hex4(programRegion.start)}H - ${hex4(programRegion.end)}H`)} />}

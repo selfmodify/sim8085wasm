@@ -53,7 +53,7 @@ export function PairPanel({ regs, prev, onJump, onMemoryEdited, dragHandleProps,
         </div>
         <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
       </div>
-      {!collapsed && <><div className="pair-col-hdr">
+      {!collapsed && <div className="panel-anim-body"><div className="pair-col-hdr">
         <span />
         <span>ADDR</span>
         <span>CONTENT</span>
@@ -93,7 +93,7 @@ export function PairPanel({ regs, prev, onJump, onMemoryEdited, dragHandleProps,
             }
           </div>
         )
-      })}</>}
+      })}</div>}
     </div>
   )
 }

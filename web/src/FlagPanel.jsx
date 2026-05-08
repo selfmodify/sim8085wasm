@@ -19,7 +19,7 @@ export function FlagPanel({ regs, dragHandleProps, dropTargetProps, isDragOver }
         </div>
         <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
       </div>
-      {!collapsed && <div className="flags-row">
+      {!collapsed && <div className="panel-anim-body flags-row">
         {FLAGS.map(f => (
           <div key={f.key} className={`flag${regs[f.key] ? ' flag-on' : ''}`} title={f.title}>
             <div className="flag-lbl">{f.label}</div>

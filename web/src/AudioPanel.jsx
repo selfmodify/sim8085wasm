@@ -113,7 +113,7 @@ export function AudioPanel({ running, onShowDialog, dragHandleProps, dropTargetP
         <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
       </div>
       {!collapsed && (
-        <div className="audio-body">
+        <div className="panel-anim-body audio-body">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button className={`btn btn-xs ${enabled ? 'btn-run' : ''}`} onClick={toggleAudio}>
               {enabled ? 'ON' : 'OFF'}

@@ -27,7 +27,7 @@ export function InterruptPanel({ intState, onAssert, onDeassert, dragHandleProps
         </div>
         <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
       </div>
-      {!collapsed && <>
+      {!collapsed && <div className="panel-anim-body">
         <div className="int-iff">
           IFF <span className={`int-iff-val${iff ? ' int-iff-on' : ''}`}>{iff ? 'ENABLED' : 'DISABLED'}</span>
         </div>
@@ -47,7 +47,7 @@ export function InterruptPanel({ intState, onAssert, onDeassert, dragHandleProps
           <span className="int-label">INTR</span>
           <span className="int-vec">RST&nbsp;<select className="int-rst-sel" value={intrRst} onChange={e => setIntrRst(+e.target.value)}>{[0,1,2,3,4,5,6,7].map(n => <option key={n} value={n}>{n} ({hex4(n*8)}H)</option>)}</select></span>
         </div>
-      </>}
+      </div>}
     </div>
   )
 }

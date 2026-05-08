@@ -20,7 +20,7 @@ export function TracePanel({ trace, onClear, dragHandleProps, dropTargetProps, i
         </div>
         <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
       </div>
-      {!collapsed && <div className="trace-body" ref={bodyRef}>
+      {!collapsed && <div className="panel-anim-body trace-body" ref={bodyRef}>
         {trace.length === 0
           ? <div className="trace-empty">Step or run to record execution</div>
           : trace.map((e, i) => (

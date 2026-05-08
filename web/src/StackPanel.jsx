@@ -43,12 +43,12 @@ export function StackPanel({ regs, dragHandleProps, dropTargetProps, isDragOver 
         </div>
         <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
       </div>
-      {!collapsed && <>
+      {!collapsed && <div className="panel-anim-body">
         <div className="stack-body">
           {entries.length === 0 ? <div className="stack-empty">empty</div> : entries.map((e,i) => (<div key={e.addr} className={`stack-row${i===0?' stack-top':''}`}><span className="stack-addr">{hex4(e.addr)}</span><span className="stack-sep">→</span><span className="stack-val">{fmtWord(e.val, regBase)}</span></div>))}
         </div>
         <div className="stack-resize-handle" onMouseDown={onResizeDown} />
-      </>}
+      </div>}
     </div>
   )
 }

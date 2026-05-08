@@ -32,7 +32,7 @@ export function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInp
         </div>
         <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
       </div>
-      {!collapsed && <>
+      {!collapsed && <div className="panel-anim-body">
       <div className="ioport-section-hd">OUTPUT  <span className="ioport-hint">written by OUT</span></div>
       {outputPorts.length === 0
         ? <div className="ioport-empty">No OUT executed yet</div>
@@ -97,7 +97,7 @@ export function IOPortPanel({ outputPorts, inputPresets, onSetInput, onRemoveInp
             <button className="watch-rm" onClick={onClearKeyQueue} title="Clear queue">✕</button>
           </div>
       }
-      </>}
+      </div>}
     </div>
   )
 }

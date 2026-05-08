@@ -109,7 +109,7 @@ export function RegPanel({ regs, prev, onJump, dragHandleProps, dropTargetProps,
         </div>
         <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
       </div>
-      {!collapsed && <>
+      {!collapsed && <div className="panel-anim-body">
         <EditableRow name="A" val={regs.a} prevVal={p.a} regKey="a" />
         <div className="reg-bits">
           {[7,6,5,4,3,2,1,0].map(bit => (
@@ -138,7 +138,7 @@ export function RegPanel({ regs, prev, onJump, dragHandleProps, dropTargetProps,
         <div className="reg-sep" />
         <EditableRow name="PC" val={regs.pc} prevVal={p.pc} regKey="pc" is16 />
         <EditableRow name="SP" val={regs.sp} prevVal={p.sp} regKey="sp" is16 />
-      </>}
+      </div>}
     </div>
   )
 }
