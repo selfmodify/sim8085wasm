@@ -1,0 +1,12 @@
+#!/bin/sh
+# Run the Vitest suite before every commit.
+# Tests live in web/ and must run under WSL (Node + npm are WSL-side).
+echo "[pre-commit] Running tests..."
+wsl -e bash -c "source ~/.nvm/nvm.sh && cd /mnt/f/code/sim8085-web/web && npm test -- --run" 2>&1
+status=$?
+if [ $status -ne 0 ]; then
+  echo "[pre-commit] Tests FAILED — commit aborted."
+  exit 1
+fi
+echo "[pre-commit] All tests passed."
+exit 0

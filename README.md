@@ -190,6 +190,25 @@ make
 # Expected: 22/22 passed
 ```
 
+### Run the JS/React tests
+
+```bash
+cd web
+npm test
+```
+
+241 tests covering utilities, all 8085 instructions, user journeys, hooks, and UI components.
+See [web/TESTING.md](web/TESTING.md) for full details.
+
+### Enable the pre-commit hook (run tests before every commit)
+
+```bash
+git config core.hooksPath .githooks
+```
+
+This one-time command wires up `.githooks/pre-commit`, which runs the full test suite before
+each commit and aborts if any test fails.
+
 ### Build WebAssembly (optional, for future WASM integration)
 
 ```bash
