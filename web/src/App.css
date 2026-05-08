@@ -2191,8 +2191,13 @@ body {
 
   /* Accordion submenus for mobile touch screens */
   .bmenu-dropdown, .exmenu-dropdown {
-    max-width: 90vw; max-height: calc(100dvh - 64px); overflow-y: auto !important; overflow-x: hidden !important;
+    max-width: 90vw; 
+    max-height: calc(100vh - 64px);
+    max-height: calc(100dvh - 64px); 
+    overflow-y: auto !important; 
+    overflow-x: hidden !important;
     background: var(--bg2);
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
   .bmenu-mobile-hide { display: none }
   .bmenu-mobile-only { display: block }

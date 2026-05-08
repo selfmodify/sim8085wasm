@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import * as sim from '../simProxy.js';
-import { useCopy, useCollapsible } from '../hooks.js';
+import * as sim from './simProxy.js';
+import { useCopy, useCollapsible } from './hooks.js';
 import { PanelHelp } from './PanelHelp.jsx';
-import { hex4, fmtWord, fmtByte, BASE_CYCLE } from '../utils.js';
+import { hex4, fmtWord, fmtByte, BASE_CYCLE } from './utils.js';
 
 export function RegPanel({ regs, prev, onJump, regBase, onRegBase, onEdit, onShowDialog, dragHandleProps, dropTargetProps, isDragOver }) {
   const [collapsed, toggleCollapsed] = useCollapsible('reg', false)

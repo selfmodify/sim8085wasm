@@ -1,0 +1,217 @@
+import { useState, useEffect, useRef } from 'react';
+import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, GutterMarker, gutter } from '@codemirror/view';
+import { EditorState, StateEffect, StateField, RangeSetBuilder, Compartment } from '@codemirror/state';
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { search, searchKeymap } from '@codemirror/search';
+import { INST_HELP } from './instHelp.js';
+import { hex4 } from './utils.js';
+import { asm8085Lang, asm8085Highlighting } from './lang.js';
+
+// ── CM6 error-line decoration + gutter marker ─────────────────────────────
+const setErrorLineEff = StateEffect.define()
+
+class ErrorGutterMarker extends GutterMarker {
+  toDOM() {
+    const el = document.createElement('span')
+    el.textContent = '✕'
+    el.className = 'cm-error-gutter-marker'
+    return el
+  }
+}
+const errorGutterMarker = new ErrorGutterMarker()
+
+const errorGutterState = StateField.define({
+  create: () => new RangeSetBuilder().finish(),
+  update(markers, tr) {
+    for (const e of tr.effects) {
+      if (e.is(setErrorLineEff)) {
+        if (!e.value) return new RangeSetBuilder().finish()
+        try {
+          const line = tr.newDoc.line(e.value)
+          const b = new RangeSetBuilder()
+          b.add(line.from, line.from, errorGutterMarker)
+          return b.finish()
+        } catch { return new RangeSetBuilder().finish() }
+      }
+    }
+    return markers
+  },
+})
+const errorGutterExt = gutter({
+  class: 'cm-error-gutter',
+  markers: view => view.state.field(errorGutterState),
+  initialSpacer: () => errorGutterMarker,
+})
+const errorLineField  = StateField.define({
+  create: () => Decoration.none,
+  update(deco, tr) {
+    for (const e of tr.effects) {
+      if (e.is(setErrorLineEff)) {
+        if (e.value == null) return Decoration.none
+        try {
+          const line = tr.state.doc.line(e.value)
+          return Decoration.set([Decoration.line({ class: 'cm-error-line' }).range(line.from)])
+        } catch { return Decoration.none }
+      }
+    }
+    return deco.map(tr.changes)
+  },
+  provide: f => EditorView.decorations.from(f),
+})
+
+function getInstWord(state, pos) {
+  const line = state.doc.lineAt(pos)
+  const text = line.text
+  const lp = pos - line.from
+  let s = lp, e = lp
+  while (s > 0 && /[A-Za-z]/.test(text[s - 1])) s--
+  while (e < text.length && /[A-Za-z]/.test(text[e])) e++
+  return s < e ? text.slice(s, e).toUpperCase() : null
+}
+
+export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, gotoRef, onRunTo, lineAddrRef, theme }) {
+  const elRef      = useRef(null)
+  const viewRef    = useRef(null)
+  const syncing    = useRef(false)
+  const cursorCb   = useRef(onCursorInstruction)
+  const detailCb   = useRef(onInstructionDetail)
+  const onRunToRef = useRef(onRunTo)
+  const themeConf  = useRef(new Compartment())
+  const [editorCtx, setEditorCtx] = useState(null)  // {addr, x, y}
+  useEffect(() => { cursorCb.current   = onCursorInstruction }, [onCursorInstruction])
+  useEffect(() => { detailCb.current   = onInstructionDetail }, [onInstructionDetail])
+  useEffect(() => { onRunToRef.current = onRunTo },             [onRunTo])
+
+  useEffect(() => {
+    if (!viewRef.current) return
+    viewRef.current.dispatch({ effects: setErrorLineEff.of(errorLine ?? null) })
+  }, [errorLine])
+
+  useEffect(() => {
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: value,
+        extensions: [
+          history(),
+          lineNumbers(),
+          highlightActiveLine(),
+          search({ top: true }),
+          keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
+          themeConf.current.of(EditorView.theme({}, { dark: theme !== 'light' })),
+          asm8085Lang.extension,
+          asm8085Highlighting,
+          errorLineField,
+          errorGutterState,
+          errorGutterExt,
+          EditorView.theme({
+            '&': { height:'100%', fontFamily:'"JetBrains Mono","Fira Code",monospace', fontSize:'15px', color:'var(--text)', backgroundColor:'transparent' },
+            '.cm-scroller': { overflow:'auto' },
+            '.cm-content': { padding:'8px 0', minHeight:'100%', caretColor:'var(--accent)' },
+            '&.cm-focused .cm-cursor': { borderLeftColor:'var(--accent)' },
+            '&.cm-focused .cm-selectionBackground, ::selection': { backgroundColor:'var(--bg3)' },
+            '.cm-activeLine, .cm-activeLineGutter': { backgroundColor:'var(--bg2)' },
+            '.cm-gutters': { backgroundColor:'transparent', color:'var(--text3)', borderRight:'1px solid var(--border)' },
+            '.cm-error-line': { background: 'rgba(255,60,60,0.18)' },
+            '.cm-error-gutter': { width: '14px' },
+            '.cm-error-gutter-marker': { color: 'var(--red)', fontSize: '10px', lineHeight: '1.6', cursor: 'default' },
+            '.cm-search': { background:'var(--bg2)', borderTop:'1px solid var(--border)', padding:'4px 8px', gap:'6px' },
+            '.cm-search input': { background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:'3px', padding:'2px 6px' },
+            '.cm-button': { background:'var(--bg3)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:'3px', padding:'2px 8px', cursor:'pointer' },
+          }),
+          EditorView.updateListener.of(u => {
+            if (u.docChanged && !syncing.current) onChange(u.state.doc.toString())
+            if (u.selectionSet || u.docChanged) {
+              const word = getInstWord(u.state, u.state.selection.main.head)
+              cursorCb.current?.(word && INST_HELP[word] ? word : null)
+            }
+          }),
+          EditorView.domEventHandlers({
+            click(e, view) {
+              if (!e.ctrlKey) return false
+              const pos = view.posAtCoords({ x: e.clientX, y: e.clientY })
+              if (pos == null) return false
+              const word = getInstWord(view.state, pos)
+              if (word && INST_HELP[word]) { detailCb.current?.(word); return true }
+              return false
+            },
+            contextmenu(e, view) {
+              if (!onRunToRef.current || !lineAddrRef?.current) return false
+              const pos = view.posAtCoords({ x: e.clientX, y: e.clientY })
+              if (pos == null) return false
+              const lineNum = view.state.doc.lineAt(pos).number
+              const addr = lineAddrRef.current.get(lineNum)
+              if (addr === undefined) return false
+              e.preventDefault()
+              setEditorCtx({ addr, x: e.clientX, y: e.clientY })
+              return true
+            },
+          }),
+        ],
+      }),
+      parent: elRef.current,
+    })
+    viewRef.current = view
+    if (gotoRef) gotoRef.current = (lineNum, labelName) => {
+      try {
+        if (labelName) {
+          const text = view.state.doc.toString()
+          const escaped = labelName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          const m = new RegExp(`(^|\\n)[\\t ]*(${escaped})[\\t ]*:`, 'im').exec(text)
+          if (m) {
+            const nameIdx = m.index + m[0].indexOf(m[2])
+            view.dispatch({ selection: { anchor: nameIdx, head: nameIdx + m[2].length }, effects: EditorView.scrollIntoView(nameIdx, { y: 'center' }) })
+            return
+          }
+        }
+        const line = view.state.doc.line(lineNum)
+        view.dispatch({ selection: { anchor: line.from }, effects: EditorView.scrollIntoView(line.from, { y: 'center' }) })
+      } catch {}
+    }
+    return () => view.destroy()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync value from outside (example load) without re-creating the editor
+  const lastVal = useRef(value)
+  useEffect(() => {
+    if (!viewRef.current || value === lastVal.current) return
+    lastVal.current = value
+    const view = viewRef.current
+    if (view.state.doc.toString() === value) return
+    syncing.current = true
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: value },
+      selection: { anchor: 0 },
+      effects: EditorView.scrollIntoView(0),
+    })
+    syncing.current = false
+  }, [value])
+
+  useEffect(() => {
+    if (viewRef.current) {
+      viewRef.current.dispatch({
+        effects: themeConf.current.reconfigure(EditorView.theme({}, { dark: theme !== 'light' }))
+      })
+    }
+  }, [theme])
+
+  useEffect(() => {
+    if (!editorCtx) return
+    const close = () => setEditorCtx(null)
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [editorCtx])
+
+  return (
+    <div style={{ position:'relative', height:'100%' }}>
+      <div ref={elRef} className="editor-inner" />
+      {editorCtx && (
+        <div className="ctx-menu" style={{ left: editorCtx.x, top: editorCtx.y }}
+          onMouseDown={e => e.stopPropagation()}>
+          <button className="ctx-menu-item" onClick={() => { onRunToRef.current?.(editorCtx.addr); setEditorCtx(null) }}>
+            ▶ Run to {hex4(editorCtx.addr)}H
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
