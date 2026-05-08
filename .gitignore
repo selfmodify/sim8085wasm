@@ -3,6 +3,7 @@ build-wasm/
 build-test/
 web/node_modules/
 web/dist/
+web/coverage/
 *.o
 *.a
 .claude/
