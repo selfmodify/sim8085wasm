@@ -27,9 +27,9 @@ import { LedDisplay } from './LedDisplay.jsx'
 import { PIT8253Panel } from './PIT8253Panel.jsx'
 import { CalcFloat } from './CalcFloat.jsx'
 import { ChatPanel } from './ChatPanel.jsx'
-import { PanelsMenu } from './PanelsMenu.jsx'
-import { ExampleMenu } from './ExampleMenu.jsx'
+import { Toolbar } from './Toolbar.jsx'
 import { BrandMenu } from './BrandMenu.jsx'
+import { HelpPanel } from './HelpPanel.jsx'
 import { WelcomeModal } from './WelcomeModal.jsx'
 import { ShortcutsModal } from './ShortcutsModal.jsx'
 import { HelpModal } from './HelpModal.jsx'
@@ -75,53 +75,6 @@ function getInstWord(state, pos) {
   while (s > 0 && /[A-Za-z]/.test(text[s - 1])) s--
   while (e < text.length && /[A-Za-z]/.test(text[e])) e++
   return s < e ? text.slice(s, e).toUpperCase() : null
-}
-
-// ── Inline instruction help panel ────────────────────────────────────────
-function HelpPanel({ instruction }) {
-  const panelRef = useRef(null)
-  const inst = instruction ? INST_HELP[instruction] : null
-
-  function onResizeDown(e) {
-    e.preventDefault()
-    const startY = e.clientY
-    const startH = panelRef.current.getBoundingClientRect().height
-    function onMove(ev) {
-      panelRef.current.style.height = Math.max(60, startH + (startY - ev.clientY)) + 'px'
-    }
-    function onUp() {
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }
-
-  return (
-    <div className="panel help-panel" ref={panelRef}>
-      <div className="help-resize-handle" onMouseDown={onResizeDown} />
-      <div className="panel-hd"><span className="panel-icon">📖</span>INSTRUCTION HELP<PanelHelp panel="INSTRUCTION HELP" /></div>
-      <div className="help-scroll">
-        {inst ? (
-          <div className="help-inline-body">
-            <div className="help-inline-hd">
-              <span className="help-mnem help-mnem-sm">{instruction}</span>
-              <span className="help-brief">{inst.brief}</span>
-            </div>
-            <div className="help-meta">
-              <span><span className="help-lbl">Flags</span>{inst.flags}</span>
-              <span><span className="help-lbl">Size</span>{inst.bytes} byte{inst.bytes !== 1 ? 's' : ''}</span>
-              <span><span className="help-lbl">Cycles</span>{inst.cycles}</span>
-            </div>
-            <p className="help-desc">{inst.desc}</p>
-            <pre className="help-ex">{inst.ex}</pre>
-          </div>
-        ) : (
-          <div className="help-empty">Ctrl+click an instruction for details</div>
-        )}
-      </div>
-    </div>
-  )
 }
 
 const BUILD_TIME_STR = (() => {
@@ -1702,33 +1655,26 @@ function addTraceEntry(prevR) {
 
       {/* ── Simulator View ── */}
       <div style={{ display: activeView === 'simulator' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        <div className="toolbar">
-          <ExampleMenu onLoad={loadExample} />
-          <PanelsMenu panels={panels} onToggle={togglePanel} />
-          <input type="file" ref={fileInputRef} style={{display:'none'}} accept=".asm,.85,.s,.txt,.hex,.bin" onChange={importFile} />
-          <button className={`btn btn-asm${isDirty ? ' btn-asm-dirty' : ''}`} onClick={() => doAssemble(srcRef.current)} title={isDirty ? "Unsaved changes — click to rebuild" : "Code is up to date"}>
-            ⚙ Build{isDirty ? ' •' : ''}  <kbd>F5</kbd>
-          </button>
-          {!running && <>
-          <button className="btn btn-step"         onClick={doStep}      disabled={appState==='error'}>↓ Step    <kbd>F7</kbd></button>
-          <button className="btn btn-step-over"    onClick={doStepOver}  disabled={appState==='error'}>↷ Over    <kbd>F8</kbd></button>
-          <button className="btn btn-step-out"     onClick={doStepOut}   disabled={appState==='error'}>↵ Out     <kbd>F10</kbd></button>
-          <button className="btn btn-back"         onClick={doStepBack} disabled={appState==='error' || histLen === 0} title={`Undo last step (${histLen} available)`}>⟲ Back{histLen > 0 ? ` (${histLen})` : ''}</button>
-          </>}
-          <button className={`btn ${running ? 'btn-stop':'btn-run'}`} onClick={handleRun} disabled={!running && appState==='error'}>
-            {running ? '■ Stop' : '▶ Run'}  <kbd>{running?'F9':'F9'}</kbd>
-          </button>
-          <label className="speed-label" title={SPEEDS[runSpeed].warp ? 'Warp: run until HLT, no mid-run UI updates' : SPEEDS[runSpeed].delay ? `Auto: ${SPEEDS[runSpeed].steps} step every ${SPEEDS[runSpeed].delay}ms` : `${SPEEDS[runSpeed].steps.toLocaleString()} steps/tick`}>
-            Speed
-            <input type="range" min={0} max={SPEEDS.length - 1} value={runSpeed} className="speed-slider"
-              onChange={e => {
-                const v = +e.target.value; setRunSpeed(v); speedRef.current = v; localStorage.setItem('sim8085_speed', v);
-                if (timerRef.current || warpActiveRef.current) { stopRun(); startRun() }
-              }} />
-            <span className="speed-val">{SPEEDS[runSpeed].label}</span>
-          </label>
-          <button className="btn btn-reset" onClick={handleReset}>↺ Reset  <kbd>F6</kbd></button>
-        </div>
+        <Toolbar
+          onLoadExample={loadExample}
+          panels={panels}
+          onTogglePanel={togglePanel}
+          fileInputRef={fileInputRef}
+          onImportFile={importFile}
+          isDirty={isDirty}
+          onBuild={() => doAssemble(srcRef.current)}
+          running={running}
+          appState={appState}
+          onStep={doStep}
+          onStepOver={doStepOver}
+          onStepOut={doStepOut}
+          onStepBack={doStepBack}
+          histLen={histLen}
+          onRun={handleRun}
+          runSpeed={runSpeed}
+          onSpeedChange={e => { const v = +e.target.value; setRunSpeed(v); speedRef.current = v; localStorage.setItem('sim8085_speed', v); if (timerRef.current || warpActiveRef.current) { stopRun(); startRun() } }}
+          onReset={handleReset}
+        />
 
         <div className="workspace">
           {/* Editor column */}
