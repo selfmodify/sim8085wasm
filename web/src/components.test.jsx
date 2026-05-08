@@ -13,6 +13,11 @@ vi.mock('./simProxy.js', () => ({
   simReadByte: vi.fn(() => 0),
   simWriteByte: vi.fn(),
   simGetMemory: vi.fn(() => new Uint8Array(0x10000)),
+  simDisassemble: vi.fn((addr) => ({
+    text: `${addr.toString(16).padStart(4, '0').toUpperCase()} 76   HLT`,
+    len: 1, cycles: 7, mnem: 'HLT',
+  })),
+  simSetRegisters: vi.fn(),
 }));
 
 // Access the mocked simProxy functions for per-test configuration
@@ -282,5 +287,293 @@ describe('WatchPanel', () => {
     withCtx(<WatchPanel watches={watches} regs={baseRegs8} onAdd={vi.fn()} onRemove={vi.fn()} dataBps={dataBps} onToggleBreak={vi.fn()} />);
     const wBtn = screen.getByText('W');
     expect(wBtn.classList.contains('active')).toBe(true);
+  });
+});
+
+// ── MemMapPanel ───────────────────────────────────────────────────────────────
+import { MemMapPanel } from './MemMapPanel.jsx';
+
+describe('MemMapPanel', () => {
+  const baseRegsM = { pc: 0x100, sp: 0 };
+
+  it('renders MEMORY MAP header', () => {
+    render(<MemMapPanel regs={baseRegsM} programRegion={null} presetAddrs={new Set()} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    expect(screen.getByText(/MEMORY MAP/)).toBeInTheDocument();
+  });
+
+  it('starts expanded and shows default info text', () => {
+    render(<MemMapPanel regs={baseRegsM} programRegion={null} presetAddrs={new Set()} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    expect(screen.getByText('Click a region for details')).toBeInTheDocument();
+  });
+
+  it('collapses and expands on header click', () => {
+    render(<MemMapPanel regs={baseRegsM} programRegion={null} presetAddrs={new Set()} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    expect(screen.getByText('Click a region for details')).toBeInTheDocument();
+    fireEvent.click(document.querySelector('.panel-hd.collapsible'));
+    expect(screen.queryByText('Click a region for details')).toBeNull();
+    fireEvent.click(document.querySelector('.panel-hd.collapsible'));
+    expect(screen.getByText('Click a region for details')).toBeInTheDocument();
+  });
+
+  it('renders code region when programRegion provided', () => {
+    render(<MemMapPanel regs={baseRegsM} programRegion={{ start: 0x100, end: 0x200 }} presetAddrs={new Set()} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    expect(document.querySelector('.memmap-code')).not.toBeNull();
+  });
+
+  it('clicking code region updates selected info text', () => {
+    render(<MemMapPanel regs={baseRegsM} programRegion={{ start: 0x100, end: 0x200 }} presetAddrs={new Set()} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    fireEvent.click(document.querySelector('.memmap-code'));
+    expect(screen.getByText(/Code: 0100H/)).toBeInTheDocument();
+  });
+
+  it('renders stack region when sp > 0', () => {
+    render(<MemMapPanel regs={{ pc: 0x100, sp: 0xF000 }} programRegion={null} presetAddrs={new Set()} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    expect(document.querySelector('.memmap-stack')).not.toBeNull();
+  });
+
+  it('clicking stack region updates selected info text', () => {
+    render(<MemMapPanel regs={{ pc: 0x100, sp: 0xF000 }} programRegion={null} presetAddrs={new Set()} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    fireEvent.click(document.querySelector('.memmap-stack'));
+    expect(screen.getByText(/Stack: F000H/)).toBeInTheDocument();
+  });
+
+  it('shows legend labels CODE, DATA, STACK, PC', () => {
+    render(<MemMapPanel regs={baseRegsM} programRegion={null} presetAddrs={new Set()} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    ['CODE', 'DATA', 'STACK', 'PC'].forEach(label => {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    });
+  });
+});
+
+// ── IOPortPanel ───────────────────────────────────────────────────────────────
+import { IOPortPanel } from './IOPortPanel.jsx';
+
+const baseIOProps = {
+  outputPorts: [], inputPresets: [],
+  onSetInput: vi.fn(), onRemoveInput: vi.fn(),
+  keyQueue: [], onEnqueueKeys: vi.fn(), onClearKeyQueue: vi.fn(),
+  sid: 0, sod: 0, onSetSID: vi.fn(),
+  dragHandleProps: {}, dropTargetProps: {}, isDragOver: false,
+};
+
+describe('IOPortPanel', () => {
+  it('starts collapsed', () => {
+    render(<IOPortPanel {...baseIOProps} />);
+    expect(screen.queryByText('No OUT executed yet')).toBeNull();
+  });
+
+  it('shows empty messages after expanding', () => {
+    render(<IOPortPanel {...baseIOProps} />);
+    fireEvent.click(document.querySelector('.panel-hd.collapsible'));
+    expect(screen.getByText('No OUT executed yet')).toBeInTheDocument();
+    expect(screen.getByText('No input ports set')).toBeInTheDocument();
+  });
+
+  it('renders output port entries', () => {
+    render(<IOPortPanel {...baseIOProps} outputPorts={[{ port: 0x10, val: 0xFF }]} />);
+    fireEvent.click(document.querySelector('.panel-hd.collapsible'));
+    expect(screen.getByText('10H')).toBeInTheDocument();
+    expect(screen.getByText('FFH')).toBeInTheDocument();
+  });
+
+  it('calls onSetInput when port and value entered then Enter pressed', () => {
+    const onSetInput = vi.fn();
+    render(<IOPortPanel {...baseIOProps} onSetInput={onSetInput} />);
+    fireEvent.click(document.querySelector('.panel-hd.collapsible'));
+    fireEvent.change(screen.getByPlaceholderText('port (hex)'), { target: { value: '05' } });
+    fireEvent.change(screen.getByPlaceholderText('value'), { target: { value: 'FF' } });
+    fireEvent.keyDown(screen.getByPlaceholderText('value'), { key: 'Enter' });
+    expect(onSetInput).toHaveBeenCalledWith(5, 255);
+  });
+
+  it('calls onRemoveInput when ✕ clicked on input preset', () => {
+    const onRemoveInput = vi.fn();
+    render(<IOPortPanel {...baseIOProps} inputPresets={[{ port: 0x05, val: 0x10 }]} onRemoveInput={onRemoveInput} />);
+    fireEvent.click(document.querySelector('.panel-hd.collapsible'));
+    fireEvent.click(screen.getByText('✕'));
+    expect(onRemoveInput).toHaveBeenCalledWith(5);
+  });
+
+  it('SID button reflects current state and calls onSetSID on click', () => {
+    const onSetSID = vi.fn();
+    render(<IOPortPanel {...baseIOProps} sid={0} onSetSID={onSetSID} />);
+    fireEvent.click(document.querySelector('.panel-hd.collapsible'));
+    const sidBtn = screen.getByTitle('Toggle Serial Input Data line');
+    expect(sidBtn.textContent).toBe('0');
+    fireEvent.click(sidBtn);
+    expect(onSetSID).toHaveBeenCalledWith(1);
+  });
+
+  it('shows keyboard queue characters', () => {
+    render(<IOPortPanel {...baseIOProps} keyQueue={['A', 'B']} />);
+    fireEvent.click(document.querySelector('.panel-hd.collapsible'));
+    expect(screen.getByText('A')).toBeInTheDocument();
+    expect(screen.getByText('B')).toBeInTheDocument();
+  });
+
+  it('calls onClearKeyQueue when keyboard ✕ clicked', () => {
+    const onClearKeyQueue = vi.fn();
+    render(<IOPortPanel {...baseIOProps} keyQueue={['X']} onClearKeyQueue={onClearKeyQueue} />);
+    fireEvent.click(document.querySelector('.panel-hd.collapsible'));
+    fireEvent.click(screen.getByTitle('Clear queue'));
+    expect(onClearKeyQueue).toHaveBeenCalledOnce();
+  });
+});
+
+// ── InterruptPanel ────────────────────────────────────────────────────────────
+import { InterruptPanel } from './InterruptPanel.jsx';
+
+const baseIntState = {
+  iff: 0, intMask: 0, rst75ff: false, trapPend: false,
+  rst65: false, rst55: false, intr: false,
+};
+const intProps = { onAssert: vi.fn(), onDeassert: vi.fn(), dragHandleProps: {}, dropTargetProps: {}, isDragOver: false };
+
+describe('InterruptPanel', () => {
+  it('starts collapsed', () => {
+    render(<InterruptPanel intState={baseIntState} {...intProps} />);
+    expect(screen.queryByText('DISABLED')).toBeNull();
+  });
+
+  it('shows IFF DISABLED when iff=0', () => {
+    render(<InterruptPanel intState={baseIntState} {...intProps} />);
+    fireEvent.click(document.querySelector('.panel-hd.collapsible'));
+    expect(screen.getByText('DISABLED')).toBeInTheDocument();
+  });
+
+  it('shows IFF ENABLED when iff=1', () => {
+    render(<InterruptPanel intState={{ ...baseIntState, iff: 1 }} {...intProps} />);
+    fireEvent.click(document.querySelector('.panel-hd.collapsible'));
+    expect(screen.getByText('ENABLED')).toBeInTheDocument();
+  });
+
+  it('shows FIRE buttons for pulse interrupts TRAP and RST 7.5', () => {
+    render(<InterruptPanel intState={baseIntState} {...intProps} />);
+    fireEvent.click(document.querySelector('.panel-hd.collapsible'));
+    expect(screen.getAllByText('FIRE').length).toBe(2);
+  });
+
+  it('calls onAssert with TRAP when FIRE clicked for TRAP', () => {
+    const onAssert = vi.fn();
+    render(<InterruptPanel intState={baseIntState} {...intProps} onAssert={onAssert} />);
+    fireEvent.click(document.querySelector('.panel-hd.collapsible'));
+    fireEvent.click(screen.getByRole('button', { name: /Fire TRAP/ }));
+    expect(onAssert).toHaveBeenCalledWith('TRAP');
+  });
+
+  it('calls onDeassert when ON level-interrupt clicked', () => {
+    const onDeassert = vi.fn();
+    render(<InterruptPanel intState={{ ...baseIntState, rst65: true }} {...intProps} onDeassert={onDeassert} />);
+    fireEvent.click(document.querySelector('.panel-hd.collapsible'));
+    fireEvent.click(screen.getByRole('button', { name: /RST 6.5 interrupt: ON/ }));
+    expect(onDeassert).toHaveBeenCalledWith('RST65');
+  });
+
+  it('shows masked tag when interrupt mask bit is set for RST55', () => {
+    render(<InterruptPanel intState={{ ...baseIntState, intMask: 0b001 }} {...intProps} />);
+    fireEvent.click(document.querySelector('.panel-hd.collapsible'));
+    expect(screen.getByText('masked')).toBeInTheDocument();
+  });
+});
+
+// ── DisasmPanel ───────────────────────────────────────────────────────────────
+import { DisasmPanel } from './DisasmPanel.jsx';
+
+const baseDisasmProps = {
+  regs: { pc: 0x100 },
+  breakpoints: new Map(),
+  onToggleBp: vi.fn(), onClearAllBps: vi.fn(),
+  onSetCondition: vi.fn(), onGotoLine: vi.fn(),
+  buildId: 1, pcFlash: 0,
+  onRunTo: vi.fn(), symbols: {}, onJumpMem: vi.fn(),
+  hitcnts: new Map(), maxHit: 0,
+};
+
+describe('DisasmPanel', () => {
+  it('renders DISASSEMBLY header', () => {
+    render(<DisasmPanel {...baseDisasmProps} />);
+    expect(screen.getByText(/DISASSEMBLY/)).toBeInTheDocument();
+  });
+
+  it('renders disassembly rows', () => {
+    render(<DisasmPanel {...baseDisasmProps} />);
+    expect(document.querySelectorAll('.disasm-row').length).toBeGreaterThan(0);
+  });
+
+  it('shows PC arrow on the current address row', () => {
+    render(<DisasmPanel {...baseDisasmProps} />);
+    expect(document.querySelector('.disasm-pc-arrow')).not.toBeNull();
+  });
+
+  it('calls onToggleBp when breakpoint gutter dot clicked', () => {
+    const onToggleBp = vi.fn();
+    render(<DisasmPanel {...baseDisasmProps} onToggleBp={onToggleBp} />);
+    fireEvent.click(document.querySelectorAll('.disasm-bp')[0]);
+    expect(onToggleBp).toHaveBeenCalled();
+  });
+
+  it('shows filled circle for an address with a breakpoint', () => {
+    render(<DisasmPanel {...baseDisasmProps} breakpoints={new Map([[0x100, null]])} />);
+    expect(document.querySelectorAll('.disasm-bp')[0].textContent).toBe('●');
+  });
+
+  it('shows breakpoint list footer when breakpoints exist', () => {
+    render(<DisasmPanel {...baseDisasmProps} breakpoints={new Map([[0x100, null], [0x102, null]])} />);
+    expect(screen.getByText(/BREAKPOINTS \(2\)/)).toBeInTheDocument();
+  });
+
+  it('calls onClearAllBps when ✕ All clicked', () => {
+    const onClearAllBps = vi.fn();
+    render(<DisasmPanel {...baseDisasmProps} breakpoints={new Map([[0x100, null]])} onClearAllBps={onClearAllBps} />);
+    fireEvent.click(screen.getByTitle('Clear all breakpoints'));
+    expect(onClearAllBps).toHaveBeenCalledOnce();
+  });
+});
+
+// ── RegPanel ──────────────────────────────────────────────────────────────────
+import { RegPanel } from './RegPanel.jsx';
+
+const baseRegsReg = { a: 0, b: 0, c: 0, d: 0, e: 0, h: 0, l: 0, pc: 0x100, sp: 0xFFFF };
+
+describe('RegPanel', () => {
+  it('renders all register names', () => {
+    withCtx(<RegPanel regs={baseRegsReg} prev={{}} onJump={vi.fn()} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    ['A', 'B', 'C', 'D', 'E', 'H', 'L', 'PC', 'SP'].forEach(name => {
+      expect(screen.getByText(name)).toBeInTheDocument();
+    });
+  });
+
+  it('displays register values in hex', () => {
+    withCtx(<RegPanel regs={{ ...baseRegsReg, a: 0xAB }} prev={{}} onJump={vi.fn()} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    expect(screen.getByText('AB')).toBeInTheDocument();
+  });
+
+  it('shows base toggle button with current base label', () => {
+    withCtx(<RegPanel regs={baseRegsReg} prev={{}} onJump={vi.fn()} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    expect(screen.getByText('HEX')).toBeInTheDocument();
+  });
+
+  it('calls onRegBase with next base when base button clicked', () => {
+    const onRegBase = vi.fn();
+    withCtx(<RegPanel regs={baseRegsReg} prev={{}} onJump={vi.fn()} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />, { onRegBase });
+    fireEvent.click(screen.getByText('HEX'));
+    expect(onRegBase).toHaveBeenCalledWith('dec');
+  });
+
+  it('renders 8 bit-viewer cells for register A', () => {
+    withCtx(<RegPanel regs={baseRegsReg} prev={{}} onJump={vi.fn()} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    expect(document.querySelectorAll('.reg-bit').length).toBe(8);
+  });
+
+  it('marks changed registers with changed class', () => {
+    withCtx(<RegPanel regs={{ ...baseRegsReg, a: 0x05 }} prev={{ ...baseRegsReg, a: 0x00 }} onJump={vi.fn()} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    expect(document.querySelectorAll('.reg-row.changed, .reg-pair-cell.changed').length).toBeGreaterThan(0);
+  });
+
+  it('collapses and expands on header click', () => {
+    withCtx(<RegPanel regs={baseRegsReg} prev={{}} onJump={vi.fn()} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    expect(document.querySelectorAll('.reg-bit').length).toBe(8);
+    fireEvent.click(document.querySelector('.panel-hd.collapsible'));
+    expect(document.querySelectorAll('.reg-bit').length).toBe(0);
   });
 });
