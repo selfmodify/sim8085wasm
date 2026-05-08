@@ -1,10 +1,16 @@
-import { expect, afterEach } from 'vitest';
+import { expect, afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import * as matchers from '@testing-library/jest-dom/matchers';
 
 expect.extend(matchers);
 
-// Automatically unmount React trees after every test to keep them isolated
+// Unmount React trees after every test
 afterEach(() => {
   cleanup();
+});
+
+// Stub navigator.clipboard so useCopy doesn't throw in happy-dom
+Object.defineProperty(navigator, 'clipboard', {
+  value: { writeText: vi.fn(() => Promise.resolve()) },
+  configurable: true,
 });

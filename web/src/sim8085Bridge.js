@@ -503,7 +503,6 @@ function stepOne() {
     default: break; // invalid - skip
   }
 
-  cycles += TSTATES[op]
   regs.pc = (pc + inc) & 0xFFFF;
   return !(status & (HALTED|QUIT|SEVERE_ERROR));
 }

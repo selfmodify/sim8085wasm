@@ -67,5 +67,14 @@ export default defineConfig({
   define: { __BUILD_TIME__: JSON.stringify(buildTime) },
   server: {
     watch: { usePolling: true }
-  }
+  },
+  esbuild: {
+    jsx: 'automatic',
+  },
+  test: {
+    globals: true,
+    environment: 'happy-dom',
+    setupFiles: ['./vitest.setup.js'],
+    exclude: ['node_modules', 'dist', '**/*.puppeteer.js'],
+  },
 })
