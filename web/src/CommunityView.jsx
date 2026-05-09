@@ -6,14 +6,14 @@ export function CommunityView({ onSelect, githubToken }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  async function fetchScripts(user) {
+  async function fetchScripts(user, signal = null) {
     if (!user) return
     setLoading(true)
     setError(null)
     setScripts([])
     try {
       const headers = githubToken ? { 'Authorization': `token ${githubToken}` } : {}
-      const res = await fetch(`https://api.github.com/users/${user}/gists`, { headers })
+      const res = await fetch(`https://api.github.com/users/${user}/gists`, { headers, signal })
       if (!res.ok) throw new Error('User not found or GitHub API limit reached')
       const data = await res.json()
       const valid = []
@@ -24,12 +24,18 @@ export function CommunityView({ onSelect, githubToken }) {
           valid.push({ id: g.id, title: g.description || asmFile.filename, author: g.owner?.login || user, desc: asmFile.filename })
         }
       }
-      setScripts(valid)
-    } catch (e) { setError(e.message) }
-    finally { setLoading(false) }
+      if (!signal?.aborted) setScripts(valid)
+    } catch (e) { 
+      if (e.name !== 'AbortError') setError(e.message) 
+    }
+    finally { if (!signal?.aborted) setLoading(false) }
   }
 
-  useEffect(() => { fetchScripts(username) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { 
+    const controller = new AbortController()
+    fetchScripts(username, controller.signal)
+    return () => controller.abort()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="challenges-view">
