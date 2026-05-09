@@ -150,6 +150,8 @@ export function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onL
                   { id: 'amber-mono', label: '🟡  Amber Monochrome' },
                   { id: 'gray-crt',   label: '⬜  Gray Retro CRT'   },
                   { id: 'green',      label: '🟢  Green CRT'        },
+                  { id: 'blue-crt',   label: '🔵  Blue Phosphor CRT' },
+                  { id: 'plasma',     label: '🟣  Plasma High-Contrast' },
                   { id: 'turbo-c',    label: '🟦  Turbo C'          },
                   { id: 'cp437',      label: '🔳  DOS CP437'        },
                 ].map(({ id, label }) => (

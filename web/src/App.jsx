@@ -118,7 +118,9 @@ export default function App() {
       t === 'dracula'    ? 'light'      :
       t === 'light'      ? 'amber-mono' :
       t === 'amber-mono' ? 'gray-crt'   :
-      t === 'gray-crt'   ? 'green'      : 'dark'
+      t === 'gray-crt'   ? 'green'      :
+      t === 'green'      ? 'blue-crt'   :
+      t === 'blue-crt'   ? 'plasma'     : 'dark'
     )
   }
 
@@ -885,7 +887,7 @@ export default function App() {
     return () => clearTimeout(id)
   }, [theme, crtGlitch])
 
-  const isRetroTheme = ['amber-mono', 'gray-crt', 'green', 'turbo-c', 'cp437'].includes(theme)
+  const isRetroTheme = ['amber-mono', 'gray-crt', 'green', 'blue-crt', 'plasma', 'turbo-c', 'cp437'].includes(theme)
 
   const simCtxValue = useMemo(
     () => ({ regBase, onRegBase: setRegBase, onEdit: engine.refresh, onShowDialog: setAppDialog }),
@@ -980,6 +982,14 @@ export default function App() {
           onSpeedChange={e => { const v = +e.target.value; setRunSpeed(v); localStorage.setItem('sim8085_speed', v); engine.setRunSpeed?.(v); }}
           onReset={handleReset}
         />
+
+        {engine.maxHistLen > 0 && (
+          <div className="time-travel-bar" style={{ padding: '4px 10px', background: 'var(--bg2)', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>TIME TRAVEL</span>
+            <input type="range" min="0" max={engine.maxHistLen} value={engine.histIndex} onChange={(e) => engine.seekHistory && engine.seekHistory(parseInt(e.target.value))} style={{ flex: 1, cursor: 'pointer', accentColor: 'var(--accent)' }} />
+            <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text2)', minWidth: 60, textAlign: 'right' }}>{engine.histIndex} / {engine.maxHistLen}</span>
+          </div>
+        )}
 
         <div className="workspace">
           {/* Editor column */}

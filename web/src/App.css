@@ -326,6 +326,42 @@
   --shadow-led:   drop-shadow(0 0 5px rgba(255, 85, 85, 0.7));
 }
 
+/* Blue Phosphor CRT */
+:root[data-theme="blue-crt"] {
+  --bg: #050a14;
+  --bg1: #0a1224;
+  --bg2: #0f1b34;
+  --bg3: #18284a;
+  --border: #243864;
+  --border2: #3a568c;
+  --text: #70b0ff;
+  --text2: #4a80cc;
+  --text3: #2a508c;
+  --accent: #40a0ff;
+  --accent2: #2070e0;
+  --amber: #f0a840;
+  --red: #ff4040;
+  --blue: #80c0ff;
+}
+
+/* Plasma High-Contrast */
+:root[data-theme="plasma"] {
+  --bg: #090014;
+  --bg1: #16002b;
+  --bg2: #220042;
+  --bg3: #360066;
+  --border: #4a008c;
+  --border2: #6600cc;
+  --text: #f0b0ff;
+  --text2: #b070cc;
+  --text3: #70408c;
+  --accent: #ff40e0;
+  --accent2: #cc20b0;
+  --amber: #ffaa00;
+  --red: #ff2040;
+  --blue: #40b0ff;
+}
+
 :root {
   --bg:       #0d0f14;
   --bg1:      #141720;
@@ -502,6 +538,8 @@ body {
 :root[data-theme="amber-mono"] html,
 :root[data-theme="gray-crt"] html,
 :root[data-theme="green"]     html,
+:root[data-theme="blue-crt"] html,
+:root[data-theme="plasma"] html,
 :root[data-theme="turbo-c"] html,
 :root[data-theme="cp437"] html { background: #000 }
 
@@ -509,6 +547,8 @@ body {
 :root[data-theme="amber-mono"] .app,
 :root[data-theme="gray-crt"] .app,
 :root[data-theme="green"]     .app,
+:root[data-theme="blue-crt"] .app,
+:root[data-theme="plasma"] .app,
 :root[data-theme="turbo-c"] .app,
 :root[data-theme="cp437"] .app {
   border-radius: 14px;
@@ -523,6 +563,8 @@ body {
 :root[data-theme="amber-mono"] .app::before,
 :root[data-theme="gray-crt"]   .app::before,
 :root[data-theme="green"]      .app::before,
+:root[data-theme="blue-crt"]   .app::before,
+:root[data-theme="plasma"]     .app::before,
 :root[data-theme="turbo-c"]    .app::before,
 :root[data-theme="cp437"]      .app::before {
   content: '';
@@ -537,6 +579,8 @@ body {
 :root[data-theme="amber-mono"] .app[class*="crt-glitch"],
 :root[data-theme="gray-crt"]   .app[class*="crt-glitch"],
 :root[data-theme="green"]      .app[class*="crt-glitch"],
+:root[data-theme="blue-crt"]   .app[class*="crt-glitch"],
+:root[data-theme="plasma"]     .app[class*="crt-glitch"],
 :root[data-theme="turbo-c"]    .app[class*="crt-glitch"],
 :root[data-theme="cp437"]      .app[class*="crt-glitch"] {
   box-shadow: inset 0 0 140px rgba(0,0,0,0.55), inset 0 0 40px rgba(0,0,0,0.35);
@@ -545,6 +589,8 @@ body {
 :root[data-theme="amber-mono"] .app[class*="crt-glitch"]::before,
 :root[data-theme="gray-crt"]   .app[class*="crt-glitch"]::before,
 :root[data-theme="green"]      .app[class*="crt-glitch"]::before,
+:root[data-theme="blue-crt"]   .app[class*="crt-glitch"]::before,
+:root[data-theme="plasma"]     .app[class*="crt-glitch"]::before,
 :root[data-theme="turbo-c"]    .app[class*="crt-glitch"]::before,
 :root[data-theme="cp437"]      .app[class*="crt-glitch"]::before {
   background:
@@ -557,6 +603,8 @@ body {
 :root[data-theme="amber-mono"] .app::after,
 :root[data-theme="gray-crt"] .app::after,
 :root[data-theme="green"]     .app::after,
+:root[data-theme="blue-crt"] .app::after,
+:root[data-theme="plasma"] .app::after,
 :root[data-theme="turbo-c"] .app::after,
 :root[data-theme="cp437"] .app::after {
   content: '';
@@ -610,6 +658,8 @@ body {
 :root[data-theme="amber-mono"] .app.crt-glitch-flicker::after,
 :root[data-theme="gray-crt"]   .app.crt-glitch-flicker::after,
 :root[data-theme="green"]      .app.crt-glitch-flicker::after,
+:root[data-theme="blue-crt"]   .app.crt-glitch-flicker::after,
+:root[data-theme="plasma"]     .app.crt-glitch-flicker::after,
 :root[data-theme="turbo-c"]    .app.crt-glitch-flicker::after,
 :root[data-theme="cp437"]      .app.crt-glitch-flicker::after {
   background-image:
@@ -623,6 +673,8 @@ body {
 :root[data-theme="amber-mono"] .app.crt-glitch-static::after,
 :root[data-theme="gray-crt"]   .app.crt-glitch-static::after,
 :root[data-theme="green"]      .app.crt-glitch-static::after,
+:root[data-theme="blue-crt"]   .app.crt-glitch-static::after,
+:root[data-theme="plasma"]     .app.crt-glitch-static::after,
 :root[data-theme="turbo-c"]    .app.crt-glitch-static::after,
 :root[data-theme="cp437"]      .app.crt-glitch-static::after {
   background-image:
@@ -635,6 +687,8 @@ body {
 :root[data-theme="amber-mono"] .app.crt-glitch-vsync::after,
 :root[data-theme="gray-crt"]   .app.crt-glitch-vsync::after,
 :root[data-theme="green"]      .app.crt-glitch-vsync::after,
+:root[data-theme="blue-crt"]   .app.crt-glitch-vsync::after,
+:root[data-theme="plasma"]     .app.crt-glitch-vsync::after,
 :root[data-theme="turbo-c"]    .app.crt-glitch-vsync::after,
 :root[data-theme="cp437"]      .app.crt-glitch-vsync::after {
   background-image:
@@ -648,6 +702,8 @@ body {
 :root[data-theme="amber-mono"] .app.crt-glitch-hsync,
 :root[data-theme="gray-crt"]   .app.crt-glitch-hsync,
 :root[data-theme="green"]      .app.crt-glitch-hsync,
+:root[data-theme="blue-crt"]   .app.crt-glitch-hsync,
+:root[data-theme="plasma"]     .app.crt-glitch-hsync,
 :root[data-theme="turbo-c"]    .app.crt-glitch-hsync,
 :root[data-theme="cp437"]      .app.crt-glitch-hsync {
   animation: crt-hsync 3.5s steps(1) infinite;
@@ -655,6 +711,8 @@ body {
 :root[data-theme="amber-mono"] .app.crt-glitch-hsync::after,
 :root[data-theme="gray-crt"]   .app.crt-glitch-hsync::after,
 :root[data-theme="green"]      .app.crt-glitch-hsync::after,
+:root[data-theme="blue-crt"]   .app.crt-glitch-hsync::after,
+:root[data-theme="plasma"]     .app.crt-glitch-hsync::after,
 :root[data-theme="turbo-c"]    .app.crt-glitch-hsync::after,
 :root[data-theme="cp437"]      .app.crt-glitch-hsync::after {
   background-image:
@@ -667,6 +725,8 @@ body {
 :root[data-theme="amber-mono"] .app.crt-glitch-chroma::after,
 :root[data-theme="gray-crt"]   .app.crt-glitch-chroma::after,
 :root[data-theme="green"]      .app.crt-glitch-chroma::after,
+:root[data-theme="blue-crt"]   .app.crt-glitch-chroma::after,
+:root[data-theme="plasma"]     .app.crt-glitch-chroma::after,
 :root[data-theme="turbo-c"]    .app.crt-glitch-chroma::after,
 :root[data-theme="cp437"]      .app.crt-glitch-chroma::after {
   background-image:
@@ -684,6 +744,8 @@ body {
 :root[data-theme="amber-mono"] .app.crt-glitch-chaos,
 :root[data-theme="gray-crt"]   .app.crt-glitch-chaos,
 :root[data-theme="green"]      .app.crt-glitch-chaos,
+:root[data-theme="blue-crt"]   .app.crt-glitch-chaos,
+:root[data-theme="plasma"]     .app.crt-glitch-chaos,
 :root[data-theme="turbo-c"]    .app.crt-glitch-chaos,
 :root[data-theme="cp437"]      .app.crt-glitch-chaos {
   animation: crt-hsync 2s steps(1) infinite;
@@ -691,6 +753,8 @@ body {
 :root[data-theme="amber-mono"] .app.crt-glitch-chaos::after,
 :root[data-theme="gray-crt"]   .app.crt-glitch-chaos::after,
 :root[data-theme="green"]      .app.crt-glitch-chaos::after,
+:root[data-theme="blue-crt"]   .app.crt-glitch-chaos::after,
+:root[data-theme="plasma"]     .app.crt-glitch-chaos::after,
 :root[data-theme="turbo-c"]    .app.crt-glitch-chaos::after,
 :root[data-theme="cp437"]      .app.crt-glitch-chaos::after {
   background-image:
@@ -709,6 +773,8 @@ body {
 :root[data-theme="amber-mono"] .t-mono-val,
 :root[data-theme="gray-crt"] .t-mono-val,
 :root[data-theme="green"]     .t-mono-val,
+:root[data-theme="blue-crt"] .t-mono-val,
+:root[data-theme="plasma"] .t-mono-val,
 :root[data-theme="turbo-c"] .t-mono-val,
 :root[data-theme="cp437"] .t-mono-val {
   text-shadow: 0 0 10px currentColor, 0 0 3px currentColor;
@@ -716,6 +782,8 @@ body {
 :root[data-theme="amber-mono"] .fg-accent,
 :root[data-theme="gray-crt"] .fg-accent,
 :root[data-theme="green"]     .fg-accent,
+:root[data-theme="blue-crt"] .fg-accent,
+:root[data-theme="plasma"] .fg-accent,
 :root[data-theme="turbo-c"] .fg-accent,
 :root[data-theme="cp437"] .fg-accent {
   text-shadow: 0 0 7px currentColor;
@@ -723,6 +791,8 @@ body {
 :root[data-theme="amber-mono"] .brand-chip,
 :root[data-theme="gray-crt"] .brand-chip,
 :root[data-theme="green"]     .brand-chip,
+:root[data-theme="blue-crt"] .brand-chip,
+:root[data-theme="plasma"] .brand-chip,
 :root[data-theme="turbo-c"] .brand-chip,
 :root[data-theme="cp437"] .brand-chip {
   box-shadow: 0 0 16px var(--accent), 0 0 5px var(--accent);

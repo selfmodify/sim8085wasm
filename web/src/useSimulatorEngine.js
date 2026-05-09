@@ -75,6 +75,8 @@ export function useSimulatorEngine(srcRef) {
   const [consoleOutput, setConsoleOutput] = useState('')
   const [consolePort, setConsolePort] = useState(() => sim.simGetConsolePort())
   const [histLen, setHistLen] = useState(0)
+  const [histIndex, setHistIndex] = useState(0)
+  const [maxHistLen, setMaxHistLen] = useState(0)
   const [addrLineMap, setAddrLineMap] = useState(new Map())
   const [memSize, _setMemSize] = useState(() => {
     const s = parseInt(localStorage.getItem('sim8085_memsize'), 10)
@@ -142,6 +144,8 @@ export function useSimulatorEngine(srcRef) {
       stopRun()
       historyRef.current = []
       setHistLen(0)
+      setHistIndex(0)
+      setMaxHistLen(0)
       setTrace([])
       setCallStack([]); callStackRef.current = []
       setHitcnts(null); setMaxHit(0)
@@ -191,9 +195,28 @@ export function useSimulatorEngine(srcRef) {
 
   function pushHistory() {
     const snap = { regs: sim.simGetRegisters(), ram: sim.simGetFullMemory(), cycles: sim.simGetCycles() }
-    const next = [...historyRef.current.slice(-19), snap]
+    // Truncate 'future' history if the user steps back and starts running again
+    const currentHist = historyRef.current.slice(0, histIndex)
+    const next = [...currentHist.slice(-49), snap]
     historyRef.current = next
     setHistLen(next.length)
+    setHistIndex(next.length)
+    setMaxHistLen(next.length)
+  }
+
+  function seekHistory(targetIndex) {
+    if (targetIndex < 0 || targetIndex > maxHistLen) return
+    setHistIndex(targetIndex)
+    setHistLen(targetIndex) // Keep toolbar 'Back' button count in sync
+    
+    const snap = historyRef.current[targetIndex === maxHistLen ? Math.max(0, targetIndex - 1) : targetIndex]
+    if (snap) {
+      sim.simRestoreSnapshot(snap)
+      if (snap.cycles !== undefined) sim.simSetCycles(snap.cycles)
+      refresh()
+      updateMemDiff()
+      refreshOutputPorts()
+    }
   }
 
   const CALL_OPS = new Set([0xCD, 0xC4, 0xCC, 0xD4, 0xDC, 0xE4, 0xEC, 0xF4, 0xFC])
@@ -313,18 +336,12 @@ export function useSimulatorEngine(srcRef) {
   }
 
   function doStepBack() {
-    if (!historyRef.current.length) return
-    const snap = historyRef.current[historyRef.current.length - 1]
-    const next = historyRef.current.slice(0, -1)
-    historyRef.current = next
-    setHistLen(next.length)
-    sim.simRestoreSnapshot(snap)
-    if (snap.cycles !== undefined) sim.simSetCycles(snap.cycles)
+    if (histIndex <= 0) return
+    seekHistory(histIndex - 1)
     setSteps(s => Math.max(0, s - 1))
     setPcFlash(f => f + 1)
     setAppState('idle')
-    setMsg(`⟲ Stepped back — ${next.length} step${next.length !== 1 ? 's' : ''} remaining in history`)
-    refresh()
+    setMsg(`⟲ Stepped back to index ${histIndex - 1}`)
   }
 
   function ensureWarpWorker() {
@@ -724,6 +741,7 @@ export function useSimulatorEngine(srcRef) {
     consoleOutput, setConsoleOutput,
     consolePort,
     histLen,
+    histIndex, maxHistLen,
     addrLineMap,
     memSize,
     haltTrigger,
@@ -735,6 +753,7 @@ export function useSimulatorEngine(srcRef) {
     // methods
     refresh,
     doAssemble,
+    seekHistory,
     doStep, doStepOver, doStepOut, doStepBack,
     handleRun,
     syncBps, toggleBp, clearAllBps,
