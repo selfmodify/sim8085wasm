@@ -3,6 +3,7 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, Gutte
 import { EditorState, StateEffect, StateField, RangeSetBuilder, Compartment } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { search, searchKeymap } from '@codemirror/search';
+import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
 import { INST_HELP } from './instHelp.js';
 import { hex4 } from './utils.js';
 import { asm8085Lang, asm8085Highlighting } from './lang.js';
@@ -69,6 +70,21 @@ function getInstWord(state, pos) {
   return s < e ? text.slice(s, e).toUpperCase() : null
 }
 
+const asmCompletionSource = (context) => {
+  let word = context.matchBefore(/[A-Za-z]+/)
+  if (!word) return null
+  if (word.from === word.to && !context.explicit) return null
+  return {
+    from: word.from,
+    options: Object.entries(INST_HELP).map(([mnem, data]) => ({
+      label: mnem,
+      type: 'keyword',
+      detail: data.bytes ? `${data.bytes}B` : '',
+      info: data.brief
+    }))
+  }
+}
+
 export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, gotoRef, onRunTo, lineAddrRef, theme }) {
   const elRef      = useRef(null)
   const viewRef    = useRef(null)
@@ -96,7 +112,8 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
           lineNumbers(),
           highlightActiveLine(),
           search({ top: true }),
-          keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
+          autocompletion({ override: [asmCompletionSource] }),
+          keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, ...completionKeymap, indentWithTab]),
           themeConf.current.of(EditorView.theme({}, { dark: theme !== 'light' })),
           asm8085Lang.extension,
           asm8085Highlighting,
@@ -117,6 +134,8 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
             '.cm-search': { background:'var(--bg2)', borderTop:'1px solid var(--border)', padding:'4px 8px', gap:'6px' },
             '.cm-search input': { background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:'3px', padding:'2px 6px' },
             '.cm-button': { background:'var(--bg3)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:'3px', padding:'2px 8px', cursor:'pointer' },
+            '.cm-tooltip': { background: 'var(--bg2)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: '3px' },
+            '.cm-tooltip-autocomplete > ul > li[aria-selected]': { background: 'var(--bg3)', color: 'var(--accent)' },
           }),
           EditorView.updateListener.of(u => {
             if (u.docChanged && !syncing.current) onChange(u.state.doc.toString())
