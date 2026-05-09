@@ -140,7 +140,7 @@ describe('TracePanel', () => {
     render(<TracePanel trace={[]} onClear={vi.fn()} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
     // TracePanel defaults to collapsed; click to expand
     fireEvent.click(screen.getByText('TRACE'));
-    expect(screen.getByText(/Step or run to record/)).toBeInTheDocument();
+    expect(screen.getByText(/Step through code to record/)).toBeInTheDocument();
   });
 
   it('renders trace entries after expanding', () => {

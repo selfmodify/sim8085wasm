@@ -22,7 +22,7 @@ export function TracePanel({ trace, onClear, dragHandleProps, dropTargetProps, i
       </div>
       {!collapsed && <div className="panel-anim-body trace-body" ref={bodyRef}>
         {trace.length === 0
-          ? <div className="trace-empty">Step or run to record execution</div>
+          ? <div className="trace-empty">Step through code to record execution</div>
           : trace.map((e, i) => (
             <div key={`${e.addr}-${i}`} className="trace-row">
               <span className="trace-addr">{hex4(e.addr)}</span>
