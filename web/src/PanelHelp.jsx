@@ -179,6 +179,17 @@ const PANEL_HELP_TEXT = {
 • Must click the ON button first to enable audio output
 • Use Fast speed (not Warp) for best playback timing
 • Drag the panel header to reorder it within the column`,
+
+  'BREADBOARD': `In real physical 8085 microcomputer trainer kits, a 7-segment LED display cannot be connected directly to the CPU's data bus. Instead, it requires an interface chip to latch the data, hold the state, and drive the electrical current to light up the segments.
+
+The 8255 Programmable Peripheral Interface (PPI) is the standard chip used for this purpose. It provides 24 general-purpose I/O pins (grouped into Ports A, B, and C). In a typical hardware setup:
+
+• One port of the 8255 is wired to the LED segments (a-g, and the decimal point) to control what is displayed.
+• Another port is wired to the common cathodes/anodes of the digits to control which digit is currently active (known as multiplexing).
+
+The wires you see running from the 8255 panel to the LED display panel in the Hardware view are a visual representation of this physical hardware architecture. They illustrate that the 8255 PPI acts as the necessary bridge between the 8085 CPU and the raw LED hardware.
+
+Similarly, the wires connecting the 8253 PIT to the 8255 represent the timer/counter outputs being fed back into the general-purpose I/O ports, which is another common educational wiring exercise!`,
 }
 
 export function PanelHelp({ panel, wide }) {

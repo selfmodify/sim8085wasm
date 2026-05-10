@@ -1,21 +1,25 @@
-import { useState, useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { PanelHelp } from './PanelHelp.jsx';
 import { hex2 } from './utils.js';
 
-export function PPI8255Panel({ outputPorts, inputPresets, onSetInput, onClose }) {
-  const [pos,  setPos]  = useState({ x: Math.max(0, window.innerWidth - 260), y: 420 })
+export function PPI8255Panel({ outputPorts, inputPresets, onSetInput, onClose, pos, onPosChange }) {
   const posRef = useRef(pos)
+
+  useEffect(() => { posRef.current = pos }, [pos])
 
   function onDragDown(e) {
     if (e.target.closest('button')) return
     e.preventDefault()
+    const doc = e.currentTarget.ownerDocument
     const ox = e.clientX - posRef.current.x, oy = e.clientY - posRef.current.y
     function onMove(ev) {
-      const p = { x: ev.clientX - ox, y: Math.max(0, ev.clientY - oy) }
-      posRef.current = p; setPos(p)
+      const rawX = ev.clientX - ox;
+      const rawY = Math.max(0, ev.clientY - oy);
+      const p = { x: Math.round(rawX / 20) * 20, y: Math.round(rawY / 20) * 20 };
+      posRef.current = p; onPosChange(p)
     }
-    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
-    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
+    function onUp() { doc.removeEventListener('mousemove', onMove); doc.removeEventListener('mouseup', onUp) }
+    doc.addEventListener('mousemove', onMove); doc.addEventListener('mouseup', onUp)
   }
 
   const basePort = 0x00;
@@ -40,12 +44,20 @@ export function PPI8255Panel({ outputPorts, inputPresets, onSetInput, onClose })
           <span>PORT {name} <span className="ppi-port-addr">({hex2(port)}H)</span></span>
           <span className={`ppi-dir ppi-dir-${dir.toLowerCase()}`}>{dir}</span>
         </div>
-        <div className="ppi-bits">
+        <div className="ppi-bits" style={{ alignItems: 'flex-end' }}>
           {[7,6,5,4,3,2,1,0].map(bit => {
             const isOn = (val >> bit) & 1;
+            const ledColor = dir === 'IN' ? 'var(--amber, #f0a840)' : 'var(--red, #ff4040)';
             return (
-              <div key={bit} className={`ppi-bit${isOn ? ' on' : ''}${dir==='IN'?' clickable':''}`}
+              <div key={bit} className={`ppi-bit${isOn ? ' on' : ''}${dir==='IN'?' clickable':''}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', border: 'none', background: 'transparent' }}
                 onClick={() => { if (dir === 'IN') onSetInput(port, val ^ (1 << bit)) }}>
+                <div style={{
+                  width: '14px', height: '14px', borderRadius: '50%',
+                  backgroundColor: isOn ? ledColor : 'var(--bg1)',
+                  boxShadow: isOn ? `0 0 8px ${ledColor}, inset 0 -2px 4px rgba(0,0,0,0.3)` : 'inset 0 2px 4px rgba(0,0,0,0.6)',
+                  border: `1px solid ${isOn ? 'transparent' : 'var(--border)'}`,
+                  transition: 'all 0.1s ease-in-out'
+                }} title={`Pin ${bit} ${isOn ? 'HIGH' : 'LOW'}`} />
                 {isOn ? '1' : '0'}
               </div>
             )
@@ -64,14 +76,22 @@ export function PPI8255Panel({ outputPorts, inputPresets, onSetInput, onClose })
           <span>PORT C <span className="ppi-port-addr">({hex2(port)}H)</span></span>
           <span className="ppi-dir"><span className={`ppi-dir-${dirU.toLowerCase()}`}>U:{dirU}</span> <span className={`ppi-dir-${dirL.toLowerCase()}`}>L:{dirL}</span></span>
         </div>
-        <div className="ppi-bits">
+        <div className="ppi-bits" style={{ alignItems: 'flex-end' }}>
           {[7,6,5,4,3,2,1,0].map(bit => {
             const dir = bit >= 4 ? dirU : dirL;
             const val = dir === 'OUT' ? valOut : valIn;
             const isOn = (val >> bit) & 1;
+            const ledColor = dir === 'IN' ? 'var(--amber, #f0a840)' : 'var(--red, #ff4040)';
             return (
-              <div key={bit} className={`ppi-bit${isOn ? ' on' : ''}${dir==='IN'?' clickable':''}`}
+              <div key={bit} className={`ppi-bit${isOn ? ' on' : ''}${dir==='IN'?' clickable':''}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', border: 'none', background: 'transparent' }}
                 onClick={() => { if (dir === 'IN') onSetInput(port, valIn ^ (1 << bit)) }}>
+                <div style={{
+                  width: '14px', height: '14px', borderRadius: '50%',
+                  backgroundColor: isOn ? ledColor : 'var(--bg1)',
+                  boxShadow: isOn ? `0 0 8px ${ledColor}, inset 0 -2px 4px rgba(0,0,0,0.3)` : 'inset 0 2px 4px rgba(0,0,0,0.6)',
+                  border: `1px solid ${isOn ? 'transparent' : 'var(--border)'}`,
+                  transition: 'all 0.1s ease-in-out'
+                }} title={`Pin C${bit} ${isOn ? 'HIGH' : 'LOW'}`} />
                 {isOn ? '1' : '0'}
               </div>
             )

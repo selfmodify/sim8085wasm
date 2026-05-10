@@ -22,6 +22,8 @@ import { ChallengesView, CHALLENGES } from './ChallengesView.jsx'
 import { CommunityView } from './CommunityView.jsx'
 import { useSimulatorEngine } from './useSimulatorEngine.js'
 import { useGoogleDrive } from './useGoogleDrive.js'
+import { PopoutWindow } from './PopoutWindow.jsx'
+import { BreadboardView } from './BreadboardView.jsx'
 import { PanelWorkspace } from './PanelWorkspace.jsx'
 import { hex2, hex4, b64encode, b64decode, BASE_CYCLE, SPEEDS, fmtByte, fmtWord, TRACE_REG16, fmtTraceVal, evalCondition, fmtCount } from './utils.js'
 import './App.css'
@@ -78,6 +80,21 @@ export default function App() {
   const [mobileTab,      setMobileTab]      = useState('editor')
   const [activeView,     setActiveView]     = useState('simulator') // 'simulator' | 'challenges'
   const [theme, setTheme] = useState(() => localStorage.getItem('sim8085_theme') || 'dracula')
+  const [breadboardPoppedOut, setBreadboardPoppedOut] = useState(false)
+
+  function handleSetView(v) {
+    setActiveView(v)
+    if (v === 'breadboard') {
+      setPanels(p => {
+        if (!p.ppi || !p.pit) {
+          const next = { ...p, ppi: true, pit: true };
+          localStorage.setItem('sim8085_panels', JSON.stringify(next));
+          return next;
+        }
+        return p;
+      });
+    }
+  }
   
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -113,7 +130,7 @@ export default function App() {
   const [showGithubSetup, setShowGithubSetup] = useState(false)
 
   const {
-    driveFiles, driveToken, driveLoading, driveSaveStatus,
+    driveFiles, setDriveFiles, driveToken, driveLoading, driveSaveStatus,
     connectDrive, handleDriveDisconnect, saveToDrive, saveAsToDrive,
     loadFromDrive, fetchDriveFile, deleteDriveFile
   } = useGoogleDrive({ engine, srcRef, setSrc, fileName, setFileName, setActiveChallenge, setAppDialog })
@@ -125,6 +142,19 @@ export default function App() {
     try { return { ...def, ...JSON.parse(localStorage.getItem('sim8085_panels')) } } catch { return def }
   })
   
+  const [ppiPos, setPpiPos] = useState(() => {
+    try { const p = JSON.parse(localStorage.getItem('sim8085_ppi_pos')); if (p && typeof p.x === 'number') return p; } catch {}
+    return { x: Math.max(0, Math.round((window.innerWidth / 2 + 50) / 20) * 20), y: 100 }
+  })
+  const [pitPos, setPitPos] = useState(() => {
+    try { const p = JSON.parse(localStorage.getItem('sim8085_pit_pos')); if (p && typeof p.x === 'number') return p; } catch {}
+    return { x: Math.max(0, Math.round((window.innerWidth / 2 - 350) / 20) * 20), y: 100 }
+  })
+  const [ledPos, setLedPos] = useState(() => {
+    try { const p = JSON.parse(localStorage.getItem('sim8085_led_pos')); if (p && typeof p.x === 'number') return p; } catch {}
+    return { x: Math.max(0, Math.round((window.innerWidth / 2 - 150) / 20) * 20), y: 360 }
+  })
+
   function togglePanel(key) {
     setPanels(p => {
       const next = { ...p, [key]: !p[key] }; localStorage.setItem('sim8085_panels', JSON.stringify(next)); return next
@@ -208,6 +238,9 @@ export default function App() {
   useEffect(() => { lsSet('sim8085_databps', JSON.stringify([...engine.dataBps])) }, [engine.dataBps])
   useEffect(() => { lsSet('sim8085_watches', JSON.stringify(engine.watches)) }, [engine.watches])
   useEffect(() => { lsSet('sim8085_io_presets', JSON.stringify(engine.inputPresets)) }, [engine.inputPresets])
+  useEffect(() => { lsSet('sim8085_ppi_pos', JSON.stringify(ppiPos)) }, [ppiPos])
+  useEffect(() => { lsSet('sim8085_pit_pos', JSON.stringify(pitPos)) }, [pitPos])
+  useEffect(() => { lsSet('sim8085_led_pos', JSON.stringify(ledPos)) }, [ledPos])
   
   function handleReset() { engine.doAssemble(srcRef.current) }
   
@@ -288,7 +321,7 @@ export default function App() {
         srcRef.current = file.content; setSrc(file.content); engine.doAssemble(file.content)
         setFileName(file.filename); localStorage.setItem('sim8085_filename', file.filename)
         engine.setMsg(`✓ Loaded ${file.filename} from GitHub Gist`)
-        setActiveView('simulator')
+        handleSetView('simulator')
       } catch(e) { engine.setMsg(`✗ Error loading GitHub Gist: ${e.message}`) }
     }
 
@@ -497,7 +530,7 @@ export default function App() {
     setFileName(c.title + '.asm')
     localStorage.setItem('sim8085_filename', c.title + '.asm')
     setActiveChallenge(c)
-    setActiveView('simulator')
+    handleSetView('simulator')
   }
 
   function loadSolution(c) {
@@ -508,7 +541,7 @@ export default function App() {
     setFileName(c.title + ' - Solution.asm')
     localStorage.setItem('sim8085_filename', c.title + ' - Solution.asm')
     setActiveChallenge(c)
-    setActiveView('simulator')
+    handleSetView('simulator')
   }
 
   function onBrewCoffee() {
@@ -587,12 +620,13 @@ export default function App() {
             crtGlitch={crtGlitch} onCrtGlitch={() => { const modes = ['off','flicker','static','vsync','hsync','chroma','chaos']; const next = modes[(modes.indexOf(crtGlitch) + 1) % modes.length]; setCrtGlitch(next); localStorage.setItem('sim8085_crt_glitch', next) }}
             onManageGithub={() => setShowGithubSetup(true)}
             panels={panels} onTogglePanel={togglePanel}
-            activeView={activeView} onSetView={setActiveView}
+            activeView={activeView} onSetView={handleSetView}
             onBrewCoffee={onBrewCoffee} />
           <div className="view-tabs">
-            <button className={`view-tab${activeView === 'simulator' ? ' active' : ''}`} onClick={() => setActiveView('simulator')}>Simulator</button>
-            <button className={`view-tab${activeView === 'challenges' ? ' active' : ''}`} onClick={() => setActiveView('challenges')}>Challenges</button>
-            <button className={`view-tab${activeView === 'community' ? ' active' : ''}`} onClick={() => setActiveView('community')}>Community</button>
+            <button className={`view-tab${activeView === 'simulator' ? ' active' : ''}`} onClick={() => handleSetView('simulator')}>Simulator</button>
+            <button className={`view-tab${activeView === 'breadboard' ? ' active' : ''}`} onClick={() => handleSetView('breadboard')}>Hardware</button>
+            <button className={`view-tab${activeView === 'challenges' ? ' active' : ''}`} onClick={() => handleSetView('challenges')}>Challenges</button>
+            <button className={`view-tab${activeView === 'community' ? ' active' : ''}`} onClick={() => handleSetView('community')}>Community</button>
           </div>
         </div>
           {/* Editor/Code/Regs tabs — inline in topbar on mobile, hidden on desktop */}
@@ -614,8 +648,8 @@ export default function App() {
       </div>
 
 
-      {/* ── Simulator View ── */}
-      <div style={{ display: activeView === 'simulator' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      {/* ── Simulator & Breadboard Views ── */}
+      <div style={{ display: (activeView === 'simulator' || activeView === 'breadboard') ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         <Toolbar
           onLoadExample={loadExample}
           panels={panels}
@@ -645,17 +679,31 @@ export default function App() {
           </div>
         )}
 
-        <PanelWorkspace
-          mobileTab={mobileTab}
-          theme={theme}
-          src={src} setSrc={setSrc} srcRef={srcRef}
-          engine={engine}
-          panels={panels}
-          setAppDialog={setAppDialog}
-          setHelpInst={setHelpInst}
-          formatCode={formatCode}
-          openConditionDialog={openConditionDialog}
-        />
+        <div style={{ display: activeView === 'simulator' ? 'flex' : 'none', flex: 1, minHeight: 0, flexDirection: 'column' }}>
+          <PanelWorkspace
+            mobileTab={mobileTab}
+            theme={theme}
+            src={src} setSrc={setSrc} srcRef={srcRef}
+            engine={engine}
+            panels={panels}
+            setAppDialog={setAppDialog}
+            setHelpInst={setHelpInst}
+            formatCode={formatCode}
+            openConditionDialog={openConditionDialog}
+          />
+        </div>
+
+        {activeView === 'breadboard' && (
+          breadboardPoppedOut ? (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: 'var(--text2)' }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>🪟</div>
+              <div>Hardware view is currently open in another window.</div>
+              <button className="btn" style={{ marginTop: 16 }} onClick={() => { setBreadboardPoppedOut(false); setActiveView('breadboard'); }}>Bring it back</button>
+            </div>
+          ) : (
+            <BreadboardView engine={engine} panels={panels} togglePanel={togglePanel} ppiPos={ppiPos} setPpiPos={setPpiPos} pitPos={pitPos} setPitPos={setPitPos} ledPos={ledPos} setLedPos={setLedPos} onPopOut={() => { setBreadboardPoppedOut(true); setActiveView('simulator'); }} />
+          )
+        )}
       </div>
 
       {activeView === 'challenges' && (
@@ -690,12 +738,8 @@ export default function App() {
       {showWelcome && <WelcomeModal onClose={dismissWelcome} onBrewCoffee={onBrewCoffee} />}
       {helpInst && <HelpModal instruction={helpInst} onClose={() => setHelpInst(null)} />}
       
-      {activeView === 'simulator' && (
-        <>
-          {showCalc && <CalcFloat onClose={() => setShowCalc(false)} />}
-          {panels.ppi && <PPI8255Panel outputPorts={engine.outputPorts} inputPresets={engine.inputPresets} onSetInput={engine.setInputPort} onClose={() => togglePanel('ppi')} />}
-          {panels.pit && <PIT8253Panel outputPorts={engine.outputPorts} onClose={() => togglePanel('pit')} />}
-        </>
+      {(activeView === 'simulator' || activeView === 'breadboard') && showCalc && (
+        <CalcFloat onClose={() => setShowCalc(false)} />
       )}
 
       {showChat && <ChatPanel regs={engine.regs} src={src} onClose={() => setShowChat(false)} />}
@@ -716,6 +760,12 @@ export default function App() {
         </div>
       )}
       {appDialog && <UIDialog dialog={appDialog} onClose={() => setAppDialog(null)} />}
+
+      {breadboardPoppedOut && (
+        <PopoutWindow title="Hardware - sim8085" theme={theme} onClose={() => setBreadboardPoppedOut(false)}>
+          <BreadboardView engine={engine} panels={panels} togglePanel={togglePanel} ppiPos={ppiPos} setPpiPos={setPpiPos} pitPos={pitPos} setPitPos={setPitPos} ledPos={ledPos} setLedPos={setLedPos} isPoppedOut />
+        </PopoutWindow>
+      )}
     </div>
     </SimulatorContext.Provider>
   )

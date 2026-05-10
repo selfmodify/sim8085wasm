@@ -112,16 +112,28 @@ export function RegPanel({ regs, prev, onJump, dragHandleProps, dropTargetProps,
       {!collapsed && <div className="panel-anim-body">
         <EditableRow name="A" val={regs.a} prevVal={p.a} regKey="a" />
         <div className="reg-bits">
-          {[7,6,5,4,3,2,1,0].map(bit => (
-            <div key={bit} className={`reg-bit${(regs.a>>bit)&1 ? ' reg-bit-on' : ''}`}
-                 role="button"
-                 aria-label={`Bit ${bit} of A: ${(regs.a>>bit)&1} — click to toggle`}
-                 title={`bit ${bit} — click to toggle`}
-                 onClick={() => { const v = regs.a ^ (1<<bit); sim.simSetRegisters({a:v}); onEdit() }}>
-              <div className="reg-bit-lbl">{bit}</div>
-              <div className="reg-bit-val">{(regs.a>>bit)&1}</div>
-            </div>
-          ))}
+          {[7,6,5,4,3,2,1,0].map(bit => {
+            const isOn = (regs.a >> bit) & 1;
+            const ledColor = 'var(--accent, #4af0a0)';
+            return (
+              <div key={bit} className={`reg-bit${isOn ? ' reg-bit-on' : ''}`}
+                   role="button"
+                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                   aria-label={`Bit ${bit} of A: ${isOn} — click to toggle`}
+                   title={`bit ${bit} — click to toggle`}
+                   onClick={() => { const v = regs.a ^ (1<<bit); sim.simSetRegisters({a:v}); onEdit() }}>
+                <div style={{
+                  width: '14px', height: '14px', borderRadius: '50%',
+                  backgroundColor: isOn ? ledColor : 'var(--bg1)',
+                  boxShadow: isOn ? `0 0 8px ${ledColor}, inset 0 -2px 4px rgba(0,0,0,0.3)` : 'inset 0 2px 4px rgba(0,0,0,0.6)',
+                  border: `1px solid ${isOn ? 'transparent' : 'var(--border)'}`,
+                  transition: 'all 0.1s ease-in-out'
+                }} />
+                <div className="reg-bit-val" style={{ fontSize: '13px', color: isOn ? 'var(--text)' : 'var(--text3)' }}>{isOn}</div>
+                <div className="reg-bit-lbl" style={{ fontSize: '10px', color: 'var(--text3)' }}>{bit}</div>
+              </div>
+            )
+          })}
         </div>
         <div className="reg-pair-row">
           <PairCell name="B" val={regs.b} prevVal={p.b} regKey="b" />
