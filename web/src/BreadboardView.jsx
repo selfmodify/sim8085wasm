@@ -1,10 +1,29 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { PPI8255Panel } from './PPI8255Panel.jsx';
 import { PIT8253Panel } from './PIT8253Panel.jsx';
 import { LedBreadboardPanel } from './LedBreadboardPanel.jsx';
 import { useCollapsible } from './hooks.js';
 
-function DroopingWire({ startX, startY, endX, endY, color, animate }) {
+const DEFAULT_WIRES = [
+  { id: 'w1', start: 'pit0', end: 'ppiA_in', color: 'var(--blue, #4090ff)' },
+  { id: 'w2', start: 'pit1', end: 'ppiB_in', color: 'var(--amber, #f0a840)' },
+  { id: 'w3', start: 'ppiA_out', end: 'ledSeg', color: 'var(--accent, #4af0a0)' },
+  { id: 'w4', start: 'ppiB_out', end: 'ledDig', color: 'var(--red, #ff4040)' },
+  { id: 'w5', start: 'ppiC_out', end: 'ledStr', color: 'var(--text, #c8d4e8)' },
+];
+
+function TerminalSocket({ x, y, onMouseDown }) {
+  return (
+    <g style={{ pointerEvents: 'all', cursor: 'crosshair' }} onMouseDown={onMouseDown}>
+      <title>Terminal Socket — drag to connect</title>
+      <circle cx={x} cy={y} r="12" fill="transparent" />
+      <circle cx={x} cy={y} r="6" fill="#111" stroke="#333" strokeWidth="1.5" pointerEvents="none" />
+      <circle cx={x} cy={y} r="2.5" fill="#000" pointerEvents="none" />
+    </g>
+  );
+}
+
+function DroopingWire({ startX, startY, endX, endY, color, animate, onGrab }) {
   const dist = Math.sqrt((endX - startX) ** 2 + (endY - startY) ** 2);
   // Dynamic curve to simulate physical wire droop based on distance
   const droop = dist * 0.4 + 40; 
@@ -25,11 +44,19 @@ function DroopingWire({ startX, startY, endX, endY, color, animate }) {
       )}
 
       {/* Top-down jumper plugs */}
-      <circle cx={startX} cy={startY} r="6" fill="#333" stroke="#111" strokeWidth="1.5" />
-      <circle cx={startX} cy={startY} r="2.5" fill="#555" />
+      <g style={{ pointerEvents: 'all', cursor: 'grab' }} onMouseDown={(e) => onGrab && onGrab(e, 'start')}>
+        <title>Grab to reroute</title>
+        <circle cx={startX} cy={startY} r="12" fill="transparent" />
+        <circle cx={startX} cy={startY} r="6" fill="#333" stroke="#111" strokeWidth="1.5" pointerEvents="none" />
+        <circle cx={startX} cy={startY} r="2.5" fill="#555" pointerEvents="none" />
+      </g>
       
-      <circle cx={endX} cy={endY} r="6" fill="#333" stroke="#111" strokeWidth="1.5" />
-      <circle cx={endX} cy={endY} r="2.5" fill="#555" />
+      <g style={{ pointerEvents: 'all', cursor: 'grab' }} onMouseDown={(e) => onGrab && onGrab(e, 'end')}>
+        <title>Grab to reroute</title>
+        <circle cx={endX} cy={endY} r="12" fill="transparent" />
+        <circle cx={endX} cy={endY} r="6" fill="#333" stroke="#111" strokeWidth="1.5" pointerEvents="none" />
+        <circle cx={endX} cy={endY} r="2.5" fill="#555" pointerEvents="none" />
+      </g>
     </g>
   );
 }
@@ -37,10 +64,87 @@ function DroopingWire({ startX, startY, endX, endY, color, animate }) {
 export function BreadboardView({ engine, panels, togglePanel, ppiPos, setPpiPos, pitPos, setPitPos, ledPos, setLedPos, onPopOut, isPoppedOut }) {
   const [infoCollapsed, toggleInfoCollapsed] = useCollapsible('breadboard_info', false);
   const [textSize, setTextSize] = useState(0);
+  const [wires, setWires] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sim8085_wires');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return DEFAULT_WIRES;
+  });
+  const [dragState, setDragState] = useState(null);
+
+  useEffect(() => { localStorage.setItem('sim8085_wires', JSON.stringify(wires)); }, [wires]);
 
   const hdSize = [10, 12, 14][textSize];
   const bdSize = [12, 14, 16][textSize];
   const panelWidth = [340, 400, 460][textSize];
+
+  const terminals = {
+    pit0: { x: pitPos.x + 310, y: pitPos.y + 105, color: 'var(--blue, #4090ff)', show: panels.pit },
+    pit1: { x: pitPos.x + 310, y: pitPos.y + 193, color: 'var(--amber, #f0a840)', show: panels.pit },
+    pit2: { x: pitPos.x + 310, y: pitPos.y + 281, color: 'var(--accent, #4af0a0)', show: panels.pit },
+    ppiA_in: { x: ppiPos.x - 15, y: ppiPos.y + 100, color: 'var(--blue, #4090ff)', show: panels.ppi },
+    ppiB_in: { x: ppiPos.x - 15, y: ppiPos.y + 178, color: 'var(--amber, #f0a840)', show: panels.ppi },
+    ppiC_in: { x: ppiPos.x - 15, y: ppiPos.y + 256, color: 'var(--text, #c8d4e8)', show: panels.ppi },
+    ppiA_out: { x: ppiPos.x + 245, y: ppiPos.y + 100, color: 'var(--accent, #4af0a0)', show: panels.ppi },
+    ppiB_out: { x: ppiPos.x + 245, y: ppiPos.y + 178, color: 'var(--red, #ff4040)', show: panels.ppi },
+    ppiC_out: { x: ppiPos.x + 245, y: ppiPos.y + 256, color: 'var(--text, #c8d4e8)', show: panels.ppi },
+    ledSeg: { x: ledPos.x - 15, y: ledPos.y + 60, color: 'var(--accent, #4af0a0)', show: true },
+    ledDig: { x: ledPos.x - 15, y: ledPos.y + 80, color: 'var(--red, #ff4040)', show: true },
+    ledStr: { x: ledPos.x - 15, y: ledPos.y + 100, color: 'var(--text, #c8d4e8)', show: true },
+  };
+
+  const termsRef = useRef(terminals);
+  useEffect(() => { termsRef.current = terminals; });
+
+  useEffect(() => {
+    if (!dragState) return;
+    const onMove = (e) => setDragState(d => ({ ...d, x: e.clientX, y: Math.max(0, e.clientY) }));
+    const onUp = (e) => {
+      let closest = null;
+      let minDist = 30;
+      for (const [key, t] of Object.entries(termsRef.current)) {
+        if (!t.show) continue;
+        const dx = e.clientX - t.x;
+        const dy = e.clientY - t.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < minDist) { minDist = dist; closest = key; }
+      }
+      if (closest && closest !== dragState.fixedTerm) {
+        setWires(ws => [...ws, {
+          id: dragState.id,
+          start: dragState.moving === 'start' ? closest : dragState.fixedTerm,
+          end: dragState.moving === 'end' ? closest : dragState.fixedTerm,
+          color: dragState.color
+        }]);
+      }
+      setDragState(null);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+  }, [dragState]);
+
+  const handleGrabWire = (e, wireId, endType) => {
+    e.preventDefault(); e.stopPropagation();
+    const w = wires.find(x => x.id === wireId);
+    if (!w) return;
+    const fixedTerm = endType === 'start' ? w.end : w.start;
+    setDragState({ id: w.id, moving: endType, fixedTerm, x: e.clientX, y: e.clientY, color: w.color });
+    setWires(ws => ws.filter(x => x.id !== wireId));
+  };
+
+  const handleNewWire = (e, termId) => {
+    e.preventDefault(); e.stopPropagation();
+    const t = terminals[termId];
+    setDragState({ id: 'w_' + Date.now(), moving: 'end', fixedTerm: termId, x: e.clientX, y: e.clientY, color: t.color || 'var(--text2)' });
+  };
 
   return (
     <div className="breadboard-view" style={{
@@ -64,7 +168,8 @@ export function BreadboardView({ engine, panels, togglePanel, ppiPos, setPpiPos,
              setPpiPos({ x: Math.max(0, Math.round((winWidth / 2 + 50) / 20) * 20), y: 100 });
              setPitPos({ x: Math.max(0, Math.round((winWidth / 2 - 350) / 20) * 20), y: 100 });
              setLedPos({ x: Math.max(0, Math.round((winWidth / 2 - 150) / 20) * 20), y: 360 });
-          }}>⟲ Reset Layout</button>
+             setWires(DEFAULT_WIRES);
+          }}>⟲ Reset Layout & Wiring</button>
           {!isPoppedOut && <button className="btn btn-xs" onClick={onPopOut} title="Open hardware view in a secondary monitor window">↗ Pop Out</button>}
         </div>
       </div>
@@ -93,14 +198,12 @@ export function BreadboardView({ engine, panels, togglePanel, ppiPos, setPpiPos,
               </div>
             </div>
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
-              <div style={{ fontSize: hdSize, fontFamily: 'var(--mono)', color: 'var(--text3)', letterSpacing: 1, marginBottom: 8, fontWeight: 700, transition: 'font-size 0.2s ease' }}>ABOUT</div>
+              <div style={{ fontSize: hdSize, fontFamily: 'var(--mono)', color: 'var(--text3)', letterSpacing: 1, marginBottom: 8, fontWeight: 700, transition: 'font-size 0.2s ease' }}>ABOUT WIRING</div>
               <p style={{ fontSize: bdSize, fontFamily: 'var(--sans)', color: 'var(--text2)', lineHeight: 1.5, whiteSpace: 'pre-line', margin: 0, transition: 'font-size 0.2s ease' }}>
-                In real physical 8085 microcomputer trainer kits, a 7-segment LED display cannot be connected directly to the CPU's data bus. Instead, it requires an interface chip to latch the data, hold the state, and drive the electrical current to light up the segments.
-                {'\n\n'}The 8255 Programmable Peripheral Interface (PPI) is the standard chip used for this purpose. It provides 24 general-purpose I/O pins (grouped into Ports A, B, and C). In a typical hardware setup:
+                This is a fully interactive hardware sandbox. <strong style={{color:'var(--text)'}}>Drag from any black terminal socket to spawn a jumper cable.</strong> Grab existing cable plugs to reroute them, or drop them in empty space to remove them.
+                {'\n\n'}In real physical 8085 microcomputer trainer kits, a 7-segment LED display cannot be connected directly to the CPU's data bus. Instead, it requires an interface chip like the 8255 PPI to latch the data and drive the current.
                 {'\n\n'}• One port of the 8255 is wired to the LED segments (a-g, and the decimal point) to control what is displayed.
                 {'\n'}• Another port is wired to the common cathodes/anodes of the digits to control which digit is currently active (known as multiplexing).
-                {'\n\n'}The wires you see running from the 8255 panel to the LED display panel in the Hardware view are a visual representation of this physical hardware architecture. They illustrate that the 8255 PPI acts as the necessary bridge between the 8085 CPU and the raw LED hardware.
-                {'\n\n'}Similarly, the wires connecting the 8253 PIT to the 8255 represent the timer/counter outputs being fed back into the general-purpose I/O ports, which is another common educational wiring exercise!
               </p>
             </div>
           </div>
@@ -108,25 +211,33 @@ export function BreadboardView({ engine, panels, togglePanel, ppiPos, setPpiPos,
       </div>
 
       {/* SVG Breadboard Wiring */}
-      <svg style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 99, width: '100%', height: '100%' }}>
+      <svg style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 505, width: '100%', height: '100%' }}>
         <style>{`
           @keyframes wire-flow {
             to { stroke-dashoffset: -16; }
           }
         `}</style>
-        {panels.pit && panels.ppi && (
-          <>
-            <DroopingWire startX={pitPos.x + 210} startY={pitPos.y + 80} endX={ppiPos.x + 10} endY={ppiPos.y + 110} color="var(--blue, #4090ff)" animate={engine.running} />
-            <DroopingWire startX={pitPos.x + 210} startY={pitPos.y + 150} endX={ppiPos.x + 10} endY={ppiPos.y + 180} color="var(--amber, #f0a840)" animate={engine.running} />
-          </>
-        )}
-        {panels.ppi && (
-          <>
-            <DroopingWire startX={ppiPos.x + 210} startY={ppiPos.y + 80} endX={ledPos.x + 10} endY={ledPos.y + 60} color="var(--accent, #4af0a0)" animate={engine.running} />
-            <DroopingWire startX={ppiPos.x + 210} startY={ppiPos.y + 105} endX={ledPos.x + 10} endY={ledPos.y + 85} color="var(--red, #ff4040)" animate={engine.running} />
-            <DroopingWire startX={ppiPos.x + 210} startY={ppiPos.y + 130} endX={ledPos.x + 10} endY={ledPos.y + 110} color="var(--text, #c8d4e8)" animate={engine.running} />
-          </>
-        )}
+
+        {Object.entries(terminals).map(([key, t]) => t.show && (
+          <TerminalSocket key={key} x={t.x} y={t.y} onMouseDown={(e) => handleNewWire(e, key)} />
+        ))}
+
+        {wires.map(w => {
+          const start = terminals[w.start];
+          const end = terminals[w.end];
+          if (!start?.show || !end?.show) return null;
+          return <DroopingWire key={w.id} startX={start.x} startY={start.y} endX={end.x} endY={end.y} color={w.color} animate={engine.running} onGrab={(e, endType) => handleGrabWire(e, w.id, endType)} />;
+        })}
+
+        {dragState && (() => {
+          const fixed = terminals[dragState.fixedTerm];
+          if (!fixed?.show) return null;
+          const sx = dragState.moving === 'start' ? dragState.x : fixed.x;
+          const sy = dragState.moving === 'start' ? dragState.y : fixed.y;
+          const ex = dragState.moving === 'end' ? dragState.x : fixed.x;
+          const ey = dragState.moving === 'end' ? dragState.y : fixed.y;
+          return <DroopingWire startX={sx} startY={sy} endX={ex} endY={ey} color={dragState.color} animate={false} />;
+        })()}
       </svg>
 
       {panels.ppi && <PPI8255Panel outputPorts={engine.outputPorts} inputPresets={engine.inputPresets} onSetInput={engine.setInputPort} onClose={() => togglePanel('ppi')} pos={ppiPos} onPosChange={setPpiPos} />}

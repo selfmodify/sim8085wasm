@@ -1624,6 +1624,7 @@ done:
     'LED Count': `; Count 00000000 → 99999999 on all 8 LED fields.
 ; One decimal digit (0-9) stored per byte at 300H-307H.
 ; Field 0 (leftmost) = ten-millions; field 7 (rightmost) = units.
+; At rollover the display blinks 3 times (~3 s) then restarts.
 ; Run at Fast or Turbo speed to watch it count up.
     org     100H
     kickoff 100H
@@ -1667,7 +1668,49 @@ carry:
     mov     a, h
     cpi     03H         ; still within 300H-307H? (H must stay 03H)
     jnc     inc         ; yes — propagate carry
-    jmp     show        ; no — wrapped 99999999 → 00000000
+    ; Wrapped 99999999 → 00000000: blink zeros 3 times then restart
+    call    blink3
+    jmp     show
+
+; --- Write all-zero digits (300H–307H) to the display ---
+showz:
+    mvi     b, 00H
+    lxi     h, 300H
+szd:
+    mvi     c, 02H
+    call    5
+    inr     b
+    inr     l
+    mov     a, b
+    cpi     08H
+    jnz     szd
+    ret
+
+; --- Half-blink delay (~0.5 s at Fast speed; tune 0C00H if needed) ---
+hdly:
+    lxi     d, 0C00H
+hd: dcx     d
+    mov     a, d
+    ora     e
+    jnz     hd
+    ret
+
+; --- Blink 00000000 three times (~3 s at Fast speed) ---
+; Counter stored at 308H to avoid clobbering registers used by subroutines.
+blink3:
+    mvi     a, 03H
+    sta     308H
+blk:
+    call    showz       ; show 00000000
+    call    hdly
+    mvi     c, 03H      ; blank all fields
+    call    5
+    call    hdly
+    lda     308H
+    dcr     a
+    sta     308H
+    jnz     blk
+    ret
 
     hlt`,
 
