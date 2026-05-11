@@ -519,6 +519,7 @@ export function useSimulatorEngine(srcRef) {
     wasHaltWaitingRef.current = false
     throughputRef.current = { steps: 0, ms: 0, mhz: 0, pendingSteps: 0, _last: performance.now() }
     timerRef.current = setInterval(() => {
+      if (SPEEDS[speedRef.current].warp) return  // speed changed to warp; setRunSpeed restarts in warp mode
       const n = sim.simRun(SPEEDS[speedRef.current].steps)
       const tp = throughputRef.current
       const perfNow = performance.now()
@@ -563,7 +564,7 @@ export function useSimulatorEngine(srcRef) {
       setAppState(s => s === 'running' ? 'idle' : s)
       return
     }
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+    if (timerRef.current && timerRef.current !== -1) { clearInterval(timerRef.current); clearTimeout(timerRef.current); timerRef.current = null }
     const tp = throughputRef.current
     if (tp.pendingSteps > 0) { setSteps(s => s + tp.pendingSteps); tp.pendingSteps = 0 }
     wasHaltWaitingRef.current = false
@@ -708,7 +709,15 @@ export function useSimulatorEngine(srcRef) {
   }
 
   function setRunSpeed(v) {
+    const wasWarp = SPEEDS[speedRef.current].warp
     speedRef.current = v
+    const isWarp = SPEEDS[v].warp
+    if (wasWarp === isWarp) return
+    // Crossed the warp boundary mid-run — restart the loop in the correct mode.
+    // For non-warp→warp: timerRef holds the setInterval ID.
+    // For warp→non-warp: warpActiveRef or warpWorkerActiveRef is true.
+    const isRunning = timerRef.current != null || warpActiveRef.current || warpWorkerActiveRef.current
+    if (isRunning) { stopRun(); startRun() }
   }
 
   const running = appState === 'running'
