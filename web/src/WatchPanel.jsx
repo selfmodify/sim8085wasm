@@ -4,7 +4,7 @@ import { PanelHelp } from './PanelHelp.jsx';
 import { hex4, fmtWord, fmtByte, BASE_CYCLE } from './utils.js';
 import { useSimulator } from './SimulatorContext.jsx';
 
-export function WatchPanel({ watches, regs, onAdd, onRemove, dataBps, onToggleBreak }) {
+export function WatchPanel({ watches, regs, prevRegs, changedAddrs, onAdd, onRemove, dataBps, onToggleBreak }) {
   const { regBase, onRegBase } = useSimulator()
   const [input, setInput] = useState('')
   const PAIR_KEYS = { bc: ['b','c'], de: ['d','e'], hl: ['h','l'] }
@@ -60,8 +60,22 @@ export function WatchPanel({ watches, regs, onAdd, onRemove, dataBps, onToggleBr
               const v = getValue(w)
               const label = w.type === 'reg' ? w.key.toUpperCase() : hex4(w.addr) + 'H'
               const isBrk = w.type === 'mem' && dataBps?.has(w.addr)
+
+              let changed = false
+              if (w.type === 'reg' && prevRegs) {
+                const p = PAIR_KEYS[w.key]
+                if (p) {
+                  const prevV = (prevRegs[p[0]] << 8) | prevRegs[p[1]]
+                  changed = v !== prevV
+                } else {
+                  changed = v !== prevRegs[w.key]
+                }
+              } else if (w.type === 'mem') {
+                changed = changedAddrs?.has(w.addr)
+              }
+
               return (
-                <div key={w.type === 'reg' ? `reg-${w.key}` : `mem-${w.addr}`} className="watch-row">
+                <div key={w.type === 'reg' ? `reg-${w.key}` : `mem-${w.addr}`} className={`watch-row${changed ? ' changed' : ''}`}>
                   <span className="watch-label">{label}</span>
                   <span className="watch-val">{is16(w) ? fmtWord(v, regBase) : fmtByte(v, regBase)}</span>
                   {(regBase||'hex') === 'hex' && <span className="watch-dec">{v}</span>}

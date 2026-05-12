@@ -1848,9 +1848,15 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 .watch-empty { color: var(--text3); font-size: 12px; padding: 2px 10px 6px }
 .watch-row {
   display: flex; align-items: center; gap: 6px;
-  padding: 2px 10px; font-family: var(--mono); font-size: 12px
+  padding: 2px 10px; font-family: var(--mono); font-size: 12px;
+  border-left: 2px solid transparent; transition: background .1s;
 }
 .watch-row:hover { background: var(--bg2) }
+.watch-row.changed {
+  border-left-color: var(--accent);
+  background: var(--tint-accent);
+  animation: reg-flash .45s ease-out;
+}
 .watch-label { color: var(--accent2); width: 48px; flex-shrink: 0 }
 .watch-val   { color: var(--text); width: 40px; flex-shrink: 0 }
 .watch-dec   { color: var(--text3); flex: 1 }

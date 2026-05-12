@@ -311,6 +311,7 @@ export default function App() {
   }
 
   function exportHex() {
+    if (engine.running) engine.handleRun()
     const mem = sim.simGetFullMemory()
     const start = sim.simGetProgramRegion?.().start ?? 0x100
     const end   = sim.simGetProgramRegion?.().end   ?? 0x100
@@ -333,6 +334,7 @@ export default function App() {
   }
 
   function exportBin() {
+    if (engine.running) engine.handleRun()
     const mem = sim.simGetFullMemory()
     const start = sim.simGetProgramRegion?.().start ?? 0x100
     const end   = sim.simGetProgramRegion?.().end   ?? 0x100

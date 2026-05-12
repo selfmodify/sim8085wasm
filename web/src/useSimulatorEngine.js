@@ -100,8 +100,13 @@ export function useSimulatorEngine(srcRef) {
   const throughputRef = useRef({ steps: 0, ms: 0, mhz: 0 })
   const oneShotBpsRef = useRef(new Set())
   const refreshRafRef = useRef(null)
+  const memDiffRafRef = useRef(null)
+  const memVisibleRangeRef = useRef({ start: MEM_START_DEFAULT, len: 128 })
 
   useEffect(() => { bpsRef.current = bps }, [bps])
+
+  const watchesRef = useRef(watches)
+  useEffect(() => { watchesRef.current = watches }, [watches])
 
   function refresh() {
     if (refreshRafRef.current) cancelAnimationFrame(refreshRafRef.current)
@@ -605,13 +610,31 @@ export function useSimulatorEngine(srcRef) {
   }
 
   function updateMemDiff() {
-    const curr = sim.simGetFullMemory()
-    if (!prevMemRef.current) { prevMemRef.current = curr; return }
-    const changed = new Set()
-    for (let i = 0; i < curr.length; i++)
-      if (curr[i] !== prevMemRef.current[i]) changed.add(i)
-    prevMemRef.current = curr
-    setChangedAddrs(changed)
+    if (memDiffRafRef.current) cancelAnimationFrame(memDiffRafRef.current)
+    memDiffRafRef.current = requestAnimationFrame(() => {
+      memDiffRafRef.current = null
+      if (!prevMemRef.current) { prevMemRef.current = new Uint8Array(sim.simGetFullMemory()); return }
+      const changed = new Set()
+      const { start, len } = memVisibleRangeRef.current
+      const slice = sim.simGetMemory(start, len)
+      for (let i = 0; i < slice.length; i++) {
+        const addr = start + i
+        if (slice[i] !== prevMemRef.current[addr]) {
+          changed.add(addr)
+          prevMemRef.current[addr] = slice[i]
+        }
+      }
+      for (const w of watchesRef.current) {
+        if (w.type === 'mem') {
+          const val = sim.simReadByte(w.addr)
+          if (val !== prevMemRef.current[w.addr]) {
+            changed.add(w.addr)
+            prevMemRef.current[w.addr] = val
+          }
+        }
+      }
+      setChangedAddrs(changed)
+    })
   }
 
   function syncBps(nextMap) {
@@ -771,6 +794,7 @@ export function useSimulatorEngine(srcRef) {
     isDirty,
     // refs
     lineAddrRef,
+    memVisibleRangeRef,
     // methods
     refresh,
     doAssemble,

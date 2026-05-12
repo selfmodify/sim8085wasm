@@ -4,7 +4,7 @@ import { PanelHelp } from './PanelHelp.jsx';
 import { hex2, hex4 } from './utils.js';
 import { useSimulator } from './SimulatorContext.jsx';
 
-export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion, presetAddrs, onMemoryEdited }) {
+export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion, presetAddrs, onMemoryEdited, memVisibleRangeRef }) {
   const { onShowDialog } = useSimulator()
   const memCacheRef = useRef(null) // { buildId, data: Uint8Array } — avoid re-fetching 64KB on each search
   const [mem, setMem] = useState(new Uint8Array(128))
@@ -47,6 +47,12 @@ export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, progra
   }, [showFill, fillFrom, fillTo, showExport, exportFrom, exportTo])
 
   useEffect(() => { if (!addrFocused.current) setAddrBuf(hex4(memStart)) }, [memStart])
+
+  useEffect(() => {
+    if (memVisibleRangeRef) {
+      memVisibleRangeRef.current = { start: memStart, len: COLS * rows }
+    }
+  }, [memStart, rows, memVisibleRangeRef])
 
   function manualJump(addr) {
     setFollowPC(false)

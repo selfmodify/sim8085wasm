@@ -20,7 +20,7 @@ export function Toolbar({
       <button className="btn btn-step-out" onClick={onStepOut} disabled={running || appState === 'error'}>↵ Out     <kbd>F10</kbd></button>
       <button className="btn btn-back" onClick={onStepBack} disabled={running || appState === 'error' || histLen === 0} title={`Undo last step (${histLen} available)`}>⟲ Back{histLen > 0 ? ` (${histLen})` : ''}</button>
       <button className={`btn ${running ? 'btn-stop' : 'btn-run'}`} onClick={onRun} disabled={!running && appState === 'error'}>
-        {running ? '■ Stop' : '▶ Run'}  <kbd>{running ? 'F9' : 'F9'}</kbd>
+        {running ? '■ Stop' : '▶ Run'}  <kbd>F9</kbd>
       </button>
       <label className="speed-label" title={SPEEDS[runSpeed].warp ? 'Warp: run until HLT, updating UI once per second' : SPEEDS[runSpeed].delay ? `Auto: ${SPEEDS[runSpeed].steps} step every ${SPEEDS[runSpeed].delay}ms` : `${SPEEDS[runSpeed].steps.toLocaleString()} steps/tick`}>
         Speed
