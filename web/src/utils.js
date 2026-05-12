@@ -17,6 +17,8 @@ export const SPEEDS = [
   { label:'Warp',    steps:        0, warp: true },
 ]
 
+export const RETRO_THEMES = ['amber-mono', 'gray-crt', 'green', 'blue-crt', 'plasma', 'turbo-c', 'cp437']
+
 export function fmtByte(v, base) {
   if (base === 'dec') return String(v)
   if (base === 'bin') return v.toString(2).padStart(8, '0')

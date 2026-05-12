@@ -20,7 +20,7 @@ import { InterruptPanel } from './InterruptPanel.jsx'
 import { LedDisplay } from './LedDisplay.jsx'
 import { HelpPanel } from './HelpPanel.jsx'
 
-export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, panels, setAppDialog, setHelpInst, formatCode, openConditionDialog }) {
+export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, panels, setAppDialog, setHelpInst, formatCode, openConditionDialog, readOnlySource }) {
   const [cursorInst, setCursorInst] = useState(null)
   const gotoLineRef = useRef(null)
 
@@ -122,6 +122,15 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
         <div className="panel editor-panel">
           <div className="panel-hd">
           <span className="panel-icon">✏️</span>EDITOR
+          {readOnlySource && (
+            <span style={{ marginLeft: 12, fontSize: 10, padding: '2px 6px', background: 'var(--bg3)', borderRadius: 4, color: 'var(--text2)', border: '1px solid var(--border)', letterSpacing: 0.5 }} title={`Loaded from ${readOnlySource} — edits will not be saved to the original source`}>
+              {readOnlySource === 'GitHub Gist' ? '🐙 GIST' :
+               readOnlySource === 'Example' ? '📖 EXAMPLE' :
+               readOnlySource === 'Challenge' ? '🏆 CHALLENGE' :
+               readOnlySource === 'Solution' ? '📖 SOLUTION' :
+               readOnlySource.toUpperCase()}
+            </span>
+          )}
           <div className="panel-hd-right">
             <button className="reg-base-btn" onClick={formatCode} title="Auto-format code alignment">Format</button>
             <span className="editor-hint">; semicolons for comments</span>

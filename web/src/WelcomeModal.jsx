@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 const WELCOME_FEATURES = [
   { icon: '✏️', title: 'Editor',          desc: 'Write 8085 assembly with syntax highlighting and auto-indent. Ctrl+click any mnemonic for the full instruction reference. Use ASSERT to validate registers, flags, and memory inline — any failure halts with a clear error. Load from 20+ built-in examples across six categories.' },
-  { icon: '▶',  title: 'Build & Run',     desc: 'F5 assembles, F7 steps one instruction, F9 runs/pauses, F6 resets. ⟲ Back undoes the last step. Nine speed modes from Auto-Step (classroom pace) through Turbo++ to Warp, which runs flat-out until HLT with no mid-run UI overhead. Switch between the JS and WASM engine from the ☰ menu to compare throughput.' },
+  { icon: '▶',  title: 'Build & Run',     desc: 'F5 assembles, F7 steps one instruction, F9 runs/pauses, F6 resets. ⟲ Back undoes the last step. Nine speed modes from Auto-Step (classroom pace) through Turbo++ to Warp, which runs flat-out until HLT, updating the UI only once per second for maximum throughput. Switch between the JS and WASM engine from the ☰ menu to compare throughput.' },
   { icon: '📋', title: 'Disassembly',     desc: 'Live disassembly follows the program counter. Click any row to toggle a breakpoint — execution pauses automatically when PC hits it.' },
   { icon: '🧠', title: 'CPU State',       desc: 'Registers, flags, and register pairs update live and highlight green on every change. Click any register pair to jump the memory view to that address. Values are editable in place.' },
   { icon: '💾', title: 'Memory',          desc: 'Browse and edit all of RAM in the hex editor. Double-click any cell to change it. RAM size is configurable (16 / 32 / 64 KB) in the menu.' },

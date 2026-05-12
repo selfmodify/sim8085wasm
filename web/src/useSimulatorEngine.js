@@ -99,19 +99,24 @@ export function useSimulatorEngine(srcRef) {
   const wasHaltWaitingRef = useRef(false)
   const throughputRef = useRef({ steps: 0, ms: 0, mhz: 0 })
   const oneShotBpsRef = useRef(new Set())
+  const refreshRafRef = useRef(null)
 
   useEffect(() => { bpsRef.current = bps }, [bps])
 
   function refresh() {
-    const r = sim.simGetRegisters()
-    setRegs(old => { setPrev(old); return r })
-    setLeds(sim.simGetAllLeds())
-    setCycles(sim.simGetCycles())
-    setIntState(sim.simGetIntState())
-    setKeyQueue(sim.simGetKeyQueue())
-    setConsoleOutput(sim.simGetConsoleOutput())
-    if (sim.simGetSOD) setSod(sim.simGetSOD())
-    refreshProfile()
+    if (refreshRafRef.current) cancelAnimationFrame(refreshRafRef.current)
+    refreshRafRef.current = requestAnimationFrame(() => {
+      refreshRafRef.current = null
+      const r = sim.simGetRegisters()
+      setRegs(old => { setPrev(old); return r })
+      setLeds(sim.simGetAllLeds())
+      setCycles(sim.simGetCycles())
+      setIntState(sim.simGetIntState())
+      setKeyQueue(sim.simGetKeyQueue())
+      setConsoleOutput(sim.simGetConsoleOutput())
+      if (sim.simGetSOD) setSod(sim.simGetSOD())
+      refreshProfile()
+    })
   }
 
   function refreshProfile() {
@@ -564,7 +569,13 @@ export function useSimulatorEngine(srcRef) {
       setAppState(s => s === 'running' ? 'idle' : s)
       return
     }
-    if (timerRef.current && timerRef.current !== -1) { clearInterval(timerRef.current); clearTimeout(timerRef.current); timerRef.current = null }
+    if (timerRef.current) {
+      if (timerRef.current !== -1) {
+        clearInterval(timerRef.current)
+        clearTimeout(timerRef.current)
+      }
+      timerRef.current = null
+    }
     const tp = throughputRef.current
     if (tp.pendingSteps > 0) { setSteps(s => s + tp.pendingSteps); tp.pendingSteps = 0 }
     wasHaltWaitingRef.current = false
@@ -709,15 +720,16 @@ export function useSimulatorEngine(srcRef) {
   }
 
   function setRunSpeed(v) {
-    const wasWarp = SPEEDS[speedRef.current].warp
+    if (speedRef.current === v) return
+    const oldSpeed = SPEEDS[speedRef.current]
+    const newSpeed = SPEEDS[v]
     speedRef.current = v
-    const isWarp = SPEEDS[v].warp
-    if (wasWarp === isWarp) return
-    // Crossed the warp boundary mid-run — restart the loop in the correct mode.
-    // For non-warp→warp: timerRef holds the setInterval ID.
-    // For warp→non-warp: warpActiveRef or warpWorkerActiveRef is true.
-    const isRunning = timerRef.current != null || warpActiveRef.current || warpWorkerActiveRef.current
-    if (isRunning) { stopRun(); startRun() }
+
+    const delayChanged = (oldSpeed.delay || 16) !== (newSpeed.delay || 16)
+    if (oldSpeed.warp !== newSpeed.warp || delayChanged) {
+      const isRunning = timerRef.current != null || warpActiveRef.current || warpWorkerActiveRef.current
+      if (isRunning) { stopRun(); startRun() }
+    }
   }
 
   const running = appState === 'running'

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { RETRO_THEMES } from './utils.js';
 
-export function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveAsToDrive, onSaveToGist, onShare, onCalc, onChat, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast, crtGlitch, onCrtGlitch, onManageGithub, panels, onTogglePanel, activeView, onSetView, driveToken, onConnectDrive, onDriveDisconnect, onBrewCoffee }) {
+export function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveAsToDrive, onSaveToGist, onShare, onCalc, onChat, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast, crtGlitch, onCrtGlitch, crtVignette, onCrtVignette, onManageGithub, panels, onTogglePanel, activeView, onSetView, driveToken, onConnectDrive, onDriveDisconnect, onBrewCoffee }) {
   const [open, setOpen] = useState(false);
   const [activeSub, setActiveSub] = useState(null);
   const wrapRef = useRef(null)
@@ -165,7 +166,7 @@ export function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onL
               </div>
             )}
           </div>
-          {['amber-mono', 'gray-crt', 'green', 'turbo-c', 'cp437'].includes(theme) && (
+      {RETRO_THEMES.includes(theme) && (
             <>
               <div className="bmenu-setting">
                 <span className="bmenu-setting-label">CRT Brightness</span>
@@ -183,6 +184,12 @@ export function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onL
                 <span className="bmenu-setting-label">CRT Interference</span>
                 <button className={`btn btn-xs ${crtGlitch !== 'off' ? 'btn-run' : ''}`} onClick={() => onCrtGlitch()}>
                   {({off:'Off',flicker:'Flicker',static:'Static',vsync:'V-Sync',hsync:'H-Sync',chroma:'Chroma',chaos:'Chaos'})[crtGlitch] ?? 'Off'}
+                </button>
+              </div>
+              <div className="bmenu-setting">
+                <span className="bmenu-setting-label">CRT Vignette</span>
+                <button className={`btn btn-xs ${crtVignette ? 'btn-run' : ''}`} onClick={() => onCrtVignette(!crtVignette)}>
+                  {crtVignette ? 'ON' : 'OFF'}
                 </button>
               </div>
             </>

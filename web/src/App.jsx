@@ -25,7 +25,7 @@ import { useGoogleDrive } from './useGoogleDrive.js'
 import { PopoutWindow } from './PopoutWindow.jsx'
 import { BreadboardView } from './BreadboardView.jsx'
 import { PanelWorkspace } from './PanelWorkspace.jsx'
-import { hex2, hex4, b64encode, b64decode, BASE_CYCLE, SPEEDS, fmtByte, fmtWord, TRACE_REG16, fmtTraceVal, evalCondition, fmtCount } from './utils.js'
+import { hex2, hex4, b64encode, b64decode, BASE_CYCLE, SPEEDS, fmtByte, fmtWord, TRACE_REG16, fmtTraceVal, evalCondition, fmtCount, RETRO_THEMES } from './utils.js'
 import './App.css'
 
 const INITIAL_PC = 0x100
@@ -72,6 +72,15 @@ export default function App() {
     return localStorage.getItem('sim8085_filename') || ''
   })
   
+  const [readOnlySource, setReadOnlySource] = useState(() => {
+    try {
+      const hash = location.hash
+      if (hash.startsWith('#example=')) return 'Example'
+      if (hash.startsWith('#gist=')) return 'GitHub Gist'
+    } catch {}
+    return localStorage.getItem('sim8085_readonly') || null
+  })
+
   const srcRef = useRef(src)
   const [helpInst, setHelpInst]     = useState(null)
   
@@ -104,6 +113,7 @@ export default function App() {
   const [crtBrightness, setCrtBrightness] = useState(() => parseFloat(localStorage.getItem(`sim8085_crt_b_${localStorage.getItem('sim8085_theme') || 'dracula'}`) || '1'))
   const [crtContrast, setCrtContrast]     = useState(() => parseFloat(localStorage.getItem(`sim8085_crt_c_${localStorage.getItem('sim8085_theme') || 'dracula'}`) || '1'))
   const [crtGlitch, setCrtGlitch]         = useState(() => { const v = localStorage.getItem('sim8085_crt_glitch'); return v === 'true' ? 'flicker' : (v && v !== 'false' ? v : 'off') })
+  const [crtVignette, setCrtVignette]     = useState(() => localStorage.getItem('sim8085_crt_vignette') !== 'false')
   const [chaosCalm, setChaosCalm]         = useState(false)
   
   useEffect(() => {
@@ -195,12 +205,12 @@ export default function App() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const hotkeysRef = useRef(null)
-  useEffect(() => { hotkeysRef.current = { doAssemble: engine.doAssemble, handleReset, doStep: engine.doStep, doStepOver: engine.doStepOver, doStepOut: engine.doStepOut, handleRun: engine.handleRun, running: engine.running, appState: engine.appState } })
+  useEffect(() => { hotkeysRef.current = { handleBuild, handleReset, doStep: engine.doStep, doStepOver: engine.doStepOver, doStepOut: engine.doStepOut, handleRun: engine.handleRun, running: engine.running, appState: engine.appState } })
   useEffect(() => {
     function onKey(e) {
       const h = hotkeysRef.current
-      if (e.key === 'F5') { e.preventDefault(); h.doAssemble(srcRef.current) }
-      if (e.key === 'F6') { e.preventDefault(); h.handleReset() }
+      if (e.key === 'F5') { e.preventDefault(); h.handleBuild() }
+      if (e.key === 'F6') { e.preventDefault(); if (!h.running) h.handleReset() }
       if (e.key === 'F7') { e.preventDefault(); if (!h.running && h.appState !== 'error') h.doStep() }
       if (e.key === 'F8') { e.preventDefault(); if (!h.running && h.appState !== 'error') h.doStepOver() }
       if (e.key === 'F10') { e.preventDefault(); if (!h.running && h.appState !== 'error') h.doStepOut() }
@@ -241,8 +251,38 @@ export default function App() {
   useEffect(() => { lsSet('sim8085_ppi_pos', JSON.stringify(ppiPos)) }, [ppiPos])
   useEffect(() => { lsSet('sim8085_pit_pos', JSON.stringify(pitPos)) }, [pitPos])
   useEffect(() => { lsSet('sim8085_led_pos', JSON.stringify(ledPos)) }, [ledPos])
+  useEffect(() => { lsSet('sim8085_readonly', readOnlySource || '') }, [readOnlySource])
   
-  function handleReset() { engine.doAssemble(srcRef.current) }
+  function handleBuild() {
+    if (engine.running) {
+      setAppDialog({
+        type: 'confirm',
+        title: 'Simulator Running',
+        message: 'The simulator is currently running. Building will stop execution and reset the CPU state. Proceed?',
+        confirmText: 'Yes, build',
+        onConfirm: () => engine.doAssemble(srcRef.current)
+      })
+    } else {
+      engine.doAssemble(srcRef.current)
+    }
+  }
+
+  function confirmLoad(action, onCancel) {
+    if (engine.running) {
+      setAppDialog({
+        type: 'confirm',
+        title: 'Simulator Running',
+        message: 'The simulator is currently running. Loading new code will stop execution and reset the CPU state. Proceed?',
+        confirmText: 'Yes, load',
+        onConfirm: () => { if (engine.running) engine.handleRun(); action() },
+        onCancel: onCancel
+      })
+    } else {
+      action()
+    }
+  }
+
+  function handleReset() { if (!engine.running) engine.doAssemble(srcRef.current) }
   
   function openConditionDialog(addr) {
     if (!engine.bps.has(addr)) return
@@ -321,18 +361,19 @@ export default function App() {
         srcRef.current = file.content; setSrc(file.content); engine.doAssemble(file.content)
         setFileName(file.filename); localStorage.setItem('sim8085_filename', file.filename)
         engine.setMsg(`✓ Loaded ${file.filename} from GitHub Gist`)
+        setReadOnlySource('GitHub Gist')
         handleSetView('simulator')
       } catch(e) { engine.setMsg(`✗ Error loading GitHub Gist: ${e.message}`) }
     }
 
     if (typeof presetId === 'string') {
-      load(presetId)
+      confirmLoad(() => load(presetId))
     } else {
       setAppDialog({
         type: 'prompt',
         title: 'Load Gist',
         message: 'Enter a GitHub Gist ID or URL:',
-        onConfirm: (input) => { if (input) load(input) }
+        onConfirm: (input) => { if (input) confirmLoad(() => load(input)) }
       })
     }
   }
@@ -377,6 +418,7 @@ export default function App() {
         engine.setInputPresets([])
         
         engine.doAssemble(blank)
+        setReadOnlySource(null)
         engine.setMsg('✓ Created new file (clean slate)')
       }
     })
@@ -385,64 +427,71 @@ export default function App() {
   function importFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
-    setActiveChallenge(null)
-    const ext = file.name.split('.').pop().toLowerCase()
+    const target = e.target
 
-    if (ext === 'hex') {
-      const reader = new FileReader()
-      reader.onload = ev => {
-        try {
-          const bytes = parseIntelHex(ev.target.result)
-          sim.simInit()
-          for (const [addr, val] of bytes) sim.simWriteByte(addr, val)
-          engine.setMsg(`✓ Loaded ${bytes.size} bytes from ${file.name}`)
-          engine.setAppState('idle'); engine.setBuildId(id => id + 1)
-          setFileName(file.name); localStorage.setItem('sim8085_filename', file.name)
-        } catch(err) { engine.setMsg(`✗ HEX parse error: ${err.message}`) }
-        e.target.value = ''
-      }
-      reader.readAsText(file)
-      return
-    }
+    const doImport = () => {
+      setActiveChallenge(null)
+      const ext = file.name.split('.').pop().toLowerCase()
 
-    if (ext === 'bin') {
-      setAppDialog({
-        type: 'prompt',
-        title: 'Load Binary',
-        message: `Enter hex start address for ${file.name}:`,
-        defaultValue: '0100',
-        onConfirm: (inputAddr) => {
-          if (!inputAddr) { e.target.value = ''; return }
-          let startAddr = parseInt(inputAddr.replace(/h$/i, ''), 16)
-          if (isNaN(startAddr) || startAddr < 0 || startAddr > 0xFFFF) {
-            startAddr = 0x100
-            setAppDialog({ type: 'alert', title: 'Invalid Address', message: 'Invalid hex address. Defaulting to 0100H.' })
-          }
-          const reader = new FileReader()
-          reader.onload = ev => {
-            const bytes = new Uint8Array(ev.target.result)
+      if (ext === 'hex') {
+        const reader = new FileReader()
+        reader.onload = ev => {
+          try {
+            const bytes = parseIntelHex(ev.target.result)
             sim.simInit()
-            bytes.forEach((b, i) => sim.simWriteByte(startAddr + i, b))
-            engine.setMsg(`✓ Loaded ${bytes.length} bytes from ${file.name} at ${hex4(startAddr)}H`)
+            for (const [addr, val] of bytes) sim.simWriteByte(addr, val)
+            engine.setMsg(`✓ Loaded ${bytes.size} bytes from ${file.name}`)
             engine.setAppState('idle'); engine.setBuildId(id => id + 1)
             setFileName(file.name); localStorage.setItem('sim8085_filename', file.name)
-            e.target.value = ''
-          }
-          reader.readAsArrayBuffer(file)
-        },
-        onCancel: () => { e.target.value = '' }
-      })
-      return
+          } catch(err) { engine.setMsg(`✗ HEX parse error: ${err.message}`) }
+          target.value = ''
+        }
+        reader.readAsText(file)
+        return
+      }
+
+      if (ext === 'bin') {
+        setAppDialog({
+          type: 'prompt',
+          title: 'Load Binary',
+          message: `Enter hex start address for ${file.name}:`,
+          defaultValue: '0100',
+          onConfirm: (inputAddr) => {
+            if (!inputAddr) { target.value = ''; return }
+            let startAddr = parseInt(inputAddr.replace(/h$/i, ''), 16)
+            if (isNaN(startAddr) || startAddr < 0 || startAddr > 0xFFFF) {
+              startAddr = 0x100
+              setAppDialog({ type: 'alert', title: 'Invalid Address', message: 'Invalid hex address. Defaulting to 0100H.' })
+            }
+            const reader = new FileReader()
+            reader.onload = ev => {
+              const bytes = new Uint8Array(ev.target.result)
+              sim.simInit()
+              bytes.forEach((b, i) => sim.simWriteByte(startAddr + i, b))
+              engine.setMsg(`✓ Loaded ${bytes.length} bytes from ${file.name} at ${hex4(startAddr)}H`)
+              engine.setAppState('idle'); engine.setBuildId(id => id + 1)
+              setFileName(file.name); localStorage.setItem('sim8085_filename', file.name)
+              target.value = ''
+            }
+            reader.readAsArrayBuffer(file)
+          },
+          onCancel: () => { target.value = '' }
+        })
+        return
+      }
+
+      const reader = new FileReader()
+      reader.onload = ev => {
+        const code = ev.target.result
+        srcRef.current = code; setSrc(code); engine.doAssemble(code)
+        setFileName(file.name); localStorage.setItem('sim8085_filename', file.name)
+      setReadOnlySource(null)
+        target.value = ''
+      }
+      reader.readAsText(file)
     }
 
-    const reader = new FileReader()
-    reader.onload = ev => {
-      const code = ev.target.result
-      srcRef.current = code; setSrc(code); engine.doAssemble(code)
-      setFileName(file.name); localStorage.setItem('sim8085_filename', file.name)
-      e.target.value = ''
-    }
-    reader.readAsText(file)
+    confirmLoad(doImport, () => { target.value = '' })
   }
 
   function parseIntelHex(text) {
@@ -476,15 +525,18 @@ export default function App() {
   }
 
   function loadExample(key) {
-    const sep  = key.indexOf('::')
-    const code = EXAMPLES[key.slice(0, sep)]?.[key.slice(sep + 2)]
-    if (!code) return
-    setActiveChallenge(null)
-    srcRef.current = code
-    setSrc(code)
-    engine.doAssemble(code)
-    const name = key.slice(sep + 2)
-    setFileName(name); localStorage.setItem('sim8085_filename', name)
+    confirmLoad(() => {
+      const sep  = key.indexOf('::')
+      const code = EXAMPLES[key.slice(0, sep)]?.[key.slice(sep + 2)]
+      if (!code) return
+      setActiveChallenge(null)
+      srcRef.current = code
+      setSrc(code)
+      engine.doAssemble(code)
+      const name = key.slice(sep + 2)
+      setFileName(name); localStorage.setItem('sim8085_filename', name)
+      setReadOnlySource('Example')
+    })
   }
 
   function formatCode() {
@@ -523,25 +575,31 @@ export default function App() {
   }
 
   function loadChallenge(c) {
-    const code = `; Challenge: ${c.title}\n; ${c.desc}\n\n${c.setup ? c.setup + '\n\n' : ''}    org 100H\n    kickoff 100H\n\n    ; --- YOUR CODE GOES HERE ---\n    ; (Delete the NOP and write your solution)\n    nop\n\n    hlt\n`
-    srcRef.current = code
-    setSrc(code)
-    engine.doAssemble(code)
-    setFileName(c.title + '.asm')
-    localStorage.setItem('sim8085_filename', c.title + '.asm')
-    setActiveChallenge(c)
-    handleSetView('simulator')
+    confirmLoad(() => {
+      const code = `; Challenge: ${c.title}\n; ${c.desc}\n\n${c.setup ? c.setup + '\n\n' : ''}    org 100H\n    kickoff 100H\n\n    ; --- YOUR CODE GOES HERE ---\n    ; (Delete the NOP and write your solution)\n    nop\n\n    hlt\n`
+      srcRef.current = code
+      setSrc(code)
+      engine.doAssemble(code)
+      setFileName(c.title + '.asm')
+      localStorage.setItem('sim8085_filename', c.title + '.asm')
+      setActiveChallenge(c)
+      setReadOnlySource('Challenge')
+      handleSetView('simulator')
+    })
   }
 
   function loadSolution(c) {
-    const code = `; Solution: ${c.title}\n; ${c.desc}\n\n${c.setup ? c.setup + '\n\n' : ''}    org 100H\n    kickoff 100H\n\n; ── SOLUTION STARTS HERE ────────────────────────────\n${c.solution}\n; ── SOLUTION ENDS HERE ──────────────────────────────\n\n    hlt\n`
-    srcRef.current = code
-    setSrc(code)
-    engine.doAssemble(code)
-    setFileName(c.title + ' - Solution.asm')
-    localStorage.setItem('sim8085_filename', c.title + ' - Solution.asm')
-    setActiveChallenge(c)
-    handleSetView('simulator')
+    confirmLoad(() => {
+      const code = `; Solution: ${c.title}\n; ${c.desc}\n\n${c.setup ? c.setup + '\n\n' : ''}    org 100H\n    kickoff 100H\n\n; ── SOLUTION STARTS HERE ────────────────────────────\n${c.solution}\n; ── SOLUTION ENDS HERE ──────────────────────────────\n\n    hlt\n`
+      srcRef.current = code
+      setSrc(code)
+      engine.doAssemble(code)
+      setFileName(c.title + ' - Solution.asm')
+      localStorage.setItem('sim8085_filename', c.title + ' - Solution.asm')
+      setActiveChallenge(c)
+      setReadOnlySource('Solution')
+      handleSetView('simulator')
+    })
   }
 
   function onBrewCoffee() {
@@ -565,7 +623,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    const isRetro = ['amber-mono', 'gray-crt', 'green', 'turbo-c', 'cp437'].includes(theme)
+    const isRetro = RETRO_THEMES.includes(theme)
     if (!isRetro || crtGlitch !== 'chaos') { setChaosCalm(false); return }
     let id
     const tick = (calm) => { id = setTimeout(() => { setChaosCalm(!calm); tick(!calm) }, calm ? 1000 : 4000) }
@@ -574,7 +632,7 @@ export default function App() {
     return () => clearTimeout(id)
   }, [theme, crtGlitch])
 
-  const isRetroTheme = ['amber-mono', 'gray-crt', 'green', 'blue-crt', 'plasma', 'turbo-c', 'cp437'].includes(theme)
+  const isRetroTheme = RETRO_THEMES.includes(theme)
 
   const simCtxValue = useMemo(
     () => ({ regBase, onRegBase: setRegBase, onEdit: engine.refresh, onShowDialog: setAppDialog }),
@@ -583,7 +641,7 @@ export default function App() {
 
   return (
     <SimulatorContext.Provider value={simCtxValue}>
-    <div className={`app${isRetroTheme && crtGlitch !== 'off' ? ` crt-glitch-${crtGlitch}` : ''}`} style={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}>
+    <div className={`app${isRetroTheme && crtGlitch !== 'off' ? ` crt-glitch-${crtGlitch}` : ''}${isRetroTheme && !crtVignette ? ' crt-no-vignette' : ''}`} style={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}>
       {isRetroTheme && crtGlitch === 'chaos' && chaosCalm && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 99999, pointerEvents: 'none',
           background: 'repeating-linear-gradient(90deg, rgba(255,0,0,.35) 0px, rgba(255,0,0,.35) 1px, rgba(0,255,0,.28) 1px, rgba(0,255,0,.28) 2px, rgba(0,0,255,.35) 2px, rgba(0,0,255,.35) 3px, transparent 3px, transparent 4px)'
@@ -618,6 +676,7 @@ export default function App() {
             crtBrightness={crtBrightness} onCrtBrightness={v => { setCrtBrightness(v); localStorage.setItem(`sim8085_crt_b_${theme}`, v) }}
             crtContrast={crtContrast} onCrtContrast={v => { setCrtContrast(v); localStorage.setItem(`sim8085_crt_c_${theme}`, v) }}
             crtGlitch={crtGlitch} onCrtGlitch={() => { const modes = ['off','flicker','static','vsync','hsync','chroma','chaos']; const next = modes[(modes.indexOf(crtGlitch) + 1) % modes.length]; setCrtGlitch(next); localStorage.setItem('sim8085_crt_glitch', next) }}
+            crtVignette={crtVignette} onCrtVignette={v => { setCrtVignette(v); localStorage.setItem('sim8085_crt_vignette', String(v)) }}
             onManageGithub={() => setShowGithubSetup(true)}
             panels={panels} onTogglePanel={togglePanel}
             activeView={activeView} onSetView={handleSetView}
@@ -657,7 +716,7 @@ export default function App() {
           fileInputRef={fileInputRef}
           onImportFile={importFile}
           isDirty={engine.isDirty}
-          onBuild={() => engine.doAssemble(srcRef.current)}
+          onBuild={handleBuild}
           running={engine.running}
           appState={engine.appState}
           onStep={engine.doStep}
@@ -690,6 +749,7 @@ export default function App() {
             setHelpInst={setHelpInst}
             formatCode={formatCode}
             openConditionDialog={openConditionDialog}
+            readOnlySource={readOnlySource}
           />
         </div>
 
@@ -728,6 +788,7 @@ export default function App() {
         </div>
         <div className="statusbar-counters">
           {engine.isDirty && <><span className="sbar-counter" style={{ color: 'var(--amber)', fontWeight: 600 }}>• editor out of sync</span><span className="sbar-sep">·</span></>}
+          {engine.running && SPEEDS[runSpeed].warp && <><span className="sbar-counter" style={{ color: 'var(--accent)', fontWeight: 600 }} title="UI is updating once per second to maximize throughput">⚡ UI Throttled</span><span className="sbar-sep">·</span></>}
           <span className="sbar-counter sc-steps" title={`${engine.steps.toLocaleString()} instructions executed`}>{fmtCount(engine.steps)} steps</span>
           <span className="sbar-sep">·</span>
           <span className="sbar-counter sc-cycles" title={`${engine.cycles.toLocaleString()} T-states elapsed`}>{fmtCount(engine.cycles)} T</span>
@@ -744,7 +805,7 @@ export default function App() {
 
       {showChat && <ChatPanel regs={engine.regs} src={src} onClose={() => setShowChat(false)} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
-      {driveFiles !== null && <DriveLoadModal files={driveFiles} loading={driveLoading} onClose={() => setDriveFiles(null)} onSelect={fetchDriveFile} onDelete={deleteDriveFile} />}
+      {driveFiles !== null && <DriveLoadModal files={driveFiles} loading={driveLoading} onClose={() => setDriveFiles(null)} onSelect={(id, name) => confirmLoad(() => { setReadOnlySource(null); fetchDriveFile(id, name) })} onDelete={deleteDriveFile} />}
       {showGithubSetup && <GithubSetupModal onClose={() => setShowGithubSetup(false)} onSave={() => engine.setMsg('✓ GitHub token saved.')} />}
       {challengeResult && (
         <div className="help-overlay" onClick={() => setChallengeResult(null)}>
