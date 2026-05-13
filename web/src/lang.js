@@ -9,7 +9,8 @@ const ASM8085_MNEMONICS = new Set([
   'XCHG','XRA','XRI','XTHL',
 ])
 const ASM8085_REGS      = new Set(['A','B','C','D','E','H','L','M','SP','PSW'])
-const ASM8085_DIRECTIVES = new Set(['ORG','EQU','DB','DW','DS','END','IF','ENDIF','MACRO','ENDM','SET'])
+const ASM8085_DIRECTIVES = new Set(['ORG','EQU','END','IF','ENDIF','MACRO','ENDM','SET'])
+const ASM8085_DATA       = new Set(['DB','DW','DS'])
 const ASM8085_PSEUDO    = new Set(['KICKOFF','ASSERT','SETBYTE','SETWORD'])
 
 export const asm8085Lang = StreamLanguage.define({
@@ -26,6 +27,7 @@ export const asm8085Lang = StreamLanguage.define({
       if (ASM8085_MNEMONICS.has(word))  return 'keyword'
       if (ASM8085_REGS.has(word))       return 'atom'
       if (ASM8085_DIRECTIVES.has(word)) return 'meta'
+      if (ASM8085_DATA.has(word))       return 'type'
       if (ASM8085_PSEUDO.has(word))     return 'variable-2'
       return 'variableName'
     }
@@ -42,6 +44,7 @@ const asm8085HighlightStyle = HighlightStyle.define([
   { tag: hTags.comment,             color: 'var(--syn-comment)', fontStyle: 'italic' },
   { tag: hTags.labelName,           color: 'var(--syn-label)' },
   { tag: hTags.meta,                color: 'var(--syn-directive)' },
+  { tag: hTags.typeName,            color: 'var(--syn-data)', fontWeight: '600' },
   { tag: hTags.variableName,        color: 'var(--text)' },
   { tag: hTags.special(hTags.variableName), color: 'var(--syn-pseudo)', fontWeight: '600' },
 ])

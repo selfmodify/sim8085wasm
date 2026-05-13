@@ -25,6 +25,7 @@
   --syn-comment:   #8898b8;
   --syn-label:     #4060cc;
   --syn-directive: #7030a0;
+  --syn-data:      #008080;
   --syn-pseudo:    #cc2020;
   --tint-accent:      rgba(10, 122, 80, .06);
   --tint-accent-hi:   rgba(10, 122, 80, .12);
@@ -65,6 +66,7 @@
   --syn-comment:   #5c6370;
   --syn-label:     #61afef;
   --syn-directive: #56b6c2;
+  --syn-data:      #d19a66;
   --syn-pseudo:    #e06c75;
   --tint-accent:      rgba(152, 195, 121, .08);
   --tint-accent-hi:   rgba(152, 195, 121, .15);
@@ -105,6 +107,7 @@
   --syn-comment:   #6a4a10;
   --syn-label:     #ffd060;
   --syn-directive: #ffaa44;
+  --syn-data:      #ffb000;
   --syn-pseudo:    #ff5522;
   --tint-accent:      rgba(255, 176,   0, .07);
   --tint-accent-hi:   rgba(255, 176,   0, .14);
@@ -145,6 +148,7 @@
   --syn-comment:   #484848;
   --syn-label:     #cccccc;
   --syn-directive: #909090;
+  --syn-data:      #d8d8d8;
   --syn-pseudo:    #ff8080;
   --tint-accent:      rgba(216, 216, 216, .06);
   --tint-accent-hi:   rgba(216, 216, 216, .12);
@@ -185,6 +189,7 @@
   --syn-comment:   #1e6030;
   --syn-label:     #60ffc0;
   --syn-directive: #38dd80;
+  --syn-data:      #00ff41;
   --syn-pseudo:    #ff6060;
   --tint-accent:      rgba(  0, 255,  65, .06);
   --tint-accent-hi:   rgba(  0, 255,  65, .13);
@@ -225,6 +230,7 @@
   --syn-comment:   #aaaaaa;
   --syn-label:     #ffff55;
   --syn-directive: #ff55ff;
+  --syn-data:      #55ff55;
   --syn-pseudo:    #ff5555;
   --tint-accent:      rgba(255, 255, 85, .15);
   --tint-accent-hi:   rgba(255, 255, 85, .25);
@@ -265,6 +271,7 @@
   --syn-comment:   #555555;
   --syn-label:     #ffffff;
   --syn-directive: #aaaaaa;
+  --syn-data:      #ffffff;
   --syn-pseudo:    #ffffff;
   --tint-accent:      rgba(255, 255, 255, .15);
   --tint-accent-hi:   rgba(255, 255, 255, .25);
@@ -310,6 +317,7 @@
   --syn-comment:   #6272a4;
   --syn-label:     #8be9fd;
   --syn-directive: #ff79c6;
+  --syn-data:      #8be9fd;
   --syn-pseudo:    #ff5555;
   --tint-accent:      rgba(80, 250, 123, .08);
   --tint-accent-hi:   rgba(80, 250, 123, .16);
@@ -391,6 +399,7 @@
   --syn-comment:   #4a5470;
   --syn-label:     #82aaff;
   --syn-directive: #c792ea;
+  --syn-data:      #80cbc4;
   --syn-pseudo:    #ff6b6b;
 
   /* Tinted state backgrounds */
