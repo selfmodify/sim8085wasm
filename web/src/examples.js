@@ -1253,17 +1253,6 @@ skip:
 
   'Sorting': {
     'Bubble Sort': `; Bubble sort — sorts 10 values at 251H..25AH into ascending order.
-    setbyte 251H, 34H
-    setbyte 252H, 30H
-    setbyte 253H, 26H
-    setbyte 254H, 23H
-    setbyte 255H, 20H
-    setbyte 256H, 17H
-    setbyte 257H, 14H
-    setbyte 258H, 10H
-    setbyte 259H, 07H
-    setbyte 25AH, 03H
-
     org 100H
     kickoff 100H
     mvi  b, 09H
@@ -1285,7 +1274,12 @@ next:
     jnz  inner
     dcr  b
     jnz  outer
-    hlt`,
+    hlt
+
+; --- Data Section ---
+    org 251H
+array_data:
+    db 34H, 30H, 26H, 23H, 20H, 17H, 14H, 10H, 07H, 03H`,
 
     'Selection Sort': `; Selection sort — finds the minimum and places it at the front.
 ; Sorts 8 bytes at 200H..207H into ascending order.
@@ -1456,12 +1450,6 @@ xloop:
 ; "Hello" has 5 characters → 210H = 05H.
     org 100H
     kickoff 100H
-    setbyte 200H, 48H   ; 'H'
-    setbyte 201H, 65H   ; 'e'
-    setbyte 202H, 6CH   ; 'l'
-    setbyte 203H, 6CH   ; 'l'
-    setbyte 204H, 6FH   ; 'o'
-    setbyte 205H, 00H   ; null terminator
     lxi  h, 200H
     mvi  b, 00H         ; B = length counter
 scan:
@@ -1474,20 +1462,18 @@ scan:
 done:
     mov  a, b
     sta  210H           ; store length = 05H
-    hlt`,
+    hlt
+
+; --- Data Section ---
+    org 200H
+string:
+    db "Hello", 00H`,
 
     'Uppercase': `; Convert all lowercase letters in a string to uppercase.
 ; Works in-place.  Non-letter bytes are left unchanged.
 ; ASCII 'a'..'z' = 61H..7AH → subtract 20H → 'A'..'Z' = 41H..5AH.
     org 100H
     kickoff 100H
-    setbyte 200H, 48H   ; 'H'  (already upper — left alone)
-    setbyte 201H, 65H   ; 'e'  → 'E'
-    setbyte 202H, 6CH   ; 'l'  → 'L'
-    setbyte 203H, 6CH   ; 'l'  → 'L'
-    setbyte 204H, 6FH   ; 'o'  → 'O'
-    setbyte 205H, 21H   ; '!'  (not a letter — left alone)
-    setbyte 206H, 00H   ; null terminator
     lxi  h, 200H
 loop:
     mov  a, m
@@ -1503,19 +1489,18 @@ next:
     inx  h
     jmp  loop
 done:
-    hlt`,
+    hlt
+
+; --- Data Section ---
+    org 200H
+string:
+    db "Hello!", 00H`,
 
     'Reverse': `; Reverse a null-terminated string in-place.
 ; DE = left pointer,  HL = right pointer,  B = char temp,  C = swap count.
 ; "Hello" (5 chars) → "olleH".
     org 100H
     kickoff 100H
-    setbyte 200H, 48H   ; 'H'
-    setbyte 201H, 65H   ; 'e'
-    setbyte 202H, 6CH   ; 'l'
-    setbyte 203H, 6CH   ; 'l'
-    setbyte 204H, 6FH   ; 'o'
-    setbyte 205H, 00H   ; null terminator
     lxi  d, 200H        ; DE = left pointer (fixed start)
     lxi  h, 200H        ; HL = scan to find end
     mvi  c, 00H         ; C = length counter
@@ -1547,7 +1532,72 @@ swap:
     dcr  c
     jnz  swap
 done:
-    hlt`,
+    hlt
+
+; --- Data Section ---
+    org 200H
+string:
+    db "Hello", 00H`,
+
+    'Compare': `; Compare two strings.
+; Sets 'result' (210H) to 01H if equal, 00H if not.
+    org 100H
+    kickoff 100H
+    lxi h, str1
+    lxi d, str2
+    
+comp_loop:
+    ldax d           ; Load char from str2
+    cmp m            ; Compare with char from str1
+    jnz not_equal
+    cpi 00H          ; Are we at the null terminator?
+    jz equal         ; If both are null and equal, the strings match
+    inx h
+    inx d
+    jmp comp_loop
+    
+not_equal:
+    mvi a, 00H
+    jmp done
+    
+equal:
+    mvi a, 01H
+    
+done:
+    sta 210H         ; Store the result
+    hlt
+
+; --- Data Section ---
+    org 200H
+str1:
+    db "sim8085", 00H
+str2:
+    db "sim8085", 00H`,
+
+    'Copy': `; Copy a null-terminated string to a new memory location.
+    org 100H
+    kickoff 100H
+    lxi h, source
+    lxi d, dest
+    
+copy_loop:
+    mov a, m         ; Load character from source
+    stax d           ; Store character to destination
+    cpi 00H          ; Check for null terminator
+    jz done          ; If null, we're done
+    inx h            ; Advance source pointer
+    inx d            ; Advance destination pointer
+    jmp copy_loop
+    
+done:
+    hlt
+
+; --- Data Section ---
+    org 200H
+source:
+    db "copy test", 00H
+dest:
+    ds 20            ; Reserve 20 bytes for the copy`,
   },
 
   'I/O': {
@@ -1586,21 +1636,10 @@ loop:
 done:
     hlt
 
-; String data placed directly in RAM via SETBYTE
-    setbyte 120H, 48H  ; H
-    setbyte 121H, 65H  ; e
-    setbyte 122H, 6CH  ; l
-    setbyte 123H, 6CH  ; l
-    setbyte 124H, 6FH  ; o
-    setbyte 125H, 2CH  ; ,
-    setbyte 126H, 20H  ; (space)
-    setbyte 127H, 38H  ; 8
-    setbyte 128H, 30H  ; 0
-    setbyte 129H, 38H  ; 8
-    setbyte 12AH, 35H  ; 5
-    setbyte 12BH, 21H  ; !
-    setbyte 12CH, 0AH  ; newline
-    setbyte 12DH, 00H  ; null terminator`,
+; --- Data Section ---
+    org 120H
+message:
+    db "Hello, 8085!", 0AH, 00H`,
 
     'Keyboard Read': `; Read characters queued in the Keyboard panel (syscall C=01H).
 ; Type some text in the I/O PORTS → KEYBOARD section, then Run.
