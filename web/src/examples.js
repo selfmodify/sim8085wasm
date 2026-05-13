@@ -1332,11 +1332,11 @@ done:
   },
 
   'Algorithms': {
-    'Fibonacci': `; Fibonacci sequence — stores 16 values starting at 200H.
+    'Fibonacci': `; Fibonacci sequence — stores 16 values starting at 'fib_seq'.
 ; F(0)=0, F(1)=1, F(2)=1, F(3)=2 … F(15)=62H (wraps at 256)
     org 100H
     kickoff 100H
-    lxi  h, 200H
+    lxi  h, fib_seq
     mvi  a, 00H
     mov  m, a           ; F(0) = 0
     inx  h
@@ -1352,14 +1352,18 @@ fib:
     mov  m, a
     dcr  b
     jnz  fib
-    hlt`,
+    hlt
+
+; --- Data Section ---
+    org 200H
+fib_seq:
+    ds 16               ; Reserve 16 bytes for the sequence`,
 
     'Factorial': `; Compute N! using repeated multiplication (repeated addition).
-; N stored at 200H.  Result at 201H.  Valid for N <= 5 (5! = 120).
+; N stored at 'n_val' (200H). Result at 'result' (201H). Valid for N <= 5.
     org 100H
     kickoff 100H
-    setbyte 200H, 05H   ; N = 5  →  5! = 120 = 78H
-    lda 200H
+    lda n_val
     mov b, a            ; B = current factor (counts down N..1)
     mvi a, 01H          ; A = running result = 1
 loop:
@@ -1372,18 +1376,23 @@ mul:
     jnz mul
     dcr b               ; next factor
     jnz loop
-    sta 201H            ; store result
-    hlt`,
+    sta result          ; store result
+    hlt
+
+; --- Data Section ---
+    org 200H
+n_val:
+    db 05H              ; N = 5  →  5! = 120 = 78H
+result:
+    ds 1                ; Reserve 1 byte for result`,
 
     'GCD': `; Greatest common divisor — Euclid's subtraction algorithm.
-; GCD(mem[200H], mem[201H]) stored at 202H.
+; GCD(val1, val2) stored at 'result'.
     org 100H
     kickoff 100H
-    setbyte 200H, 30H   ; 48
-    setbyte 201H, 14H   ; 20   GCD = 4
-    lda 200H
+    lda val1
     mov b, a            ; B = first value
-    lda 201H
+    lda val2
     mov c, a            ; C = second value
 gcd:
     mov a, b
@@ -1400,14 +1409,23 @@ b_lt:
     jmp gcd
 done:
     mov a, b
-    sta 202H
-    hlt`,
+    sta result
+    hlt
+
+; --- Data Section ---
+    org 200H
+val1:
+    db 30H              ; 48
+val2:
+    db 14H              ; 20   GCD = 4
+result:
+    ds 1                ; Reserve 1 byte for the result`,
 
     'Delay Loop': `; Software delay using a nested counter loop.
 ; Inner body: DCX D (6) + MOV A,D (4) + ORA E (4) + JNZ (10) = 24 T-states.
 ; Total ≈ outer × inner × 24 T-states.  At 3 MHz: 10×100×24 ≈ 80 μs.
 ; Tune B (outer) and DE (inner) for longer or shorter delays.
-; Writes FFH to 200H when complete — check it in the Memory panel.
+; Writes FFH to 'flag_done' when complete.
     org 100H
     kickoff 100H
     mvi b, 0AH          ; outer loop count = 10
@@ -1421,18 +1439,18 @@ inner:
     dcr b
     jnz outer
     mvi a, 0FFH
-    sta 200H            ; signal completion
-    hlt`,
+    sta flag_done       ; signal completion
+    hlt
 
-    'Checksum': `; XOR checksum of a 5-byte block at 200H.  Result at 300H.
+; --- Data Section ---
+    org 200H
+flag_done:
+    ds 1                ; Reserve 1 byte for completion flag`,
+
+    'Checksum': `; XOR checksum of a 5-byte block at 'data_block'. Result at 'checksum'.
     org 100H
     kickoff 100H
-    setbyte 200H, 0AH
-    setbyte 201H, 1BH
-    setbyte 202H, 2CH
-    setbyte 203H, 3DH
-    setbyte 204H, 4EH
-    lxi h, 200H
+    lxi h, data_block
     mvi b, 05H
     mvi a, 00H
 xloop:
@@ -1440,8 +1458,17 @@ xloop:
     inx h
     dcr b
     jnz xloop
-    sta 300H            ; checksum = 0AH^1BH^2CH^3DH^4EH = 10H
-    hlt`,
+    sta checksum        ; checksum = 0AH^1BH^2CH^3DH^4EH = 10H
+    hlt
+
+; --- Data Section ---
+    org 200H
+data_block:
+    db 0AH, 1BH, 2CH, 3DH, 4EH
+    
+    org 300H
+checksum:
+    ds 1                ; Reserve 1 byte for the checksum`,
   },
 
   'Strings': {
