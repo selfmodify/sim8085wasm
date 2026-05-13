@@ -932,44 +932,58 @@ loop:
   },
 
   'Arithmetic': {
-    'Add': `; 8-bit addition: mem[200H] + mem[201H] → mem[202H]
+    'Add': `; 8-bit addition: mem[val1] + mem[val2] → mem[result]
 ; If the sum overflows 8 bits, CY flag is set.
     org 100H
     kickoff 100H
-    setbyte 200H, 3CH   ; 60
-    setbyte 201H, 2AH   ; 42  (sum = 102 = 66H)
-    lda 200H
+    lda val1
     mov b, a
-    lda 201H
+    lda val2
     add b               ; A = sum,  CY set on overflow
-    sta 202H
+    sta result
     mvi a, 00H
     adc a               ; A = carry (0 or 1)
-    sta 203H
-    hlt`,
+    sta carry_res
+    hlt
 
-    'Subtract': `; 8-bit subtraction: mem[200H] - mem[201H] → mem[202H]
+; --- Data Section ---
+    org 200H
+val1:
+    db 3CH              ; 60
+val2:
+    db 2AH              ; 42  (sum = 102 = 66H)
+result:
+    ds 1
+carry_res:
+    ds 1`,
+
+    'Subtract': `; 8-bit subtraction: mem[minuend] - mem[subtrahend] → mem[result]
 ; CY=1 after SUB means borrow (result negative).
     org 100H
     kickoff 100H
-    setbyte 200H, 5AH   ; 90  (minuend)
-    setbyte 201H, 1EH   ; 30  (subtrahend)  result = 60 = 3CH
-    lda 201H
+    lda subtrahend
     mov b, a            ; B = subtrahend
-    lda 200H
+    lda minuend
     sub b               ; A = minuend - subtrahend
-    sta 202H
-    hlt`,
+    sta result
+    hlt
 
-    'Multiply': `; 8-bit multiply via repeated addition (result is 16-bit)
-; mem[200H] x mem[201H] → mem[202H](lo), mem[203H](hi)
+; --- Data Section ---
+    org 200H
+minuend:
+    db 5AH              ; 90
+subtrahend:
+    db 1EH              ; 30  (result = 60 = 3CH)
+result:
+    ds 1`,
+
+    'Multiply': `; 8-bit multiply via repeated addition
+; mem[multiplicand] x mem[multiplier] → mem[result] (16-bit)
     org 100H
     kickoff 100H
-    setbyte 200H, 0CH   ; multiplicand = 12
-    setbyte 201H, 0AH   ; multiplier   = 10  (product = 120 = 78H)
-    lda 200H
+    lda multiplicand
     mov b, a            ; B = multiplicand
-    lda 201H
+    lda multiplier
     mov c, a            ; C = multiplier (loop count)
     lxi h, 0000H        ; HL = running product
     mov a, c
@@ -985,18 +999,25 @@ mul:
     dcr c
     jnz mul
 done:
-    shld 202H           ; store 16-bit result (lo at 202H, hi at 203H)
-    hlt`,
+    shld result         ; store 16-bit result (lo, then hi)
+    hlt
 
-    'Divide': `; 8-bit divide: mem[200H] / mem[201H]
-; Quotient → mem[202H],  Remainder → mem[203H]
+; --- Data Section ---
+    org 200H
+multiplicand:
+    db 0CH              ; 12
+multiplier:
+    db 0AH              ; 10  (product = 120 = 78H)
+result:
+    ds 2                ; 16-bit result`,
+
+    'Divide': `; 8-bit divide: mem[dividend] / mem[divisor]
+; Quotient → mem[quotient],  Remainder → mem[remainder]
     org 100H
     kickoff 100H
-    setbyte 200H, 64H   ; dividend  = 100
-    setbyte 201H, 07H   ; divisor   =   7  (quotient=14, remainder=2)
-    lda 201H
+    lda divisor
     mov c, a            ; C = divisor
-    lda 200H
+    lda dividend
     mov b, a            ; B = working dividend
     mvi d, 00H          ; D = quotient
 div:
@@ -1008,24 +1029,42 @@ div:
     jmp div
 done:
     mov a, d
-    sta 202H            ; quotient
+    sta quotient        ; quotient
     mov a, b
-    sta 203H            ; remainder
-    hlt`,
+    sta remainder       ; remainder
+    hlt
+
+; --- Data Section ---
+    org 200H
+dividend:
+    db 64H              ; 100
+divisor:
+    db 07H              ; 7  (quotient=14, remainder=2)
+quotient:
+    ds 1
+remainder:
+    ds 1`,
 
     '16-bit Add': `; Add two 16-bit values using DAD (HL = HL + DE).
-; Operand 1 at 200H-201H (lo-hi), operand 2 at 202H-203H.
-; 16-bit result stored at 204H-205H.  CY = carry out.
+; Operand 1 at 'op1', operand 2 at 'op2'.
+; 16-bit result stored at 'result'. CY = carry out.
     org 100H
     kickoff 100H
-    setword 200H, 12A4H ; first  operand = 12A4H (4772)
-    setword 202H, 0E73H ; second operand = 0E73H (3699)
-    lhld 200H           ; HL = first operand
+    lhld op1            ; HL = first operand
     xchg                ; DE = first operand
-    lhld 202H           ; HL = second operand
-    dad d               ; HL = HL + DE  (result = 2117H = 8471)
-    shld 204H           ; store result
-    hlt`,
+    lhld op2            ; HL = second operand
+    dad d               ; HL = HL + DE
+    shld result         ; store result
+    hlt
+
+; --- Data Section ---
+    org 200H
+op1:
+    dw 12A4H            ; first operand = 12A4H (4772)
+op2:
+    dw 0E73H            ; second operand = 0E73H (3699)
+result:
+    ds 2                ; (sum = 2117H = 8471)`,
 
     'BCD Add': `; BCD (packed) addition using DAA.
 ; Two BCD digits in A and B are added and adjusted.
@@ -1036,66 +1075,87 @@ done:
     mvi b, 35H          ; BCD 35 (= decimal 35)
     add b               ; binary sum = 7CH (wrong for BCD)
     daa                 ; adjust → A = 82H (BCD 82 = decimal 82)
-    sta 200H
-    hlt`,
+    sta result
+    hlt
+
+; --- Data Section ---
+    org 200H
+result:
+    ds 1`,
 
     'BCD Counter': `; Count from BCD 00 to BCD 99 using DAA.
 ; Each pass: binary +1 then DAA corrects to valid packed BCD.
-; Watch 200H in the Memory panel to see the value tick.
+; Watch 'counter' (200H) in the Memory panel to see the value tick.
 ; CY=1 from DAA means the count wrapped past 99 → done.
     org 100H
     kickoff 100H
     mvi a, 00H
 loop:
-    sta 200H            ; store current BCD value
+    sta counter         ; store current BCD value
     adi 01H             ; binary +1
     daa                 ; adjust to packed BCD (tens in upper nibble)
     jnc loop            ; CY=0: still 00..99 → continue
-    hlt                 ; CY=1: overflowed past 99 → done`,
+    hlt                 ; CY=1: overflowed past 99 → done
+
+; --- Data Section ---
+    org 200H
+counter:
+    ds 1`,
 
     '32-bit Add': `; Add two 32-bit little-endian numbers using ADC carry chain.
-; A at 200H..203H (lo→hi),  B at 204H..207H,  sum at 208H..20CH.
+; A at 'val_a', B at 'val_b', sum at 'result'.
 ; Values chosen so carry ripples through all three low bytes:
 ;   A = 00FFFFFFh  +  B = 00000001h  =  01000000h
     org 100H
     kickoff 100H
-    setbyte 200H, 0FFH  ; A byte 0 (LSB)
-    setbyte 201H, 0FFH  ; A byte 1
-    setbyte 202H, 0FFH  ; A byte 2
-    setbyte 203H, 00H   ; A byte 3 (MSB)
-    setbyte 204H, 01H   ; B byte 0 (LSB)
-    setbyte 205H, 00H
-    setbyte 206H, 00H
-    setbyte 207H, 00H   ; B byte 3 (MSB)
+    lxi h, val_a
+    lxi d, val_b
+    lxi b, result
 
-    lda  200H           ; byte 0: plain ADD (no carry-in)
-    mov  b, a
-    lda  204H
-    add  b
-    sta  208H
+    ; byte 0: plain ADD (no carry-in)
+    ldax d
+    add m
+    stax b
 
-    lda  201H           ; byte 1: ADC carries forward
-    mov  b, a
-    lda  205H
-    adc  b
-    sta  209H
+    ; byte 1: ADC carries forward
+    inx h
+    inx d
+    inx b
+    ldax d
+    adc m
+    stax b
 
-    lda  202H           ; byte 2
-    mov  b, a
-    lda  206H
-    adc  b
-    sta  20AH
+    ; byte 2
+    inx h
+    inx d
+    inx b
+    ldax d
+    adc m
+    stax b
 
-    lda  203H           ; byte 3
-    mov  b, a
-    lda  207H
-    adc  b
-    sta  20BH
+    ; byte 3
+    inx h
+    inx d
+    inx b
+    ldax d
+    adc m
+    stax b
 
-    mvi  a, 00H
-    adc  a              ; carry out into byte 4
-    sta  20CH
-    hlt`,
+    ; carry out into byte 4
+    inx b
+    mvi a, 00H
+    adc a
+    stax b
+    hlt
+
+; --- Data Section ---
+    org 200H
+val_a:
+    db 0FFH, 0FFH, 0FFH, 00H  ; A = 00FFFFFFh
+val_b:
+    db 01H, 00H, 00H, 00H     ; B = 00000001h
+result:
+    ds 5                      ; 32-bit sum + 1 byte for final carry`,
   },
 
   'Logic': {
@@ -1104,75 +1164,90 @@ loop:
 ; AND → A0H   OR → FAH   XOR → 5AH
     org 100H
     kickoff 100H
-    setbyte 200H, 0F0H
-    setbyte 201H, 0AAH
-    lda 200H
+    lda val1
     mov b, a
-    lda 201H
+    lda val2
     ana b               ; AND: F0 & AA = A0H
-    sta 202H
-    lda 200H
+    sta res_and
+    lda val1
     mov b, a
-    lda 201H
+    lda val2
     ora b               ; OR:  F0 | AA = FAH
-    sta 203H
-    lda 200H
+    sta res_or
+    lda val1
     mov b, a
-    lda 201H
+    lda val2
     xra b               ; XOR: F0 ^ AA = 5AH
-    sta 204H
-    hlt`,
+    sta res_xor
+    hlt
 
-    'Bit Test': `; Test whether bit 3 of mem[200H] is set.
-; Result at 201H: 01H = bit set,  00H = bit clear.
+; --- Data Section ---
+    org 200H
+val1:
+    db 0F0H
+val2:
+    db 0AAH
+res_and:
+    ds 1
+res_or:
+    ds 1
+res_xor:
+    ds 1`,
+
+    'Bit Test': `; Test whether bit 3 of 'value' is set.
+; Result at 'result': 01H = bit set,  00H = bit clear.
     org 100H
     kickoff 100H
-    setbyte 200H, 2CH   ; 0010 1100 — bit 3 is 1
-    lda 200H
+    lda value
     ani 08H             ; mask bit 3  (08H = 0000 1000)
     jz  clear
     mvi a, 01H          ; bit was set
-    sta 201H
+    sta result
     hlt
 clear:
     mvi a, 00H          ; bit was clear
-    sta 201H
-    hlt`,
+    sta result
+    hlt
+
+; --- Data Section ---
+    org 200H
+value:
+    db 2CH              ; 0010 1100 — bit 3 is 1
+result:
+    ds 1`,
 
     'Complement & Rotate': `; Show CMA (bitwise NOT) and RLC/RRC rotations.
     org 100H
     kickoff 100H
     mvi a, 0F0H         ; A = 1111 0000
     cma                 ; A = ~A = 0000 1111 = 0FH
-    sta 200H
+    sta res_cma
     mvi a, 01H          ; A = 0000 0001
     rlc                 ; A = 0000 0010  CY=0
     rlc                 ; A = 0000 0100
     rlc                 ; A = 0000 1000
     rlc                 ; A = 0001 0000 = 10H
-    sta 201H
+    sta res_rlc
     mvi a, 80H          ; A = 1000 0000
     rrc                 ; A = 0100 0000  CY=0
     rrc                 ; A = 0010 0000
     rrc                 ; A = 0001 0000 = 10H
-    sta 202H
-    hlt`,
+    sta res_rrc
+    hlt
+
+; --- Data Section ---
+    org 200H
+res_cma: ds 1
+res_rlc: ds 1
+res_rrc: ds 1`,
   },
 
   'Memory': {
-    'Block Move': `; Copy 8 bytes from source (200H) to destination (300H).
+    'Block Move': `; Copy 8 bytes from 'source' to 'dest'.
     org 100H
     kickoff 100H
-    setbyte 200H, 11H
-    setbyte 201H, 22H
-    setbyte 202H, 33H
-    setbyte 203H, 44H
-    setbyte 204H, 55H
-    setbyte 205H, 66H
-    setbyte 206H, 77H
-    setbyte 207H, 88H
-    lxi h, 200H         ; HL = source
-    lxi d, 300H         ; DE = destination
+    lxi h, source       ; HL = source
+    lxi d, dest         ; DE = destination
     mvi c, 08H          ; C  = byte count
 copy:
     mov a, m            ; A = mem[HL]
@@ -1181,12 +1256,19 @@ copy:
     inx d
     dcr c
     jnz copy
-    hlt`,
+    hlt
 
-    'Memory Fill': `; Fill 16 bytes starting at 200H with the value AAH.
+; --- Data Section ---
+    org 200H
+source:
+    db 11H, 22H, 33H, 44H, 55H, 66H, 77H, 88H
+dest:
+    ds 8`,
+
+    'Memory Fill': `; Fill 16 bytes starting at 'buffer' with the value AAH.
     org 100H
     kickoff 100H
-    lxi h, 200H         ; start address
+    lxi h, buffer       ; start address
     mvi b, 10H          ; count = 16
     mvi a, 0AAH         ; fill value
 fill:
@@ -1194,21 +1276,18 @@ fill:
     inx h
     dcr b
     jnz fill
-    hlt`,
+    hlt
 
-    'Find Maximum': `; Find the largest byte in an 8-element array at 200H.
-; Result stored at 210H.
+; --- Data Section ---
+    org 200H
+buffer:
+    ds 16               ; Reserve 16 bytes for the buffer`,
+
+    'Find Maximum': `; Find the largest byte in an 8-element array at 'array_data'.
+; Result stored at 'result'.
     org 100H
     kickoff 100H
-    setbyte 200H, 34H
-    setbyte 201H, 78H
-    setbyte 202H, 12H
-    setbyte 203H, 9AH
-    setbyte 204H, 56H
-    setbyte 205H, 0BH
-    setbyte 206H, 0EFH
-    setbyte 207H, 23H
-    lxi h, 200H
+    lxi h, array_data
     mvi b, 08H          ; element count
     mvi a, 00H          ; current max
 scan:
@@ -1219,22 +1298,21 @@ skip:
     inx h
     dcr b
     jnz scan
-    sta 210H            ; store result (EFH = 239)
-    hlt`,
+    sta result          ; store result (EFH = 239)
+    hlt
 
-    'Find Minimum': `; Find the smallest byte in an 8-element array at 200H.
-; Result stored at 210H.
+; --- Data Section ---
+    org 200H
+array_data:
+    db 34H, 78H, 12H, 9AH, 56H, 0BH, 0EFH, 23H
+result:
+    ds 1`,
+
+    'Find Minimum': `; Find the smallest byte in an 8-element array at 'array_data'.
+; Result stored at 'result'.
     org 100H
     kickoff 100H
-    setbyte 200H, 34H
-    setbyte 201H, 78H
-    setbyte 202H, 12H
-    setbyte 203H, 9AH
-    setbyte 204H, 56H
-    setbyte 205H, 0BH
-    setbyte 206H, 0EFH
-    setbyte 207H, 23H
-    lxi h, 200H
+    lxi h, array_data
     mvi b, 08H
     mov a, m            ; seed with first element
     inx h
@@ -1247,17 +1325,24 @@ skip:
     inx h
     dcr b
     jnz scan
-    sta 210H            ; store result (0BH = 11)
-    hlt`,
+    sta result          ; store result (0BH = 11)
+    hlt
+
+; --- Data Section ---
+    org 200H
+array_data:
+    db 34H, 78H, 12H, 9AH, 56H, 0BH, 0EFH, 23H
+result:
+    ds 1`,
   },
 
   'Sorting': {
-    'Bubble Sort': `; Bubble sort — sorts 10 values at 251H..25AH into ascending order.
+    'Bubble Sort': `; Bubble sort — sorts 10 values at 'array_data' into ascending order.
     org 100H
     kickoff 100H
     mvi  b, 09H
 outer:
-    lxi  h, 251H
+    lxi  h, array_data
     mov  c, b
 inner:
     mov  a, m
@@ -1282,20 +1367,11 @@ array_data:
     db 34H, 30H, 26H, 23H, 20H, 17H, 14H, 10H, 07H, 03H`,
 
     'Selection Sort': `; Selection sort — finds the minimum and places it at the front.
-; Sorts 8 bytes at 200H..207H into ascending order.
-    setbyte 200H, 45H
-    setbyte 201H, 12H
-    setbyte 202H, 78H
-    setbyte 203H, 03H
-    setbyte 204H, 9AH
-    setbyte 205H, 56H
-    setbyte 206H, 23H
-    setbyte 207H, 67H
-
+; Sorts 8 bytes at 'array_data' into ascending order.
     org 100H
     kickoff 100H
     mvi  e, 08H         ; total elements
-    lxi  h, 200H        ; outer pointer (i)
+    lxi  h, array_data  ; outer pointer (i)
 outer:
     dcr  e
     jz   done
@@ -1328,7 +1404,12 @@ no_swap:
     inx  h
     jmp  outer
 done:
-    hlt`,
+    hlt
+
+; --- Data Section ---
+    org 200H
+array_data:
+    db 45H, 12H, 78H, 03H, 9AH, 56H, 23H, 67H`,
   },
 
   'Algorithms': {
