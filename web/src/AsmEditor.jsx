@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, GutterMarker, gutter } from '@codemirror/view';
+import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, GutterMarker, gutter, ViewPlugin } from '@codemirror/view';
 import { EditorState, StateEffect, StateField, RangeSetBuilder, Compartment } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { search, searchKeymap } from '@codemirror/search';
@@ -10,6 +10,46 @@ import { asm8085Lang, asm8085Highlighting } from './lang.js';
 
 // ── CM6 error-line decoration + gutter marker ─────────────────────────────
 const setErrorLineEff = StateEffect.define()
+const setActiveLineEff = StateEffect.define()
+const setAddressesEff = StateEffect.define()
+const setWatchedWordsEff = StateEffect.define()
+
+const watchMark = Decoration.mark({ class: 'cm-watched-word' })
+const watchHighlightPlugin = ViewPlugin.fromClass(class {
+  constructor(view) {
+    this.words = new Set()
+    this.decorations = Decoration.none
+  }
+  update(update) {
+    let changed = false
+    for (const tr of update.transactions) {
+      for (const e of tr.effects) {
+        if (e.is(setWatchedWordsEff)) {
+          this.words = new Set(e.value)
+          changed = true
+        }
+      }
+    }
+    if (update.docChanged || update.viewportChanged || changed) {
+      this.decorations = this.buildDeco(update.view)
+    }
+  }
+  buildDeco(view) {
+    if (this.words.size === 0) return Decoration.none
+    const b = new RangeSetBuilder()
+    for (const { from, to } of view.visibleRanges) {
+      const text = view.state.doc.sliceString(from, to)
+      const re = /\b[A-Za-z0-9_]+\b/g
+      let m
+      while ((m = re.exec(text))) {
+        if (this.words.has(m[0].toUpperCase())) {
+          b.add(from + m.index, from + m.index + m[0].length, watchMark)
+        }
+      }
+    }
+    return b.finish()
+  }
+}, { decorations: v => v.decorations })
 
 class ErrorGutterMarker extends GutterMarker {
   toDOM() {
@@ -60,6 +100,93 @@ const errorLineField  = StateField.define({
   provide: f => EditorView.decorations.from(f),
 })
 
+class ActiveLineGutterMarker extends GutterMarker {
+  toDOM() {
+    const el = document.createElement('span')
+    el.textContent = '▶'
+    el.className = 'cm-active-line-gutter-marker'
+    return el
+  }
+}
+const activeLineGutterMarker = new ActiveLineGutterMarker()
+
+const activeLineGutterState = StateField.define({
+  create: () => new RangeSetBuilder().finish(),
+  update(markers, tr) {
+    for (const e of tr.effects) {
+      if (e.is(setActiveLineEff)) {
+        if (e.value == null) return new RangeSetBuilder().finish()
+        try {
+          const line = tr.newDoc.line(e.value)
+          const b = new RangeSetBuilder()
+          b.add(line.from, line.from, activeLineGutterMarker)
+          return b.finish()
+        } catch { return new RangeSetBuilder().finish() }
+      }
+    }
+    return markers
+  },
+})
+const activeLineGutterExt = gutter({
+  class: 'cm-active-line-gutter',
+  markers: view => view.state.field(activeLineGutterState),
+  initialSpacer: () => activeLineGutterMarker,
+})
+
+const activeLineField = StateField.define({
+  create: () => Decoration.none,
+  update(deco, tr) {
+    for (const e of tr.effects) {
+      if (e.is(setActiveLineEff)) {
+        if (e.value == null) return Decoration.none
+        try {
+          const line = tr.state.doc.line(e.value)
+          return Decoration.set([Decoration.line({ class: 'cm-debug-active-line' }).range(line.from)])
+        } catch { return Decoration.none }
+      }
+    }
+    return deco.map(tr.changes)
+  },
+  provide: f => EditorView.decorations.from(f),
+})
+
+class AddressMarker extends GutterMarker {
+  constructor(addr) {
+    super()
+    this.addr = addr
+  }
+  eq(other) { return this.addr === other.addr }
+  toDOM() {
+    const span = document.createElement('span')
+    span.className = 'cm-addr-text'
+    span.textContent = hex4(this.addr)
+    return span
+  }
+}
+const addressGutterState = StateField.define({
+  create: () => new RangeSetBuilder().finish(),
+  update(markers, tr) {
+    let next = markers.map(tr.changes)
+    for (const e of tr.effects) {
+      if (e.is(setAddressesEff)) {
+        const addrs = e.value
+        const b = new RangeSetBuilder()
+        for (let i = 1; i <= tr.newDoc.lines; i++) {
+          const addr = addrs.get(i)
+          if (addr !== undefined) b.add(tr.newDoc.line(i).from, tr.newDoc.line(i).from, new AddressMarker(addr))
+        }
+        next = b.finish()
+      }
+    }
+    return next
+  }
+})
+const addressGutterExt = gutter({
+  class: 'cm-address-gutter',
+  markers: view => view.state.field(addressGutterState),
+  initialSpacer: () => new AddressMarker(0x0000)
+})
+
 function getInstWord(state, pos) {
   const line = state.doc.lineAt(pos)
   const text = line.text
@@ -85,23 +212,47 @@ const asmCompletionSource = (context) => {
   }
 }
 
-export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, gotoRef, onRunTo, lineAddrRef, theme }) {
+export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, activeLine, gotoRef, onRunTo, onJumpMem, buildId, lineAddrRef, theme, watchedWords }) {
   const elRef      = useRef(null)
   const viewRef    = useRef(null)
   const syncing    = useRef(false)
   const cursorCb   = useRef(onCursorInstruction)
   const detailCb   = useRef(onInstructionDetail)
   const onRunToRef = useRef(onRunTo)
+  const onJumpMemRef = useRef(onJumpMem)
   const themeConf  = useRef(new Compartment())
   const [editorCtx, setEditorCtx] = useState(null)  // {addr, x, y}
   useEffect(() => { cursorCb.current   = onCursorInstruction }, [onCursorInstruction])
   useEffect(() => { detailCb.current   = onInstructionDetail }, [onInstructionDetail])
   useEffect(() => { onRunToRef.current = onRunTo },             [onRunTo])
+  useEffect(() => { onJumpMemRef.current = onJumpMem },         [onJumpMem])
+
+  useEffect(() => {
+    if (!viewRef.current || !lineAddrRef?.current) return
+    viewRef.current.dispatch({ effects: setAddressesEff.of(lineAddrRef.current) })
+  }, [buildId, lineAddrRef])
+
+  useEffect(() => {
+    if (!viewRef.current || !watchedWords) return
+    viewRef.current.dispatch({ effects: setWatchedWordsEff.of(watchedWords) })
+  }, [watchedWords])
 
   useEffect(() => {
     if (!viewRef.current) return
     viewRef.current.dispatch({ effects: setErrorLineEff.of(errorLine ?? null) })
   }, [errorLine])
+
+  useEffect(() => {
+    if (!viewRef.current) return
+    const effects = [setActiveLineEff.of(activeLine ?? null)]
+    if (activeLine != null) {
+      try {
+        const line = viewRef.current.state.doc.line(activeLine)
+        effects.push(EditorView.scrollIntoView(line.from, { y: 'nearest', margin: 40 }))
+      } catch {}
+    }
+    viewRef.current.dispatch({ effects })
+  }, [activeLine])
 
   useEffect(() => {
     const view = new EditorView({
@@ -110,6 +261,8 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
         extensions: [
           history(),
           lineNumbers(),
+          addressGutterState,
+          addressGutterExt,
           highlightActiveLine(),
           search({ top: true }),
           autocompletion({ override: [asmCompletionSource] }),
@@ -120,17 +273,27 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
           errorLineField,
           errorGutterState,
           errorGutterExt,
+          activeLineField,
+          activeLineGutterState,
+          activeLineGutterExt,
+          watchHighlightPlugin,
           EditorView.theme({
             '&': { height:'100%', fontFamily:'"JetBrains Mono","Fira Code",monospace', fontSize:'15px', color:'var(--text)', backgroundColor:'transparent' },
             '.cm-scroller': { overflow:'auto' },
             '.cm-content': { padding:'8px 0', minHeight:'100%', caretColor:'var(--accent)' },
             '&.cm-focused .cm-cursor': { borderLeftColor:'var(--accent)' },
-            '&.cm-focused .cm-selectionBackground, ::selection': { backgroundColor:'var(--bg3)' },
+            '.cm-selectionBackground, ::selection': { backgroundColor:'var(--bg3)' },
             '.cm-activeLine, .cm-activeLineGutter': { backgroundColor:'var(--bg2)' },
             '.cm-gutters': { backgroundColor:'transparent', color:'var(--text3)', borderRight:'1px solid var(--border)' },
             '.cm-error-line': { background: 'rgba(255,60,60,0.18)' },
+            '.cm-debug-active-line': { backgroundColor: 'var(--tint-accent-pc)' },
             '.cm-error-gutter': { width: '14px' },
             '.cm-error-gutter-marker': { color: 'var(--red)', fontSize: '10px', lineHeight: '1.6', cursor: 'default' },
+            '.cm-active-line-gutter': { width: '14px' },
+            '.cm-active-line-gutter-marker': { color: 'var(--accent)', fontSize: '10px', lineHeight: '1.6', cursor: 'default', paddingLeft: '2px' },
+            '.cm-address-gutter': { width: '38px', paddingRight: '6px', textAlign: 'right', backgroundColor: 'transparent' },
+            '.cm-addr-text': { color: 'var(--text3)', fontSize: '11px', fontFamily: 'var(--mono)' },
+            '.cm-watched-word': { backgroundColor: 'var(--tint-amber)', borderBottom: '1px solid var(--amber)', borderRadius: '2px' },
             '.cm-search': { background:'var(--bg2)', borderTop:'1px solid var(--border)', padding:'4px 8px', gap:'6px' },
             '.cm-search input': { background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:'3px', padding:'2px 6px' },
             '.cm-button': { background:'var(--bg3)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:'3px', padding:'2px 8px', cursor:'pointer' },
@@ -183,7 +346,7 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
           }
         }
         const line = view.state.doc.line(lineNum)
-        view.dispatch({ selection: { anchor: line.from }, effects: EditorView.scrollIntoView(line.from, { y: 'center' }) })
+          view.dispatch({ selection: { anchor: line.from, head: line.to }, effects: EditorView.scrollIntoView(line.from, { y: 'center' }) })
       } catch {}
     }
     return () => view.destroy()
@@ -221,13 +384,16 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
   }, [editorCtx])
 
   return (
-    <div style={{ position:'relative', height:'100%' }}>
+    <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div ref={elRef} className="editor-inner" />
       {editorCtx && (
         <div className="ctx-menu" style={{ left: editorCtx.x, top: editorCtx.y }}
           onMouseDown={e => e.stopPropagation()}>
           <button className="ctx-menu-item" onClick={() => { onRunToRef.current?.(editorCtx.addr); setEditorCtx(null) }}>
             ▶ Run to {hex4(editorCtx.addr)}H
+          </button>
+          <button className="ctx-menu-item" onClick={() => { onJumpMemRef.current?.(editorCtx.addr & 0xFFF0); setEditorCtx(null) }}>
+            💾 Jump Memory here
           </button>
         </div>
       )}

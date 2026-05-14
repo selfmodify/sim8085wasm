@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { ErrorBoundary } from './ErrorBoundary.jsx'
 import * as sim from './simProxy.js'
 import { PanelHelp } from './PanelHelp.jsx'
+import { useCollapsible } from './hooks.js'
 import { RegPanel } from './RegPanel.jsx'
 import { PairPanel } from './PairPanel.jsx'
 import { FlagPanel } from './FlagPanel.jsx'
@@ -24,6 +25,7 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
   const [cursorInst, setCursorInst] = useState(null)
   const gotoLineRef = useRef(null)
 
+  const [editorCollapsed, toggleEditorCollapsed] = useCollapsible('editor', false)
   const [draggedPanel, setDraggedPanel] = useState(null)
   const [dragOverPanel, setDragOverPanel] = useState(null)
   const [rightPanelOrder, setRightPanelOrder] = useState(() => {
@@ -36,6 +38,21 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
     catch { return defaultOrder }
   })
   
+  const watchedWords = useMemo(() => {
+    const list = new Set()
+    for (const w of engine.watches) {
+      if (w.type === 'reg') {
+        list.add(w.key.toUpperCase())
+      } else if (w.type === 'mem') {
+        list.add(w.addr.toString(16).padStart(4, '0').toUpperCase() + 'H')
+        for (const [sym, addr] of Object.entries(engine.symbols || {})) {
+          if (addr === w.addr) list.add(sym.toUpperCase())
+        }
+      }
+    }
+    return [...list]
+  }, [engine.watches, engine.symbols])
+
   const [centerPanelOrder, setCenterPanelOrder] = useState(() => {
     const defaultOrder = ['stack', 'callstack', 'trace']
     try { 
@@ -119,27 +136,20 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
     <div className="workspace">
       {/* Editor column */}
       <div className={`col col-editor${mobileTab!=='editor' ? ' mobile-hidden' : ''}`} ref={editorColRef}>
-        <div className="panel editor-panel">
-          <div className="panel-hd">
-          <span className="panel-icon">✏️</span>EDITOR
-          {readOnlySource && (
-            <span style={{ marginLeft: 12, fontSize: 10, padding: '2px 6px', background: 'var(--bg3)', borderRadius: 4, color: 'var(--text2)', border: '1px solid var(--border)', letterSpacing: 0.5 }} title={`Loaded from ${readOnlySource} — edits will not be saved to the original source`}>
-              {readOnlySource === 'GitHub Gist' ? '🐙 GIST' :
-               readOnlySource === 'Example' ? '📖 EXAMPLE' :
-               readOnlySource === 'Challenge' ? '🏆 CHALLENGE' :
-               readOnlySource === 'Solution' ? '📖 SOLUTION' :
-               readOnlySource.toUpperCase()}
-            </span>
-          )}
-          <div className="panel-hd-right">
-            <button className="reg-base-btn" onClick={formatCode} title="Auto-format code alignment">Format</button>
-            <span className="editor-hint">; semicolons for comments</span>
-            <PanelHelp panel="EDITOR" />
+        <div className="panel editor-panel" style={editorCollapsed ? { flex: 'none' } : undefined}>
+          <div className="panel-hd collapsible" onClick={toggleEditorCollapsed}>
+            <span><span className="panel-icon">✏️</span>EDITOR</span>
+            <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
+              <button className="reg-base-btn" onClick={formatCode} title="Auto-format code alignment">Format</button>
+              <PanelHelp panel="EDITOR" />
+            </div>
+            <span className="panel-chevron">{editorCollapsed ? '▶' : '▼'}</span>
           </div>
-        </div>
-          <AsmEditor value={src} onChange={v => { srcRef.current = v; setSrc(v) }} gotoRef={gotoLineRef}
-            onCursorInstruction={setCursorInst} onInstructionDetail={setHelpInst}
-            errorLine={engine.errorLine} onRunTo={engine.runToAddr} lineAddrRef={engine.lineAddrRef} theme={theme} />
+          {!editorCollapsed && (
+            <AsmEditor value={src} onChange={v => { srcRef.current = v; setSrc(v) }} gotoRef={gotoLineRef}
+              onCursorInstruction={setCursorInst} onInstructionDetail={setHelpInst}
+              errorLine={engine.errorLine} activeLine={engine.addrLineMap?.get(engine.regs?.pc)} onRunTo={engine.runToAddr} onJumpMem={engine.setMemStart} buildId={engine.buildId} lineAddrRef={engine.lineAddrRef} theme={theme} watchedWords={watchedWords} />
+          )}
         </div>
         <HelpPanel instruction={cursorInst} />
         <LedDisplay leds={engine.leds} />
