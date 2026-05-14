@@ -343,6 +343,27 @@ describe('MemMapPanel', () => {
       expect(screen.getByText(label)).toBeInTheDocument();
     });
   });
+
+  it('calls onJump with aligned address when code region clicked', () => {
+    const onJump = vi.fn();
+    render(<MemMapPanel regs={baseRegsM} programRegion={{ start: 0x1234, end: 0x1300 }} presetAddrs={new Set()} onJump={onJump} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    fireEvent.click(document.querySelector('.memmap-code'));
+    expect(onJump).toHaveBeenCalledWith(0x1230); // 0x1234 & 0xFFF0
+  });
+
+  it('calls onJump with aligned address when stack region clicked', () => {
+    const onJump = vi.fn();
+    render(<MemMapPanel regs={{ pc: 0x100, sp: 0xF048 }} programRegion={null} presetAddrs={new Set()} onJump={onJump} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    fireEvent.click(document.querySelector('.memmap-stack'));
+    expect(onJump).toHaveBeenCalledWith(0xF040); // 0xF048 & 0xFFF0
+  });
+
+  it('calls onJump with aligned PC address when PC marker clicked', () => {
+    const onJump = vi.fn();
+    render(<MemMapPanel regs={{ pc: 0x0123, sp: 0 }} programRegion={null} presetAddrs={new Set()} onJump={onJump} dragHandleProps={{}} dropTargetProps={{}} isDragOver={false} />);
+    fireEvent.click(document.querySelector('.memmap-pc'));
+    expect(onJump).toHaveBeenCalledWith(0x0120); // 0x0123 & 0xFFF0
+  });
 });
 
 // ── IOPortPanel ───────────────────────────────────────────────────────────────
@@ -534,6 +555,43 @@ describe('DisasmPanel', () => {
     expect(screen.getByText('START_LOOP:')).toBeInTheDocument();
   });
 
+  it('shows diamond for conditional breakpoint', () => {
+    render(<DisasmPanel {...baseDisasmProps} breakpoints={new Map([[0x100, 'A==0']])} />);
+    expect(document.querySelectorAll('.disasm-bp')[0].textContent).toBe('◆');
+  });
+
+  it('shows condition expression text on conditional breakpoint row', () => {
+    render(<DisasmPanel {...baseDisasmProps} breakpoints={new Map([[0x100, 'A==0']])} />);
+    expect(screen.getByText('A==0')).toBeInTheDocument();
+  });
+
+  it('context menu shows Set condition option when BP exists', () => {
+    render(<DisasmPanel {...baseDisasmProps} breakpoints={new Map([[0x100, null]])} />);
+    fireEvent.contextMenu(document.querySelectorAll('.disasm-row')[0]);
+    expect(screen.getByText(/Set condition/)).toBeInTheDocument();
+  });
+
+  it('context menu shows Edit condition option when conditional BP exists', () => {
+    render(<DisasmPanel {...baseDisasmProps} breakpoints={new Map([[0x100, 'CY==1']])} />);
+    fireEvent.contextMenu(document.querySelectorAll('.disasm-row')[0]);
+    expect(screen.getByText(/Edit condition/)).toBeInTheDocument();
+  });
+
+  it('context menu calls onSetCondition when condition item clicked', () => {
+    const onSetCondition = vi.fn();
+    render(<DisasmPanel {...baseDisasmProps} breakpoints={new Map([[0x100, null]])} onSetCondition={onSetCondition} />);
+    fireEvent.contextMenu(document.querySelectorAll('.disasm-row')[0]);
+    fireEvent.mouseDown(screen.getByText(/Set condition/));
+    fireEvent.click(screen.getByText(/Set condition/));
+    expect(onSetCondition).toHaveBeenCalledWith(0x100);
+  });
+
+  it('context menu does not show condition option when no BP at address', () => {
+    render(<DisasmPanel {...baseDisasmProps} breakpoints={new Map()} />);
+    fireEvent.contextMenu(document.querySelectorAll('.disasm-row')[0]);
+    expect(screen.queryByText(/condition/i)).toBeNull();
+  });
+
   it('highlights operands of the current instruction', () => {
     simProxyMock.simDisassemble.mockReturnValueOnce({
       text: '0100 3E 01   MVI A,01H',
@@ -591,5 +649,32 @@ describe('RegPanel', () => {
     expect(document.querySelectorAll('.reg-bit').length).toBe(8);
     fireEvent.click(document.querySelector('.panel-hd.collapsible'));
     expect(document.querySelectorAll('.reg-bit').length).toBe(0);
+  });
+});
+
+// ── ChallengesView structure ──────────────────────────────────────────────────
+import { CHALLENGES } from './ChallengesView.jsx';
+
+describe('CHALLENGES array', () => {
+  it('contains 8 challenges', () => {
+    expect(CHALLENGES.length).toBe(8);
+  });
+
+  it('each challenge has required fields', () => {
+    for (const c of CHALLENGES) {
+      expect(c).toHaveProperty('id');
+      expect(c).toHaveProperty('title');
+      expect(c).toHaveProperty('desc');
+      expect(c).toHaveProperty('setup');
+      expect(c).toHaveProperty('test');
+      expect(c).toHaveProperty('successMsg');
+      expect(c).toHaveProperty('solution');
+      expect(typeof c.test).toBe('function');
+    }
+  });
+
+  it('challenge ids are unique', () => {
+    const ids = CHALLENGES.map(c => c.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });

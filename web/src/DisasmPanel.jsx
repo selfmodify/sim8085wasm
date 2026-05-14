@@ -237,6 +237,8 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
                       {hex4(addr)}H
                     </span>
                     {cond && <span className="bp-list-cond" title={cond}>{cond}</span>}
+                    <button className="bp-list-del" title={cond ? 'Edit condition' : 'Set condition'}
+                      onClick={() => onSetCondition?.(addr)}>◆</button>
                     <button className="bp-list-del" title="Remove breakpoint"
                       onClick={() => onToggleBp(addr)}>✕</button>
                   </div>
@@ -256,6 +258,11 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
           <button className="ctx-menu-item" onClick={() => { onToggleBp(ctxMenu.addr); setCtxMenu(null) }}>
             {breakpoints.has(ctxMenu.addr) ? '○ Remove BP' : '● Set BP'}
           </button>
+          {breakpoints.has(ctxMenu.addr) && (
+            <button className="ctx-menu-item" onClick={() => { onSetCondition?.(ctxMenu.addr); setCtxMenu(null) }}>
+              {breakpoints.get(ctxMenu.addr) ? '◆ Edit condition…' : '◇ Set condition…'}
+            </button>
+          )}
         </div>
       )}
     </div>

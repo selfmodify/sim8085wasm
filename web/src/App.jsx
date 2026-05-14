@@ -805,7 +805,7 @@ export default function App() {
         <CalcFloat onClose={() => setShowCalc(false)} />
       )}
 
-      {showChat && <ChatPanel regs={engine.regs} src={src} onClose={() => setShowChat(false)} />}
+      {showChat && <ChatPanel regs={engine.regs} src={src} symbols={engine.symbols} breakpoints={engine.bps} callStack={engine.callStack} onClose={() => setShowChat(false)} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {driveFiles !== null && <DriveLoadModal files={driveFiles} loading={driveLoading} onClose={() => setDriveFiles(null)} onSelect={(id, name) => confirmLoad(() => { setReadOnlySource(null); fetchDriveFile(id, name) })} onDelete={deleteDriveFile} />}
       {showGithubSetup && <GithubSetupModal onClose={() => setShowGithubSetup(false)} onSave={() => engine.setMsg('✓ GitHub token saved.')} />}

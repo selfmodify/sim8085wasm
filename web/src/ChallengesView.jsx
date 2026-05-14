@@ -33,6 +33,44 @@ export const CHALLENGES = [
     successMsg: '0210H correctly contains 05H.',
     solution: '    LXI H, 0200H  ; point HL at string start\n    MVI C, 00H    ; C = length counter\nLENLOOP:\n    MOV A, M      ; load next character\n    ORA A         ; set flags (Z=1 if null terminator)\n    JZ LENDONE\n    INR C         ; count the character\n    INX H\n    JMP LENLOOP\nLENDONE:\n    MOV A, C\n    STA 0210H     ; store length',
   },
+  {
+    id: 'c5', title: '5. Bubble Sort',
+    desc: 'Sort an array of 8 unsigned bytes at 0200H in ascending order (in-place).',
+    setup: '    setbyte 200H, 64H\n    setbyte 201H, 02H\n    setbyte 202H, 45H\n    setbyte 203H, 1AH\n    setbyte 204H, 88H\n    setbyte 205H, 37H\n    setbyte 206H, 0CH\n    setbyte 207H, 73H',
+    test: () => {
+      const expected = [0x02, 0x0C, 0x1A, 0x37, 0x45, 0x64, 0x73, 0x88]
+      return expected.every((v, i) => sim.simReadByte(0x0200 + i) === v)
+    },
+    successMsg: '0200H–0207H correctly sorted in ascending order.',
+    solution: '    MVI D, 07H    ; D = outer loop count (N-1 passes)\nOUTER:\n    LXI H, 0200H  ; reset pointer to start of array\n    MOV C, D      ; C = inner loop count\nINNER:\n    MOV A, M      ; A = current element\n    INX H\n    CMP M         ; compare with next element\n    JC NOSWAP     ; if A < M, already in order\n    MOV B, M      ; swap: B = next\n    MOV M, A      ; put current into next slot\n    DCX H\n    MOV M, B      ; put next into current slot\n    INX H\nNOSWAP:\n    DCR C\n    JNZ INNER\n    DCR D\n    JNZ OUTER\n    HLT',
+  },
+  {
+    id: 'c6', title: '6. Count Set Bits',
+    desc: 'Count the number of 1-bits (popcount) in the byte at 0200H. Store the result at 0201H.',
+    setup: '    setbyte 200H, 6BH',
+    test: () => sim.simReadByte(0x0201) === 5,
+    successMsg: '0201H correctly contains 05H (6BH = 0110 1011 has five 1-bits).',
+    solution: '    LDA 0200H     ; A = input byte\n    MVI C, 00H    ; C = bit counter\n    MVI B, 08H    ; B = 8 iterations\nBITLOOP:\n    RAR           ; rotate A right through carry\n    JNC BITSKIP   ; if bit was 0, skip count\n    INR C         ; count the 1-bit\nBITSKIP:\n    DCR B\n    JNZ BITLOOP\n    MOV A, C\n    STA 0201H     ; store result',
+  },
+  {
+    id: 'c7', title: '7. Binary to BCD',
+    desc: 'Convert the binary byte at 0200H (0–99) to packed BCD and store at 0201H. E.g. 0x4D (77) → 0x77.',
+    setup: '    setbyte 200H, 4DH',
+    test: () => sim.simReadByte(0x0201) === 0x77,
+    successMsg: '0201H correctly contains 77H (packed BCD for decimal 77).',
+    solution: '    LDA 0200H     ; A = binary input (0-99)\n    MVI B, 00H    ; B = tens digit\nDIVLOOP:\n    CPI 0AH       ; is A < 10?\n    JC DIVDONE\n    SUI 0AH       ; subtract 10\n    INR B         ; increment tens\n    JMP DIVLOOP\nDIVDONE:\n    MOV C, A      ; C = units digit\n    MOV A, B      ; A = tens\n    RLC\n    RLC\n    RLC\n    RLC           ; shift tens to upper nibble\n    ORA C         ; combine with units\n    STA 0201H     ; store packed BCD',
+  },
+  {
+    id: 'c8', title: '8. Reverse an Array',
+    desc: 'Reverse an 8-byte array at 0200H in-place.',
+    setup: '    setbyte 200H, 11H\n    setbyte 201H, 22H\n    setbyte 202H, 33H\n    setbyte 203H, 44H\n    setbyte 204H, 55H\n    setbyte 205H, 66H\n    setbyte 206H, 77H\n    setbyte 207H, 88H',
+    test: () => {
+      const expected = [0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11]
+      return expected.every((v, i) => sim.simReadByte(0x0200 + i) === v)
+    },
+    successMsg: '0200H–0207H correctly reversed.',
+    solution: '    LXI H, 0200H  ; HL = left pointer\n    LXI D, 0207H  ; DE = right pointer\n    MVI C, 04H    ; 4 swaps for 8 elements\nREVLOOP:\n    MOV A, M      ; A = left element\n    LDAX D        ; B via XCHG trick: load right\n    MOV B, A      ; B = right element\n    MOV A, M\n    STAX D        ; store left into right slot\n    MOV M, B      ; store right into left slot\n    INX H         ; advance left pointer\n    DCX D         ; retreat right pointer\n    DCR C\n    JNZ REVLOOP\n    HLT',
+  },
 ]
 
 export function ChallengesView({ onSelect, onSolution }) {

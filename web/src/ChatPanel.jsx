@@ -3,7 +3,7 @@ import { PanelHelp } from './PanelHelp.jsx';
 
 const CHAT_SYSTEM = `You are an expert assistant embedded in an Intel 8085 microprocessor simulator. Help users with 8085 assembly language programming, instruction behaviour, register and flag effects, debugging, memory addressing, and general computer architecture. When showing code use 8085 assembly syntax. Be concise and practical.`
 
-export function ChatPanel({ regs, src, onClose }) {
+export function ChatPanel({ regs, src, symbols, breakpoints, callStack, onClose }) {
   const [apiKey,      setApiKey]      = useState(() => localStorage.getItem('ant_key') || '')
   const [keyDraft,    setKeyDraft]    = useState('')
   const [setupOpen,   setSetupOpen]   = useState(!localStorage.getItem('ant_key'))
@@ -62,6 +62,17 @@ export function ChatPanel({ regs, src, onClose }) {
       `PC=${h4(regs.pc)}  SP=${h4(regs.sp)}`,
       `Flags: ${flags}`,
     ]
+    if (symbols && Object.keys(symbols).length > 0) {
+      const symList = Object.entries(symbols).map(([k, v]) => `${k}=${h4(v)}H`).join('  ')
+      lines.push(`Symbols: ${symList}`)
+    }
+    if (breakpoints && breakpoints.size > 0) {
+      const bpList = [...breakpoints.entries()].map(([a, c]) => c ? `${h4(a)}H[${c}]` : `${h4(a)}H`).join('  ')
+      lines.push(`Breakpoints: ${bpList}`)
+    }
+    if (callStack && callStack.length > 0) {
+      lines.push(`Call stack (${callStack.length} frame${callStack.length > 1 ? 's' : ''}): ${callStack.map(f => h4(f.retAddr ?? f)+'H').join(' → ')}`)
+    }
     if (src?.trim()) lines.push(`\nCurrent editor source:\n\`\`\`\n${src.trim()}\n\`\`\``)
     return lines.join('\n')
   }
@@ -81,7 +92,7 @@ export function ChatPanel({ regs, src, onClose }) {
           'anthropic-dangerous-direct-browser-access': 'true',
         },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
+          model: 'claude-haiku-4-5-20251001', // fast + cheap; sufficient for debugging Q&A
           max_tokens: 1024,
           system: CHAT_SYSTEM + buildContext(),
           messages: next.map(m => ({ role: m.role, content: m.content })),
