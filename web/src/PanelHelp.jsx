@@ -27,17 +27,25 @@ const PANEL_HELP_TEXT = {
 • Type a hex address in the header + Enter to jump there
 • PC↓ button  locks view to follow the program counter
 • PC·  button  unlocks for free scrolling
-• Each row shows the T-state cycle count on the right
-• Click · in the gutter to set a breakpoint (●)
-• Right-click a breakpoint to add a condition expression
-• Breakpoint list below: jump to or remove any breakpoint
-• Click a disasm row to jump the editor to that source line`,
+• Each row shows T-state cycle count and execution hit count
+• Heat bar brightens with execution frequency (hotspot visualiser)
+• Click · in the gutter to set a breakpoint  (● = unconditional)
+• Right-click the ● dot to add a condition expression  (◆ = conditional)
+• Right-click any row → context menu: Run to, Set/Remove BP, Set/Edit condition
+• Breakpoint list footer: jump (address), edit condition (◆), or remove (✕)
+• Click a label or row to jump the editor to that source line
+• Click a label to also jump the memory panel to that address`,
 
-  'AI ASSISTANT': `• Ask questions about your 8085 code
-• Current register state + source are sent automatically
-• Requires your own Anthropic API key
+  'AI ASSISTANT': `• Ask questions about your 8085 code or architecture
+• Simulator context sent automatically with every message:
+  · All register values and flags
+  · Symbol table (labels and their addresses)
+  · Active breakpoints (including conditions)
+  · Call stack depth and return addresses
+  · Current editor source
+• Click ⚙ to enter or change your Anthropic API key
 • Key is stored in this browser only — never sent elsewhere
-• Click ⚙ to enter or change your API key`,
+• Click ⧉ to detach into a separate browser window`,
 
   'MEMORY': `• Hex dump of the full configured RAM
 • Green cell = program counter (PC)
@@ -65,8 +73,10 @@ const PANEL_HELP_TEXT = {
 • Code (Blue): Assembled instructions
 • Data (Green): Values injected via SETBYTE/SETWORD/DB/DW
 • Stack (Amber): Region from SP to FFFFH
-• Click any region to see its exact address bounds
-• Bright green line indicates current Program Counter (PC)
+• PC marker (bright line): current Program Counter position
+• Click any region or the PC marker to:
+  · See its exact address bounds in the info bar
+  · Jump the Memory panel to that region instantly
 • Drag the panel header to reorder it within the column`,
 
   'REGISTERS': `• Live 8085 register values (A, B, C, D, E, H, L, PC, SP)

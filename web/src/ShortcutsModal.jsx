@@ -41,7 +41,7 @@ const SHORTCUTS = [
   { group: 'Global',
     rows: [
       { keys: ['?'],            desc: 'Show this keyboard shortcuts reference' },
-      { keys: ['Esc'],          desc: 'Close any open modal' },
+      { keys: ['Esc'],          desc: 'Stop execution (if running) / close modal' },
     ]
   },
 ]
