@@ -151,15 +151,17 @@ const activeLineField = StateField.define({
 })
 
 class AddressMarker extends GutterMarker {
-  constructor(addr) {
+  constructor(addr, isBp) {
     super()
     this.addr = addr
+    this.isBp = isBp
   }
-  eq(other) { return this.addr === other.addr }
+  eq(other) { return this.addr === other.addr && this.isBp === other.isBp }
   toDOM() {
     const span = document.createElement('span')
     span.className = 'cm-addr-text'
-    span.textContent = hex4(this.addr)
+    if (this.isBp) span.classList.add('cm-addr-bp')
+    span.textContent = (this.isBp ? '● ' : '') + hex4(this.addr)
     return span
   }
 }
@@ -169,11 +171,11 @@ const addressGutterState = StateField.define({
     let next = markers.map(tr.changes)
     for (const e of tr.effects) {
       if (e.is(setAddressesEff)) {
-        const addrs = e.value
+        const { addrs, bps } = e.value
         const b = new RangeSetBuilder()
         for (let i = 1; i <= tr.newDoc.lines; i++) {
           const addr = addrs.get(i)
-          if (addr !== undefined) b.add(tr.newDoc.line(i).from, tr.newDoc.line(i).from, new AddressMarker(addr))
+          if (addr !== undefined) b.add(tr.newDoc.line(i).from, tr.newDoc.line(i).from, new AddressMarker(addr, bps?.has(addr)))
         }
         next = b.finish()
       }
@@ -184,7 +186,7 @@ const addressGutterState = StateField.define({
 const addressGutterExt = gutter({
   class: 'cm-address-gutter',
   markers: view => view.state.field(addressGutterState),
-  initialSpacer: () => new AddressMarker(0x0000)
+  initialSpacer: () => new AddressMarker(0x0000, true)
 })
 
 function getInstWord(state, pos) {
@@ -212,7 +214,7 @@ const asmCompletionSource = (context) => {
   }
 }
 
-export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, activeLine, gotoRef, onRunTo, onJumpMem, buildId, lineAddrRef, theme, watchedWords }) {
+export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, activeLine, gotoRef, onRunTo, onJumpMem, buildId, lineAddrRef, theme, watchedWords, bps, onToggleBp }) {
   const elRef      = useRef(null)
   const viewRef    = useRef(null)
   const syncing    = useRef(false)
@@ -220,17 +222,19 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
   const detailCb   = useRef(onInstructionDetail)
   const onRunToRef = useRef(onRunTo)
   const onJumpMemRef = useRef(onJumpMem)
+  const onToggleBpRef = useRef(onToggleBp)
   const themeConf  = useRef(new Compartment())
   const [editorCtx, setEditorCtx] = useState(null)  // {addr, x, y}
   useEffect(() => { cursorCb.current   = onCursorInstruction }, [onCursorInstruction])
   useEffect(() => { detailCb.current   = onInstructionDetail }, [onInstructionDetail])
   useEffect(() => { onRunToRef.current = onRunTo },             [onRunTo])
   useEffect(() => { onJumpMemRef.current = onJumpMem },         [onJumpMem])
+  useEffect(() => { onToggleBpRef.current = onToggleBp },       [onToggleBp])
 
   useEffect(() => {
     if (!viewRef.current || !lineAddrRef?.current) return
-    viewRef.current.dispatch({ effects: setAddressesEff.of(lineAddrRef.current) })
-  }, [buildId, lineAddrRef])
+    viewRef.current.dispatch({ effects: setAddressesEff.of({ addrs: lineAddrRef.current, bps }) })
+  }, [buildId, lineAddrRef, bps])
 
   useEffect(() => {
     if (!viewRef.current || !watchedWords) return
@@ -291,8 +295,10 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
             '.cm-error-gutter-marker': { color: 'var(--red)', fontSize: '10px', lineHeight: '1.6', cursor: 'default' },
             '.cm-active-line-gutter': { width: '14px' },
             '.cm-active-line-gutter-marker': { color: 'var(--accent)', fontSize: '10px', lineHeight: '1.6', cursor: 'default', paddingLeft: '2px' },
-            '.cm-address-gutter': { width: '38px', paddingRight: '6px', textAlign: 'right', backgroundColor: 'transparent' },
+            '.cm-address-gutter': { width: '48px', paddingRight: '6px', textAlign: 'right', backgroundColor: 'transparent', cursor: 'pointer' },
+            '.cm-lineNumbers .cm-gutterElement': { cursor: 'pointer' },
             '.cm-addr-text': { color: 'var(--text3)', fontSize: '11px', fontFamily: 'var(--mono)' },
+            '.cm-addr-bp': { color: 'var(--red)', fontWeight: 700 },
             '.cm-watched-word': { backgroundColor: 'var(--tint-amber)', borderBottom: '1px solid var(--amber)', borderRadius: '2px' },
             '.cm-search': { background:'var(--bg2)', borderTop:'1px solid var(--border)', padding:'4px 8px', gap:'6px' },
             '.cm-search input': { background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:'3px', padding:'2px 6px' },
@@ -308,6 +314,21 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
             }
           }),
           EditorView.domEventHandlers({
+            mousedown(e, view) {
+              if (e.target.closest('.cm-address-gutter') || e.target.closest('.cm-lineNumbers')) {
+                const pos = view.posAtCoords({ x: e.clientX, y: e.clientY })
+                if (pos != null) {
+                  const lineNum = view.state.doc.lineAt(pos).number
+                  const addr = lineAddrRef.current?.get(lineNum)
+                  if (addr !== undefined) {
+                    e.preventDefault()
+                    onToggleBpRef.current?.(addr)
+                    return true
+                  }
+                }
+              }
+              return false
+            },
             click(e, view) {
               if (!e.ctrlKey) return false
               const pos = view.posAtCoords({ x: e.clientX, y: e.clientY })

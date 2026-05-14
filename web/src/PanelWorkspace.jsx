@@ -148,7 +148,8 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
           {!editorCollapsed && (
             <AsmEditor value={src} onChange={v => { srcRef.current = v; setSrc(v) }} gotoRef={gotoLineRef}
               onCursorInstruction={setCursorInst} onInstructionDetail={setHelpInst}
-              errorLine={engine.errorLine} activeLine={engine.addrLineMap?.get(engine.regs?.pc)} onRunTo={engine.runToAddr} onJumpMem={engine.setMemStart} buildId={engine.buildId} lineAddrRef={engine.lineAddrRef} theme={theme} watchedWords={watchedWords} />
+              errorLine={engine.errorLine} activeLine={engine.addrLineMap?.get(engine.regs?.pc)} onRunTo={engine.runToAddr} onJumpMem={engine.setMemStart} buildId={engine.buildId} lineAddrRef={engine.lineAddrRef} theme={theme} watchedWords={watchedWords}
+              bps={engine.bps} onToggleBp={engine.toggleBp} />
           )}
         </div>
         <HelpPanel instruction={cursorInst} />
