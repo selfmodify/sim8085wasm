@@ -42,9 +42,11 @@ const watchHighlightPlugin = ViewPlugin.fromClass(class {
       const re = /\b[A-Za-z0-9_]+\b/g
       let m
       while ((m = re.exec(text))) {
-        if (this.words.has(m[0].toUpperCase())) {
-          b.add(from + m.index, from + m.index + m[0].length, watchMark)
-        }
+        if (!this.words.has(m[0].toUpperCase())) continue
+        // Skip matches inside comments (after ';' on the same line)
+        const lineStart = text.lastIndexOf('\n', m.index) + 1
+        if (text.slice(lineStart, m.index).includes(';')) continue
+        b.add(from + m.index, from + m.index + m[0].length, watchMark)
       }
     }
     return b.finish()
