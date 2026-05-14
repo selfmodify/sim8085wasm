@@ -2375,6 +2375,8 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
   .mem-btn, .reg-base-btn, .help-close, .panel-help-btn, .calc-float-close, .chat-float-close, .watch-rm, .watch-brk, .bp-list-del, .int-btn {
     min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center;
   }
+  /* Panel headers must be tall enough to contain 44px tap-target buttons */
+  .panel-hd { min-height: 44px; }
   .exmenu-cat, .bmenu-item, .exmenu-sub-item, .ctx-menu-item { min-height: 44px; display: flex; align-items: center; }
   /* Breakpoint gutter: expand tap area on touch screens */
   .disasm-bp { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
