@@ -208,7 +208,7 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
           if (key === 'flags')  return <ErrorBoundary key={key}><FlagPanel regs={engine.regs} {...dp} /></ErrorBoundary>
           if (key === 'ints')   return <ErrorBoundary key={key}><InterruptPanel intState={engine.intState} onAssert={engine.assertInterrupt} onDeassert={engine.deassertInterrupt} {...dp} /></ErrorBoundary>
           if (key === 'io')     return <ErrorBoundary key={key}><IOPortPanel outputPorts={engine.outputPorts} inputPresets={engine.inputPresets} onSetInput={engine.setInputPort} onRemoveInput={engine.removeInputPort} keyQueue={engine.keyQueue} onEnqueueKeys={engine.enqueueKeys} onClearKeyQueue={engine.clearKeyQueue} sid={engine.sid} sod={engine.sod} onSetSID={v => { sim.simSetSID(v); engine.setSid(v); }} {...dp} /></ErrorBoundary>
-          if (key === 'memmap') return <ErrorBoundary key={key}><MemMapPanel regs={engine.regs} programRegion={engine.programRegion} presetAddrs={engine.presetAddrs} {...dp} /></ErrorBoundary>
+          if (key === 'memmap') return <ErrorBoundary key={key}><MemMapPanel regs={engine.regs} programRegion={engine.programRegion} presetAddrs={engine.presetAddrs} onJump={engine.setMemStart} {...dp} /></ErrorBoundary>
           if (key === 'audio')  return <ErrorBoundary key={key}><AudioPanel outputPorts={engine.outputPorts} running={engine.running} onShowDialog={setAppDialog} {...dp} /></ErrorBoundary>
           return null
         })}
