@@ -3,19 +3,20 @@ import { PanelHelp } from './PanelHelp.jsx';
 
 const CHAT_SYSTEM = `You are an expert assistant embedded in an Intel 8085 microprocessor simulator. Help users with 8085 assembly language programming, instruction behaviour, register and flag effects, debugging, memory addressing, and general computer architecture. When showing code use 8085 assembly syntax. Be concise and practical.`
 
-export function ChatPanel({ regs, src, symbols, breakpoints, callStack, onClose }) {
-  const [apiKey,      setApiKey]      = useState(() => localStorage.getItem('ant_key') || '')
-  const [keyDraft,    setKeyDraft]    = useState('')
-  const [setupOpen,   setSetupOpen]   = useState(!localStorage.getItem('ant_key'))
-  const [messages,    setMessages]    = useState([])
-  const [input,       setInput]       = useState('')
-  const [loading,     setLoading]     = useState(false)
-  const [pos,         setPos]         = useState({ x: Math.max(0, window.innerWidth / 2 - 170), y: 150 })
-  const posRef     = useRef(pos)
-  const scrollRef  = useRef(null)
-  const inputRef   = useRef(null)
+export function ChatPanel({ regs, src, symbols, breakpoints, callStack, onClose, onPopout, isPoppedOut }) {
+  const [apiKey,    setApiKey]    = useState(() => localStorage.getItem('ant_key') || '')
+  const [keyDraft,  setKeyDraft]  = useState('')
+  const [setupOpen, setSetupOpen] = useState(!localStorage.getItem('ant_key'))
+  const [messages,  setMessages]  = useState([])
+  const [input,     setInput]     = useState('')
+  const [loading,   setLoading]   = useState(false)
+  const [pos,       setPos]       = useState({ x: Math.max(0, window.innerWidth / 2 - 170), y: 150 })
+  const posRef    = useRef(pos)
+  const scrollRef = useRef(null)
+  const inputRef  = useRef(null)
 
   function onDragDown(e) {
+    if (isPoppedOut) return
     if (e.target.closest('button') || e.target.closest('input')) return
     e.preventDefault()
     const ox = e.clientX - posRef.current.x, oy = e.clientY - posRef.current.y
@@ -109,14 +110,22 @@ export function ChatPanel({ regs, src, symbols, breakpoints, callStack, onClose 
     }
   }
 
+  const wrapperClass = isPoppedOut ? 'chat-window' : 'chat-float'
+  const wrapperStyle = isPoppedOut ? {} : { left: pos.x, top: pos.y }
+
   return (
-    <div className="chat-float" style={{ left: pos.x, top: pos.y }}>
-      <div className="chat-float-hd" onMouseDown={onDragDown}>
+    <div className={wrapperClass} style={wrapperStyle}>
+      <div className="chat-float-hd" onMouseDown={onDragDown} style={{ cursor: isPoppedOut ? 'default' : 'move' }}>
         <span><span className="panel-icon">🤖</span>AI ASSISTANT</span>
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
           <button className="reg-base-btn" onClick={() => setSetupOpen(o => !o)} title="API key settings">⚙</button>
           <PanelHelp panel="AI ASSISTANT" />
-          <button className="chat-float-close" onClick={onClose} title="Close">✕</button>
+          {!isPoppedOut && onPopout && (
+            <button className="reg-base-btn" onClick={onPopout} title="Open in separate window">⧉</button>
+          )}
+          {onClose && (
+            <button className="chat-float-close" onClick={onClose} title="Close">✕</button>
+          )}
         </div>
       </div>
 

@@ -174,6 +174,7 @@ export default function App() {
   const [showWelcome,    setShowWelcome]    = useState(() => !localStorage.getItem('sim8085_welcomed'))
   const [showCalc,       setShowCalc]       = useState(false)
   const [showChat,       setShowChat]       = useState(false)
+  const [chatPoppedOut,  setChatPoppedOut]  = useState(false)
   const [showShortcuts,  setShowShortcuts]  = useState(false)
   
   function dismissWelcome() { localStorage.setItem('sim8085_welcomed', '1'); setShowWelcome(true) }
@@ -805,7 +806,18 @@ export default function App() {
         <CalcFloat onClose={() => setShowCalc(false)} />
       )}
 
-      {showChat && <ChatPanel regs={engine.regs} src={src} symbols={engine.symbols} breakpoints={engine.bps} callStack={engine.callStack} onClose={() => setShowChat(false)} />}
+      {showChat && !chatPoppedOut && (
+        <ChatPanel regs={engine.regs} src={src} symbols={engine.symbols} breakpoints={engine.bps} callStack={engine.callStack}
+          onClose={() => setShowChat(false)}
+          onPopout={() => setChatPoppedOut(true)} />
+      )}
+      {showChat && chatPoppedOut && (
+        <PopoutWindow title="AI Assistant - sim8085" theme={theme} onClose={() => { setChatPoppedOut(false); setShowChat(false) }}>
+          <ChatPanel regs={engine.regs} src={src} symbols={engine.symbols} breakpoints={engine.bps} callStack={engine.callStack}
+            isPoppedOut
+            onClose={() => { setChatPoppedOut(false); setShowChat(false) }} />
+        </PopoutWindow>
+      )}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {driveFiles !== null && <DriveLoadModal files={driveFiles} loading={driveLoading} onClose={() => setDriveFiles(null)} onSelect={(id, name) => confirmLoad(() => { setReadOnlySource(null); fetchDriveFile(id, name) })} onDelete={deleteDriveFile} />}
       {showGithubSetup && <GithubSetupModal onClose={() => setShowGithubSetup(false)} onSave={() => engine.setMsg('✓ GitHub token saved.')} />}

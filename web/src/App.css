@@ -1655,6 +1655,11 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
   display: flex; flex-direction: column; overflow: hidden;
   resize: both;
 }
+.chat-window {
+  background: var(--bg1);
+  display: flex; flex-direction: column; overflow: hidden;
+  width: 100%; height: 100vh;
+}
 .chat-float-hd {
   display: flex; align-items: center; justify-content: space-between;
   padding: 5px 8px 5px 10px; background: var(--bg2);
