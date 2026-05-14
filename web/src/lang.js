@@ -139,6 +139,7 @@ export const asm8085Linter = linter((view) => {
       }
     }
   }
-  
+  }
+
   return diagnostics
 })

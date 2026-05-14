@@ -194,7 +194,14 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
               <span className="disasm-heat"
                 title={maxHit > 0 && hitcnts?.has(row.addr) ? `${hitcnts.get(row.addr).toLocaleString()} hits` : undefined}
                 style={{opacity: maxHit > 0 && hitcnts?.has(row.addr) ? Math.max(0.15, hitcnts.get(row.addr) / maxHit) : 0}} />
-              <span className="disasm-text">{row.text}</span>
+              <span className="disasm-text">
+                {(() => {
+                  if (!cur) return row.text;
+                  const m = row.text.match(/^([0-9A-Fa-f]{4}\s+(?:[0-9A-Fa-f]{2}\s+)+[a-zA-Z0-9_]+)(\s+)(.+)$/);
+                  if (m) return <>{m[1]}{m[2]}<span style={{ color: 'var(--amber)', fontWeight: 600 }}>{m[3]}</span></>;
+                  return row.text;
+                })()}
+              </span>
               {cond && bp && <span className="disasm-cond">{cond}</span>}
               {row.cycles > 0 && <span className="disasm-cycles">{row.cycles}T</span>}
               <span className="disasm-hitcnt" title={maxHit > 0 && hitcnts?.has(row.addr) ? "Execution count" : undefined}>

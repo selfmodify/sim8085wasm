@@ -1136,6 +1136,8 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 }
 
 .panel-icon { letter-spacing: 0; margin-right: 5px; font-size: 13px; text-transform: none }
+.panel-title { display: flex; align-items: center; }
+.panel-body { flex: 1; overflow-y: auto; min-height: 0; animation: panel-body-expand .18s ease-out; }
 .panel-hd.collapsible { cursor: pointer; user-select: none }
 .panel-hd.collapsible:hover { background: var(--bg3) }
 
@@ -2054,6 +2056,43 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 .help-lbl { color: var(--text3); font-size: 10px; font-weight: 700; letter-spacing: .5px; align-self: center }
 .help-desc { color: var(--text2); font-size: 12px; line-height: 1.6 }
 .help-ex { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; font-family: var(--mono); font-size: 12px; color: var(--accent2); white-space: pre }
+
+/* ── Floating Instruction Help Popup ─────────────────────────────── */
+.help-popup {
+  position: fixed;
+  z-index: 10000;
+  width: 320px;
+  background: var(--bg1);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-pop);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Offset slightly so it floats near but not directly under the cursor */
+  transform: translate(15px, 15px);
+}
+.help-popup-hd {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+}
+.help-popup-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.help-stats {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
 
 /* ── Keyboard shortcuts modal ───────────────────────────────────────── */
 .shortcuts-modal {

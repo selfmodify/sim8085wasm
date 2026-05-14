@@ -528,6 +528,22 @@ describe('DisasmPanel', () => {
     fireEvent.click(screen.getByTitle('Clear all breakpoints'));
     expect(onClearAllBps).toHaveBeenCalledOnce();
   });
+
+  it('renders labels above instructions when symbols match address', () => {
+    render(<DisasmPanel {...baseDisasmProps} symbols={{ START_LOOP: 0x0100 }} />);
+    expect(screen.getByText('START_LOOP:')).toBeInTheDocument();
+  });
+
+  it('highlights operands of the current instruction', () => {
+    simProxyMock.simDisassemble.mockReturnValueOnce({
+      text: '0100 3E 01   MVI A,01H',
+      len: 2, cycles: 7, mnem: 'MVI',
+    });
+    render(<DisasmPanel {...baseDisasmProps} regs={{ pc: 0x100 }} />);
+    const opSpan = document.querySelector('.disasm-text span');
+    expect(opSpan).not.toBeNull();
+    expect(opSpan.textContent).toBe('A,01H');
+  });
 });
 
 // ── RegPanel ──────────────────────────────────────────────────────────────────
