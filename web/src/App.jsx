@@ -216,6 +216,8 @@ export default function App() {
       if (e.key === 'F8') { e.preventDefault(); if (!h.running && h.appState !== 'error') h.doStepOver() }
       if (e.key === 'F10') { e.preventDefault(); if (!h.running && h.appState !== 'error') h.doStepOut() }
       if (e.key === 'F9') { e.preventDefault(); if (h.appState !== 'error' || h.running) h.handleRun() }
+      if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); if (h.appState !== 'error' || h.running) h.handleRun() }
+      if (e.key === 'Escape' && h.running) { e.preventDefault(); h.handleRun() }
       if (e.key === '?' && !e.ctrlKey && !e.altKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
         e.preventDefault(); setShowShortcuts(s => !s)
       }

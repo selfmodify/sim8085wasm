@@ -8,6 +8,8 @@ const SHORTCUTS = [
       { keys: ['F8'],           desc: 'Step over call/subroutine' },
       { keys: ['F10'],          desc: 'Step out of current subroutine' },
       { keys: ['F9'],           desc: 'Run / Stop' },
+      { keys: ['Ctrl', '↵'],   desc: 'Run / Stop' },
+      { keys: ['Esc'],          desc: 'Stop (while running)' },
       { keys: ['F6'],           desc: 'Reset (re-assemble from source)' },
     ]
   },

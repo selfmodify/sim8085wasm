@@ -2372,10 +2372,12 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 
   /* Ensure mobile tap targets are at least 44x44px */
   .btn, .mobile-tab, .exmenu-trigger, .bmenu-trigger { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
-  .mem-btn, .reg-base-btn, .help-close, .panel-help-btn, .calc-float-close, .watch-rm, .watch-brk, .bp-list-del, .int-btn {
+  .mem-btn, .reg-base-btn, .help-close, .panel-help-btn, .calc-float-close, .chat-float-close, .watch-rm, .watch-brk, .bp-list-del, .int-btn {
     min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center;
   }
   .exmenu-cat, .bmenu-item, .exmenu-sub-item, .ctx-menu-item { min-height: 44px; display: flex; align-items: center; }
+  /* Breakpoint gutter: expand tap area on touch screens */
+  .disasm-bp { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
   .speed-slider { height: 44px; }
 
   /* Fix layout collapses on mobile by replacing flex with fixed heights */
@@ -2431,4 +2433,21 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
   /* Fix welcome modal */
   .welcome-grid { grid-template-columns: 1fr; }
   .welcome-footer { flex-direction: column; align-items: stretch; text-align: center; gap: 16px; }
+
+  /* Challenge grid: single column on narrow screens */
+  .challenge-grid { grid-template-columns: 1fr; }
+  .challenges-view { padding: 16px 12px; }
+  .challenge-card { padding: 14px; }
+
+  /* Chat float: full-width at bottom of screen instead of a free-floating overlay */
+  .chat-float {
+    position: fixed;
+    left: 8px !important; right: 8px !important;
+    bottom: 8px !important; top: auto !important;
+    width: auto !important;
+    height: 55vh !important;
+    max-height: 55vh !important;
+    resize: none;
+    border-radius: var(--radius-md) var(--radius-md) var(--radius-md) var(--radius-md);
+  }
 }
