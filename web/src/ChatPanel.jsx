@@ -1,6 +1,56 @@
 import { useState, useEffect, useRef } from 'react';
 import { PanelHelp } from './PanelHelp.jsx';
 
+// ── Lightweight markdown renderer (assistant messages only) ───────────────────
+function renderInline(text, key = 0) {
+  const parts = text.split(/(`[^`\n]+`|\*\*[^*\n]+\*\*|\*[^*\n]+\*)/g)
+  return parts.map((part, i) => {
+    if (part.length > 2 && part.startsWith('`') && part.endsWith('`'))
+      return <code key={i} className="chat-md-inline">{part.slice(1, -1)}</code>
+    if (part.length > 4 && part.startsWith('**') && part.endsWith('**'))
+      return <strong key={i}>{part.slice(2, -2)}</strong>
+    if (part.length > 2 && part.startsWith('*') && part.endsWith('*'))
+      return <em key={i}>{part.slice(1, -1)}</em>
+    return part
+  })
+}
+
+function renderMarkdown(text) {
+  const out = []
+  let k = 0
+  const segs = text.split(/(```[\w]*\n?[\s\S]*?```)/g)
+  for (const seg of segs) {
+    if (seg.startsWith('```')) {
+      const body = seg.replace(/^```[\w]*\n?/, '').replace(/\n?```$/, '')
+      out.push(<pre key={k++} className="chat-md-pre"><code>{body}</code></pre>)
+      continue
+    }
+    for (const block of seg.split(/\n{2,}/)) {
+      const lines = block.split('\n')
+      const hm = lines[0]?.match(/^(#{1,3})\s+(.+)/)
+      if (hm) {
+        out.push(<p key={k++} className="chat-md-h">{renderInline(hm[2])}</p>)
+        continue
+      }
+      const listLines = lines.filter(l => /^[ \t]*[-*+]\s|^[ \t]*\d+\.\s/.test(l))
+      if (listLines.length > 0 && listLines.length === lines.filter(l => l.trim()).length) {
+        out.push(
+          <ul key={k++} className="chat-md-ul">
+            {listLines.map((l, i) => {
+              const m = l.match(/^[ \t]*(?:[-*+]|\d+\.)\s+(.*)/)
+              return <li key={i}>{renderInline(m ? m[1] : l)}</li>
+            })}
+          </ul>
+        )
+        continue
+      }
+      const joined = lines.join('\n').trim()
+      if (joined) out.push(<p key={k++} className="chat-md-p">{renderInline(joined)}</p>)
+    }
+  }
+  return out
+}
+
 const CHAT_SYSTEM = `You are an expert assistant embedded in an Intel 8085 microprocessor simulator. Help users with 8085 assembly language programming, instruction behaviour, register and flag effects, debugging, memory addressing, and general computer architecture. When showing code use 8085 assembly syntax. Be concise and practical.`
 
 export function ChatPanel({ regs, src, symbols, breakpoints, callStack, onClose, onPopout, isPoppedOut }) {
@@ -148,7 +198,9 @@ export function ChatPanel({ regs, src, symbols, breakpoints, callStack, onClose,
           <div className="chat-empty">Ask anything about 8085 assembly…</div>}
         {messages.map((m, i) => (
           <div key={i} className={`chat-msg chat-msg-${m.role}`}>
-            <div className="chat-bubble">{m.content}</div>
+            <div className={`chat-bubble${m.role === 'assistant' ? ' chat-bubble-md' : ''}`}>
+              {m.role === 'assistant' ? renderMarkdown(m.content) : m.content}
+            </div>
           </div>
         ))}
         {loading && <div className="chat-msg chat-msg-assistant"><div className="chat-bubble chat-loading">…</div></div>}
