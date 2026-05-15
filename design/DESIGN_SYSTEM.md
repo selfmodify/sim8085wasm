@@ -2,7 +2,7 @@
 
 > 8085 Microprocessor Simulator. A single-page React web app that ports the original 1995 DOS-era **sim8085** by Vijay Kumar to a modern web platform. The aesthetic is unapologetically **retro-terminal** — dark slate background, terminal green primary, amber/red signal colors, monospace-forward typography, dense panels with thin borders.
 
-**Live demo:** https://selfmodify.github.io/sim8085wasm/
+**Live demo:** https://selfmodify.github.io/sim8085/
 
 ---
 
@@ -10,7 +10,7 @@
 
 This system was reverse-engineered from a single GitHub repository:
 
-- **Repo:** [`selfmodify/sim8085wasm`](https://github.com/selfmodify/sim8085wasm) @ `main`
+- **Repo:** [`selfmodify/sim8085`](https://github.com/selfmodify/sim8085) @ `main`
 - **Imported files** (kept under `web/` and `screenshots/` for reference):
   - `web/src/App.css` — full component CSS (1297 lines)
   - `web/src/App.jsx` — full React app (2595 lines, single-file)

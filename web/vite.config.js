@@ -63,7 +63,7 @@ export default defineConfig({
     react(),
     wasmBuildPlugin(),
   ],
-  base: '/sim8085wasm/',   // ← must match your repo name exactly
+  base: '/sim8085/',   // ← must match your repo name exactly
   define: { __BUILD_TIME__: JSON.stringify(buildTime) },
   server: {
     watch: { usePolling: true }

@@ -4,7 +4,7 @@
 
 This package contains the design system and reference UI kit for **sim8085** — a single-page web app that ports the original 1995 DOS-era 8085 microprocessor simulator by Vijay Kumar to a modern web platform. The aesthetic is unapologetically **retro-terminal**: dark slate background, terminal green primary, amber/red signal colors, monospace-forward typography, dense panels with thin borders.
 
-The system was reverse-engineered from the source repo [`selfmodify/sim8085wasm`](https://github.com/selfmodify/sim8085wasm) and codifies the visual + content rules so any new surface (in-app feature, marketing snippet, doc page, screenshot) reads as part of the same product.
+The system was reverse-engineered from the source repo [`selfmodify/sim8085`](https://github.com/selfmodify/sim8085) and codifies the visual + content rules so any new surface (in-app feature, marketing snippet, doc page, screenshot) reads as part of the same product.
 
 ## About the Design Files
 
@@ -145,4 +145,4 @@ Very dense — intentionally. Vertical row padding 1–2px, horizontal 6–10px.
 
 ## Source
 
-The original codebase is at [`selfmodify/sim8085wasm`](https://github.com/selfmodify/sim8085wasm) on the `main` branch. The design system in `DESIGN_SYSTEM.md` was reverse-engineered from `web/src/App.css` (1297 lines) and `web/src/App.jsx` (2595 lines). When the system and the source disagree, **the source wins** — file an issue and update the system to match.
+The original codebase is at [`selfmodify/sim8085`](https://github.com/selfmodify/sim8085) on the `main` branch. The design system in `DESIGN_SYSTEM.md` was reverse-engineered from `web/src/App.css` (1297 lines) and `web/src/App.jsx` (2595 lines). When the system and the source disagree, **the source wins** — file an issue and update the system to match.

@@ -1,4 +1,4 @@
-// 7-segment LED digit — copied verbatim from sim8085wasm/web/src/App.jsx
+// 7-segment LED digit — copied verbatim from sim8085/web/src/App.jsx
 function SevenSeg({ value }) {
   const ON = '#FF2200', OFF = 'rgba(255,34,0,0.15)';
   const segs = [
