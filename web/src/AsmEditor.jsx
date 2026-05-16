@@ -206,6 +206,18 @@ const asmCompletionSource = (context) => {
   let word = context.matchBefore(/[A-Za-z]+/)
   if (!word) return null
   if (word.from === word.to && !context.explicit) return null
+
+  const line = context.state.doc.lineAt(context.pos)
+  const before = line.text.slice(0, word.from - line.from)
+
+  // Don't complete when the letters follow digits — it's a hex suffix (e.g. 20H, 0FFH)
+  if (/[0-9A-Fa-f]$/.test(before)) return null
+
+  // Only complete at the mnemonic position: the word must be the first non-whitespace
+  // token on the line (possibly after a label ending with ':')
+  const stripped = before.replace(/^[ \t]*(?:[A-Za-z_][A-Za-z0-9_]*[ \t]*:[ \t]*)?/, '')
+  if (/\S/.test(stripped)) return null
+
   return {
     from: word.from,
     options: Object.entries(INST_HELP).map(([mnem, data]) => ({
