@@ -93,7 +93,7 @@ export function useGoogleDrive({ engine, srcRef, setSrc, fileName, setFileName, 
       const res = await fetch(url, { method: existingFileId ? 'PATCH' : 'POST', headers: { Authorization: 'Bearer ' + token }, body: form })
       if (res.status === 401) { setDriveToken(null); engine.setMsg('✗ Drive session expired.'); setDriveSaveStatus(null); return }
       if (res.ok) {
-        engine.setMsg(existingFileId ? '✓ File updated on Google Drive!' : '✓ File saved to "sim8085" folder on Google Drive!')
+        engine.setMsg('✓ Saved locally and to Google Drive')
         if (explicitName) { setFileName(name); localStorage.setItem('sim8085_filename', name) }
         setDriveSaveStatus('success')
         setTimeout(() => setDriveSaveStatus(null), 2000)

@@ -40,6 +40,7 @@ const SHORTCUTS = [
   },
   { group: 'Global',
     rows: [
+      { keys: ['Ctrl', 'S'],    desc: 'Save (to Google Drive if connected, otherwise confirms local auto-save)' },
       { keys: ['?'],            desc: 'Show this keyboard shortcuts reference' },
       { keys: ['Esc'],          desc: 'Stop execution (if running) / close modal' },
     ]

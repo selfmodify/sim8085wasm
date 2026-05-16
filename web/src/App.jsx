@@ -209,7 +209,7 @@ export default function App() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const hotkeysRef = useRef(null)
-  useEffect(() => { hotkeysRef.current = { handleBuild, handleReset, doStep: engine.doStep, doStepOver: engine.doStepOver, doStepOut: engine.doStepOut, handleRun: engine.handleRun, running: engine.running, appState: engine.appState } })
+  useEffect(() => { hotkeysRef.current = { handleBuild, handleReset, doStep: engine.doStep, doStepOver: engine.doStepOver, doStepOut: engine.doStepOut, handleRun: engine.handleRun, running: engine.running, appState: engine.appState, saveToDrive, driveToken, setMsg: engine.setMsg } })
   useEffect(() => {
     function onKey(e) {
       const h = hotkeysRef.current
@@ -220,6 +220,7 @@ export default function App() {
       if (e.key === 'F10') { e.preventDefault(); if (!h.running && h.appState !== 'error') h.doStepOut() }
       if (e.key === 'F9') { e.preventDefault(); if (h.appState !== 'error' || h.running) h.handleRun() }
       if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); if (h.appState !== 'error' || h.running) h.handleRun() }
+      if (e.key === 's' && e.ctrlKey) { e.preventDefault(); if (h.driveToken) h.saveToDrive(); else h.setMsg('✓ Saved locally') }
       if (e.key === 'Escape' && h.running) { e.preventDefault(); h.handleRun() }
       if (e.key === '?' && !e.ctrlKey && !e.altKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
         e.preventDefault(); setShowShortcuts(s => !s)
