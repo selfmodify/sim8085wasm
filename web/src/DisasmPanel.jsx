@@ -3,7 +3,7 @@ import * as sim from './simProxy.js';
 import { PanelHelp } from './PanelHelp.jsx';
 import { hex4, fmtCount } from './utils.js';
 
-export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondition, onGotoLine, buildId, pcFlash, onRunTo, symbols, onJumpMem, hitcnts, maxHit }) {
+export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondition, onGotoLine, buildId, pcFlash, onRunTo, symbols, onJumpMem, hitcnts, maxHit, flashReq }) {
   const [viewStart, setViewStart] = useState(() => regs.pc)
   const [ctxMenu, setCtxMenu]     = useState(null)   // {addr, x, y}
   const [followPC, setFollowPC]   = useState(true)
@@ -70,6 +70,35 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
       setViewStart(regs.pc)
     }
   }, [regs.pc, followPC]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (flashReq && flashReq.addr !== undefined) {
+      setFollowPC(false)
+      ignorePcScrollRef.current = true
+      
+      const isVisible = linesRef.current.some(r => r.addr === flashReq.addr)
+      if (!isVisible) {
+        const targetIdx = findIdx(flashReq.addr)
+        const startIdx = Math.max(0, targetIdx - 5)
+        setViewStart(addrIdxRef.current[startIdx] ?? flashReq.addr)
+      }
+
+      let retries = 0
+      const tryHighlight = () => {
+        const row = document.querySelector(`.disasm-row[data-addr="${flashReq.addr}"]`)
+        if (row) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          row.classList.remove('flash-highlight')
+          void row.offsetWidth // trigger reflow
+          row.classList.add('flash-highlight')
+        } else if (retries < 15) {
+          retries++
+          setTimeout(tryHighlight, 50)
+        }
+      }
+      setTimeout(tryHighlight, 10)
+    }
+  }, [flashReq, findIdx])
 
   useEffect(() => {
     if (!ctxMenu) return
@@ -179,6 +208,7 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
             <div
               ref={cur ? curRowRef : null}
               className={`disasm-row${cur ? ' cur' : ''}${bp ? ' bp' : ''}${row.mnem === 'ASSERT' ? ' assert' : ''}`}
+              data-addr={row.addr}
               onClick={() => onGotoLine?.(row.addr)}
               onContextMenu={e => { e.preventDefault(); setCtxMenu({ addr: row.addr, x: e.clientX, y: e.clientY }) }}
             >

@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SimulatorContext } from './SimulatorContext.jsx';
 
 // ── simProxy mock ─────────────────────────────────────────────────────────────
@@ -676,5 +676,44 @@ describe('CHALLENGES array', () => {
   it('challenge ids are unique', () => {
     const ids = CHALLENGES.map(c => c.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+// ── AsmEditor ─────────────────────────────────────────────────────────────────
+import { AsmEditor } from './AsmEditor.jsx';
+
+describe('AsmEditor', () => {
+  it('calls onAddressClick when an address in the gutter is clicked', async () => {
+    const onAddressClick = vi.fn();
+    const lineAddrRef = { current: new Map([[1, 0x0100]]) };
+
+    const { container } = render(
+      <AsmEditor
+        value="NOP"
+        onChange={vi.fn()}
+        lineAddrRef={lineAddrRef}
+        onAddressClick={onAddressClick}
+        buildId={1}
+      />
+    );
+
+    // CodeMirror's gutter markers don't render in JSDOM (no layout engine).
+    // Inject a synthetic gutter structure that mirrors what CodeMirror would produce,
+    // then fire the mousedown to test the handler logic directly.
+    const editorEl = container.querySelector('.cm-editor');
+    const gutterWrap = document.createElement('div');
+    gutterWrap.className = 'cm-address-gutter';
+    const gutterItem = document.createElement('div');
+    gutterItem.className = 'cm-gutterElement';
+    const addrText = document.createElement('span');
+    addrText.className = 'cm-addr-text';
+    addrText.dataset.addr = '256';
+    gutterItem.appendChild(addrText);
+    gutterWrap.appendChild(gutterItem);
+    editorEl?.appendChild(gutterWrap);
+
+    fireEvent.mouseDown(addrText, { bubbles: true });
+
+    expect(onAddressClick).toHaveBeenCalledWith(256);
   });
 });

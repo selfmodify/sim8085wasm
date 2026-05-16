@@ -162,6 +162,7 @@ class AddressMarker extends GutterMarker {
   toDOM() {
     const span = document.createElement('span')
     span.className = 'cm-addr-text'
+    span.dataset.addr = this.addr
     if (this.isBp) span.classList.add('cm-addr-bp')
     span.textContent = (this.isBp ? '● ' : '') + hex4(this.addr)
     return span
@@ -216,7 +217,7 @@ const asmCompletionSource = (context) => {
   }
 }
 
-export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, activeLine, gotoRef, onRunTo, onJumpMem, buildId, lineAddrRef, theme, watchedWords, bps, onToggleBp }) {
+export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, activeLine, gotoRef, onRunTo, onJumpMem, buildId, lineAddrRef, theme, watchedWords, bps, onToggleBp, onAddressClick }) {
   const elRef      = useRef(null)
   const viewRef    = useRef(null)
   const syncing    = useRef(false)
@@ -225,6 +226,7 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
   const onRunToRef = useRef(onRunTo)
   const onJumpMemRef = useRef(onJumpMem)
   const onToggleBpRef = useRef(onToggleBp)
+  const onAddressClickRef = useRef(onAddressClick)
   const themeConf  = useRef(new Compartment())
   const [editorCtx, setEditorCtx] = useState(null)  // {addr, x, y}
   useEffect(() => { cursorCb.current   = onCursorInstruction }, [onCursorInstruction])
@@ -232,6 +234,7 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
   useEffect(() => { onRunToRef.current = onRunTo },             [onRunTo])
   useEffect(() => { onJumpMemRef.current = onJumpMem },         [onJumpMem])
   useEffect(() => { onToggleBpRef.current = onToggleBp },       [onToggleBp])
+  useEffect(() => { onAddressClickRef.current = onAddressClick }, [onAddressClick])
 
   useEffect(() => {
     if (!viewRef.current || !lineAddrRef?.current) return
@@ -316,21 +319,6 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
             }
           }),
           EditorView.domEventHandlers({
-            mousedown(e, view) {
-              if (e.target.closest('.cm-address-gutter') || e.target.closest('.cm-lineNumbers')) {
-                const pos = view.posAtCoords({ x: e.clientX, y: e.clientY })
-                if (pos != null) {
-                  const lineNum = view.state.doc.lineAt(pos).number
-                  const addr = lineAddrRef.current?.get(lineNum)
-                  if (addr !== undefined) {
-                    e.preventDefault()
-                    onToggleBpRef.current?.(addr)
-                    return true
-                  }
-                }
-              }
-              return false
-            },
             click(e, view) {
               if (!e.ctrlKey) return false
               const pos = view.posAtCoords({ x: e.clientX, y: e.clientY })
@@ -374,6 +362,43 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
     }
     return () => view.destroy()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const handleGutterClick = (e) => {
+      const view = viewRef.current
+      if (!view) return
+
+      // 1. Handle Address Gutter click
+      if (e.target.closest('.cm-address-gutter')) {
+        const el = e.target.closest('.cm-gutterElement')
+        const addrText = el ? el.querySelector('.cm-addr-text') : e.target.closest('.cm-addr-text')
+        if (addrText && addrText.dataset.addr != null) {
+          e.preventDefault()
+          e.stopPropagation()
+          onAddressClickRef.current?.(parseInt(addrText.dataset.addr, 10))
+        }
+        return
+      }
+
+      // 2. Handle Line Number Gutter click (Breakpoint toggle)
+      if (e.target.closest('.cm-lineNumbers')) {
+        const rect = view.contentDOM.getBoundingClientRect()
+        const pos = view.posAtCoords({ x: rect.left + 2, y: e.clientY })
+        if (pos != null) {
+          const lineNum = view.state.doc.lineAt(pos).number
+          const addr = lineAddrRef.current?.get(lineNum)
+          if (addr !== undefined) {
+            e.preventDefault()
+            e.stopPropagation()
+            onToggleBpRef.current?.(addr)
+          }
+        }
+      }
+    }
+    const el = elRef.current
+    el?.addEventListener('mousedown', handleGutterClick)
+    return () => el?.removeEventListener('mousedown', handleGutterClick)
+  }, [lineAddrRef])
 
   // Sync value from outside (example load) without re-creating the editor
   const lastVal = useRef(value)

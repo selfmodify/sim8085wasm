@@ -1433,6 +1433,17 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 .disasm-row.bp .disasm-bp { color: var(--red) }
 .disasm-row.cur.bp { border-left-color: var(--red) }
 
+@keyframes disasm-flash-highlight {
+  0%   { background: var(--tint-amber); border-left-color: var(--amber); }
+  25%  { background: transparent; border-left-color: transparent; }
+  50%  { background: var(--tint-amber); border-left-color: var(--amber); }
+  100% { background: transparent; border-left-color: transparent; }
+}
+.disasm-row.flash-highlight {
+  animation: disasm-flash-highlight 1.2s ease-out;
+  border-left-color: transparent;
+}
+
 .disasm-bp { color: var(--text3); width: 14px; text-align: center; flex-shrink: 0; cursor: pointer; padding: 0 2px }
 .disasm-bp:hover { color: var(--red) }
 .disasm-text { color: var(--text2); flex: 1; white-space: pre }
@@ -1597,8 +1608,11 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 .challenge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 16px; }
 .challenge-card { background: var(--bg1); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; cursor: pointer; transition: all .15s; display: flex; flex-direction: column; gap: 8px; }
 .challenge-card:hover { border-color: var(--accent2); background: var(--bg2); transform: translateY(-2px); box-shadow: var(--shadow-pop); }
-.challenge-title { color: var(--accent); font-size: 15px; font-weight: 600; font-family: var(--mono); }
+.challenge-title { color: var(--accent); font-size: 15px; font-weight: 600; font-family: var(--mono); display: flex; align-items: center; gap: 8px; }
 .challenge-desc { color: var(--text2); font-size: 13px; line-height: 1.5; font-family: var(--sans); }
+.challenge-badge { display: inline-flex; align-items: center; justify-content: center; background: var(--green, #2ea043); color: #fff; font-size: 11px; font-weight: 700; width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; line-height: 1; }
+.challenge-card.done { border-color: var(--green, #2ea043); }
+.challenges-progress { color: var(--accent2); font-size: 13px; margin-top: 4px; font-family: var(--mono); }
 
 
 /* ── Calculator (floating window) ────────────────────────────────── */

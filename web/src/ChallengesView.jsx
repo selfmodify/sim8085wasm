@@ -73,25 +73,32 @@ export const CHALLENGES = [
   },
 ]
 
-export function ChallengesView({ onSelect, onSolution }) {
+export function ChallengesView({ onSelect, onSolution, completedIds }) {
+  const doneCount = completedIds ? [...completedIds].filter(id => CHALLENGES.some(c => c.id === id)).length : 0
   return (
     <div className="challenges-view">
       <div className="challenges-container">
         <div className="challenges-header">
           <h1>EDUCATIONAL CHALLENGES</h1>
           <p>Select a challenge to load its initial state into the simulator. Run your code to automatically verify the result.</p>
+          {doneCount > 0 && <p className="challenges-progress">{doneCount} / {CHALLENGES.length} completed</p>}
         </div>
         <div className="challenge-grid">
-          {CHALLENGES.map(c => (
-            <div key={c.id} className="challenge-card" onClick={() => onSelect(c)}>
-              <div className="challenge-title">{c.title}</div>
+          {CHALLENGES.map(c => {
+            const done = completedIds?.has(c.id)
+            return (
+            <div key={c.id} className={`challenge-card${done ? ' done' : ''}`} onClick={() => onSelect(c)}>
+              <div className="challenge-title">
+                {c.title}
+                {done && <span className="challenge-badge" title="Completed">✓</span>}
+              </div>
               <div className="challenge-desc">{c.desc}</div>
               <button
                 className="btn"
                 onClick={e => { e.stopPropagation(); onSolution(c); }}
               >Show solution</button>
             </div>
-          ))}
+          )})}
         </div>
       </div>
     </div>

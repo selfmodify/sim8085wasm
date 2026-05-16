@@ -136,6 +136,9 @@ export default function App() {
 
   const [activeChallenge, setActiveChallenge] = useState(null)
   const [challengeResult, setChallengeResult] = useState(null)
+  const [completedChallenges, setCompletedChallenges] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('sim8085_completed') || '[]')) } catch { return new Set() }
+  })
   const [appDialog, setAppDialog]             = useState(null)
   const [showGithubSetup, setShowGithubSetup] = useState(false)
 
@@ -239,6 +242,11 @@ export default function App() {
       if (activeChallenge.test()) {
         setChallengeResult({ passed: true, msg: activeChallenge.successMsg })
         engine.setMsg(`🏆 Challenge Passed: ${activeChallenge.successMsg}`)
+        setCompletedChallenges(s => {
+          const next = new Set(s); next.add(activeChallenge.id)
+          try { localStorage.setItem('sim8085_completed', JSON.stringify([...next])) } catch {}
+          return next
+        })
       } else {
         setChallengeResult({ passed: false, msg: 'Memory output does not match expected result. Check your logic and try again!' })
         engine.setMsg(`❌ Challenge Failed: Output is incorrect. Keep trying!`)
@@ -772,7 +780,7 @@ export default function App() {
       </div>
 
       {activeView === 'challenges' && (
-        <ChallengesView onSelect={loadChallenge} onSolution={loadSolution} />
+        <ChallengesView onSelect={loadChallenge} onSolution={loadSolution} completedIds={completedChallenges} />
       )}
 
       {activeView === 'community' && (

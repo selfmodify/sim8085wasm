@@ -24,6 +24,7 @@ import { HelpPanel } from './HelpPanel.jsx'
 export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, panels, setAppDialog, setHelpInst, formatCode, openConditionDialog, readOnlySource }) {
   const [cursorInst, setCursorInst] = useState(null)
   const gotoLineRef = useRef(null)
+  const [disasmFlashReq, setDisasmFlashReq] = useState(null)
 
   const [editorCollapsed, toggleEditorCollapsed] = useCollapsible('editor', false)
   const [draggedPanel, setDraggedPanel] = useState(null)
@@ -149,7 +150,8 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
             <AsmEditor value={src} onChange={v => { srcRef.current = v; setSrc(v) }} gotoRef={gotoLineRef}
               onCursorInstruction={setCursorInst} onInstructionDetail={setHelpInst}
               errorLine={engine.errorLine} activeLine={engine.addrLineMap?.get(engine.regs?.pc)} onRunTo={engine.runToAddr} onJumpMem={engine.setMemStart} buildId={engine.buildId} lineAddrRef={engine.lineAddrRef} theme={theme} watchedWords={watchedWords}
-              bps={engine.bps} onToggleBp={engine.toggleBp} />
+              bps={engine.bps} onToggleBp={engine.toggleBp}
+              onAddressClick={(addr) => setDisasmFlashReq({ addr, ts: Date.now() })} />
           )}
         </div>
         <HelpPanel instruction={cursorInst} />
@@ -161,7 +163,7 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
       <div className={`col col-center${mobileTab!=='code' ? ' mobile-hidden' : ''}`}>
         <div className="disasm-trace-row">
           <DisasmPanel regs={engine.regs} breakpoints={engine.bps} onToggleBp={engine.toggleBp} onClearAllBps={engine.clearAllBps} buildId={engine.buildId} pcFlash={engine.pcFlash}
-            onSetCondition={openConditionDialog} onRunTo={engine.runToAddr} symbols={engine.symbols} onJumpMem={engine.setMemStart} hitcnts={engine.hitcnts} maxHit={engine.maxHit}
+            onSetCondition={openConditionDialog} onRunTo={engine.runToAddr} symbols={engine.symbols} onJumpMem={engine.setMemStart} hitcnts={engine.hitcnts} maxHit={engine.maxHit} flashReq={disasmFlashReq}
             onGotoLine={(addr, labelName) => { const ln = engine.addrLineMap.get(addr); if (ln) gotoLineRef.current?.(ln, labelName) }} />
           {(panels.stack || panels.callstack || panels.trace) && (
             <>

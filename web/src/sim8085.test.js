@@ -717,6 +717,275 @@ describe('simSetRegisters', () => {
   });
 });
 
+// ── DAA ──────────────────────────────────────────────────────────────────────
+describe('DAA — decimal adjust accumulator', () => {
+  it('adjusts sum of two packed BCD digits', () => {
+    // 0x28 + 0x35 = 0x5D → DAA → 0x63 (63 decimal = 28+35)
+    const r = run('ORG 100H\nMVI A, 28H\nADI 35H\nDAA\nHLT');
+    expect(r.a).toBe(0x63);
+  });
+  it('sets carry when BCD result exceeds 99', () => {
+    // 0x99 + 0x01 = 0x9A → DAA → 0x00 with carry
+    const r = run('ORG 100H\nMVI A, 99H\nADI 01H\nDAA\nHLT');
+    expect(r.a).toBe(0x00);
+    expect(CY(r)).toBe(1);
+  });
+});
+
+// ── SBI ──────────────────────────────────────────────────────────────────────
+describe('SBI — subtract immediate with borrow', () => {
+  it('subtracts immediate plus carry from A', () => {
+    // Create carry=1 via SUI underflow, then SBI 01H: 05 - 01 - 1 = 03
+    const r = run('ORG 100H\nMVI A, 00H\nSUI 01H\nMVI A, 05H\nSBI 01H\nHLT');
+    expect(r.a).toBe(0x03);
+  });
+});
+
+// ── Memory operand forms ──────────────────────────────────────────────────────
+describe('Memory operand instructions (M = [HL])', () => {
+  it('ADD M adds [HL] to A', () => {
+    simInit();
+    simAssemble('ORG 100H\nMVI A, 10H\nLXI H, 0300H\nADD M\nHLT');
+    simWriteByte(0x300, 0x05);
+    while (simIsRunning()) simStep();
+    expect(simGetRegisters().a).toBe(0x15);
+  });
+  it('ADC M adds [HL] plus carry to A', () => {
+    simInit();
+    simAssemble('ORG 100H\nSTC\nMVI A, 10H\nLXI H, 0300H\nADC M\nHLT');
+    simWriteByte(0x300, 0x05);
+    while (simIsRunning()) simStep();
+    expect(simGetRegisters().a).toBe(0x16); // 0x10 + 0x05 + carry(1)
+  });
+  it('SUB M subtracts [HL] from A', () => {
+    simInit();
+    simAssemble('ORG 100H\nMVI A, 20H\nLXI H, 0300H\nSUB M\nHLT');
+    simWriteByte(0x300, 0x08);
+    while (simIsRunning()) simStep();
+    expect(simGetRegisters().a).toBe(0x18);
+  });
+  it('SBB M subtracts [HL] plus carry from A', () => {
+    simInit();
+    simAssemble('ORG 100H\nSTC\nMVI A, 10H\nLXI H, 0300H\nSBB M\nHLT');
+    simWriteByte(0x300, 0x05);
+    while (simIsRunning()) simStep();
+    expect(simGetRegisters().a).toBe(0x0A); // 0x10 - 0x05 - 1
+  });
+  it('ANA M ANDs [HL] with A', () => {
+    simInit();
+    simAssemble('ORG 100H\nMVI A, 0FFH\nLXI H, 0300H\nANA M\nHLT');
+    simWriteByte(0x300, 0x0F);
+    while (simIsRunning()) simStep();
+    expect(simGetRegisters().a).toBe(0x0F);
+  });
+  it('ORA M ORs [HL] with A', () => {
+    simInit();
+    simAssemble('ORG 100H\nMVI A, 0F0H\nLXI H, 0300H\nORA M\nHLT');
+    simWriteByte(0x300, 0x0F);
+    while (simIsRunning()) simStep();
+    expect(simGetRegisters().a).toBe(0xFF);
+  });
+  it('XRA M XORs [HL] with A', () => {
+    simInit();
+    simAssemble('ORG 100H\nMVI A, 0FFH\nLXI H, 0300H\nXRA M\nHLT');
+    simWriteByte(0x300, 0x55);
+    while (simIsRunning()) simStep();
+    expect(simGetRegisters().a).toBe(0xAA);
+  });
+  it('CMP M sets Z when A == [HL]', () => {
+    simInit();
+    simAssemble('ORG 100H\nMVI A, 42H\nLXI H, 0300H\nCMP M\nHLT');
+    simWriteByte(0x300, 0x42);
+    while (simIsRunning()) simStep();
+    expect(Z(simGetRegisters())).toBe(1);
+    expect(simGetRegisters().a).toBe(0x42); // A unchanged
+  });
+  it('INR M increments byte at [HL]', () => {
+    simInit();
+    simAssemble('ORG 100H\nLXI H, 0300H\nINR M\nHLT');
+    simWriteByte(0x300, 0x09);
+    while (simIsRunning()) simStep();
+    expect(simReadByte(0x300)).toBe(0x0A);
+  });
+  it('DCR M decrements byte at [HL]', () => {
+    simInit();
+    simAssemble('ORG 100H\nLXI H, 0300H\nDCR M\nHLT');
+    simWriteByte(0x300, 0x05);
+    while (simIsRunning()) simStep();
+    expect(simReadByte(0x300)).toBe(0x04);
+  });
+});
+
+// ── STAX D ───────────────────────────────────────────────────────────────────
+describe('STAX D', () => {
+  it('stores A to [DE]', () => {
+    simInit();
+    simAssemble('ORG 100H\nLXI D, 0500H\nMVI A, 0EEH\nSTAX D\nHLT');
+    while (simIsRunning()) simStep();
+    expect(simReadByte(0x500)).toBe(0xEE);
+  });
+});
+
+// ── DAD D / DAD SP ───────────────────────────────────────────────────────────
+describe('DAD D / DAD SP', () => {
+  it('DAD D adds DE to HL', () => {
+    const r = run('ORG 100H\nLXI H, 1000H\nLXI D, 0234H\nDAD D\nHLT');
+    expect(r.h).toBe(0x12); expect(r.l).toBe(0x34);
+  });
+  it('DAD SP adds SP to HL', () => {
+    const r = run('ORG 100H\nLXI SP, 1000H\nLXI H, 0234H\nDAD SP\nHLT');
+    expect(r.h).toBe(0x12); expect(r.l).toBe(0x34);
+  });
+});
+
+// ── DCX variants ─────────────────────────────────────────────────────────────
+describe('DCX B / DCX H / DCX SP', () => {
+  it('DCX B decrements BC', () => {
+    const r = run('ORG 100H\nLXI B, 0200H\nDCX B\nHLT');
+    expect(r.b).toBe(0x01); expect(r.c).toBe(0xFF);
+  });
+  it('DCX H decrements HL', () => {
+    const r = run('ORG 100H\nLXI H, 1000H\nDCX H\nHLT');
+    expect(r.h).toBe(0x0F); expect(r.l).toBe(0xFF);
+  });
+  it('DCX SP decrements stack pointer', () => {
+    const r = run('ORG 100H\nLXI SP, 2000H\nDCX SP\nHLT');
+    expect(r.sp).toBe(0x1FFF);
+  });
+});
+
+// ── INX D / INX SP ───────────────────────────────────────────────────────────
+describe('INX D / INX SP', () => {
+  it('INX D increments DE', () => {
+    const r = run('ORG 100H\nLXI D, 00FFH\nINX D\nHLT');
+    expect(r.d).toBe(0x01); expect(r.e).toBe(0x00);
+  });
+  it('INX SP increments stack pointer', () => {
+    const r = run('ORG 100H\nLXI SP, 1FFEH\nINX SP\nHLT');
+    expect(r.sp).toBe(0x1FFF);
+  });
+});
+
+// ── Parity conditional jumps ──────────────────────────────────────────────────
+describe('JPE / JPO — parity conditional jumps', () => {
+  it('JPE jumps when parity is even (P=1)', () => {
+    // 0xFF has 8 bits set — even parity
+    const r = run('ORG 100H\nMVI A, 0FFH\nADI 00H\nJPE HIT\nMVI B, 00H\nHIT: MVI B, 42H\nHLT');
+    expect(r.b).toBe(0x42);
+  });
+  it('JPO jumps when parity is odd (P=0)', () => {
+    // 0x01 has 1 bit set — odd parity
+    const r = run('ORG 100H\nMVI A, 01H\nADI 00H\nJPO HIT\nMVI B, 00H\nHIT: MVI B, 42H\nHLT');
+    expect(r.b).toBe(0x42);
+  });
+});
+
+// ── Remaining conditional calls ───────────────────────────────────────────────
+describe('CC / CNC / CM / CP / CNZ conditional calls', () => {
+  it('CC calls when CY=1', () => {
+    const r = run('ORG 100H\nLXI SP, 2000H\nSTC\nCC SUB\nHLT\nSUB: MVI B, 42H\nRET');
+    expect(r.b).toBe(0x42);
+  });
+  it('CC does not call when CY=0', () => {
+    const r = run('ORG 100H\nLXI SP, 2000H\nCC SUB\nHLT\nSUB: MVI B, 0FFH\nRET');
+    expect(r.b).toBe(0x00);
+  });
+  it('CNC calls when CY=0', () => {
+    const r = run('ORG 100H\nLXI SP, 2000H\nCNC SUB\nHLT\nSUB: MVI B, 42H\nRET');
+    expect(r.b).toBe(0x42);
+  });
+  it('CM calls when S=1', () => {
+    const r = run('ORG 100H\nLXI SP, 2000H\nMVI A, 80H\nADI 00H\nCM SUB\nHLT\nSUB: MVI B, 42H\nRET');
+    expect(r.b).toBe(0x42);
+  });
+  it('CP calls when S=0', () => {
+    const r = run('ORG 100H\nLXI SP, 2000H\nMVI A, 01H\nADI 00H\nCP SUB\nHLT\nSUB: MVI B, 42H\nRET');
+    expect(r.b).toBe(0x42);
+  });
+  it('CNZ calls when Z=0', () => {
+    const r = run('ORG 100H\nLXI SP, 2000H\nMVI A, 01H\nCPI 00H\nCNZ SUB\nHLT\nSUB: MVI B, 42H\nRET');
+    expect(r.b).toBe(0x42);
+  });
+});
+
+// ── Remaining conditional returns ────────────────────────────────────────────
+describe('RC / RNC / RNZ / RM / RP conditional returns', () => {
+  it('RC returns when CY=1', () => {
+    const r = run(`ORG 100H
+      LXI SP, 2000H
+      CALL SUB
+      HLT
+      SUB: STC
+           RC
+           MVI A, 0FFH
+           RET`);
+    expect(r.a).toBe(0x00); // RC fired; 0xFF never reached
+  });
+  it('RNC returns when CY=0', () => {
+    const r = run(`ORG 100H
+      LXI SP, 2000H
+      CALL SUB
+      HLT
+      SUB: RNC
+           MVI A, 0FFH
+           RET`);
+    expect(r.a).toBe(0x00); // RNC fired immediately (no carry after init)
+  });
+  it('RNZ returns when Z=0', () => {
+    const r = run(`ORG 100H
+      LXI SP, 2000H
+      CALL SUB
+      HLT
+      SUB: MVI A, 01H
+           CPI 00H
+           RNZ
+           MVI A, 0FFH
+           RET`);
+    expect(r.a).toBe(0x01); // RNZ fired; 0xFF never reached
+  });
+  it('RM returns when S=1', () => {
+    const r = run(`ORG 100H
+      LXI SP, 2000H
+      CALL SUB
+      HLT
+      SUB: MVI A, 80H
+           ADI 00H
+           RM
+           MVI A, 00H
+           RET`);
+    expect(r.a).toBe(0x80); // RM fired
+  });
+  it('RP returns when S=0', () => {
+    const r = run(`ORG 100H
+      LXI SP, 2000H
+      CALL SUB
+      HLT
+      SUB: MVI A, 01H
+           ADI 00H
+           RP
+           MVI A, 00H
+           RET`);
+    expect(r.a).toBe(0x01); // RP fired
+  });
+});
+
+// ── RST ──────────────────────────────────────────────────────────────────────
+describe('RST — restart', () => {
+  it('RST 7 jumps to address 38H and returns', () => {
+    // Place a handler at 38H that sets A=42H then RET
+    const r = run([
+      'ORG 0038H',
+      'MVI A, 42H',
+      'RET',
+      'ORG 0100H',
+      'LXI SP, 2000H',
+      'RST 7',
+      'HLT',
+    ].join('\n'));
+    expect(r.a).toBe(0x42);
+  });
+});
+
 // ── LED display (CALL 5 syscall) ─────────────────────────────────────────────
 describe('LED display via CALL 5', () => {
   it('C=02H syscall updates LED display', () => {
