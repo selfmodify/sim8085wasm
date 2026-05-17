@@ -60,6 +60,7 @@ export function ChatPanel({ regs, src, symbols, breakpoints, callStack, onClose,
   const [messages,  setMessages]  = useState([])
   const [input,     setInput]     = useState('')
   const [loading,   setLoading]   = useState(false)
+  const [fontSize,  setFontSize]  = useState(() => localStorage.getItem('sim8085_chat_fs') || 'md')
   const [pos,       setPos]       = useState({ x: Math.max(0, window.innerWidth / 2 - 170), y: 150 })
   const posRef    = useRef(pos)
   const scrollRef = useRef(null)
@@ -164,10 +165,17 @@ export function ChatPanel({ regs, src, symbols, breakpoints, callStack, onClose,
   const wrapperStyle = isPoppedOut ? {} : { left: pos.x, top: pos.y }
 
   return (
-    <div className={wrapperClass} style={wrapperStyle}>
+    <div className={wrapperClass} style={wrapperStyle} data-chat-size={fontSize}>
       <div className="chat-float-hd" onMouseDown={onDragDown} style={{ cursor: isPoppedOut ? 'default' : 'move' }}>
         <span><span className="panel-icon">🤖</span>AI ASSISTANT</span>
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          {['sm','md','lg'].map(s => (
+            <button key={s} className={`chat-fs-btn${fontSize === s ? ' active' : ''}`}
+              onClick={() => { setFontSize(s); localStorage.setItem('sim8085_chat_fs', s) }}
+              title={s === 'sm' ? 'Small text' : s === 'md' ? 'Medium text' : 'Large text'}>
+              {s === 'sm' ? 'S' : s === 'md' ? 'M' : 'L'}
+            </button>
+          ))}
           <button className="reg-base-btn" onClick={() => setSetupOpen(o => !o)} title="API key settings">⚙</button>
           <PanelHelp panel="AI ASSISTANT" />
           {!isPoppedOut && onPopout && (

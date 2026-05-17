@@ -1705,14 +1705,20 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 .chat-key-link  { color: var(--accent); font-size: 11px; text-decoration: none }
 .chat-key-link:hover { text-decoration: underline }
 .chat-messages  { flex: 1; overflow-y: auto; padding: 6px 8px; display: flex; flex-direction: column; gap: 5px; min-height: 0 }
-.chat-empty     { color: var(--text3); font-size: 11px; font-style: italic; text-align: center; padding-top: 16px }
 .chat-msg       { display: flex }
 .chat-msg-user      { justify-content: flex-end }
 .chat-msg-assistant { justify-content: flex-start }
 .chat-msg-error     { justify-content: flex-start }
+/* Chat font-size levels (S / M / L) — default is medium */
+.chat-float, .chat-window { --chat-fs: 13px; --chat-fs-sm: 11px; --chat-fs-code: 11.5px }
+[data-chat-size="sm"]     { --chat-fs: 11px; --chat-fs-sm: 10px; --chat-fs-code: 10.5px }
+[data-chat-size="lg"]     { --chat-fs: 15px; --chat-fs-sm: 12px; --chat-fs-code: 13px   }
+.chat-fs-btn { font-family: var(--mono); font-size: 9px; font-weight: 700; padding: 1px 5px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text3); cursor: pointer; line-height: 1.6 }
+.chat-fs-btn:hover { color: var(--text); border-color: var(--border2) }
+.chat-fs-btn.active { color: var(--accent); border-color: var(--accent2); background: var(--tint-accent-pc) }
 .chat-bubble {
   max-width: 88%; padding: 5px 9px; border-radius: 8px;
-  font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+  font-size: var(--chat-fs, 11px); line-height: 1.5; white-space: pre-wrap; word-break: break-word;
   font-family: var(--mono); /* overridden to var(--sans) for assistant bubbles via .chat-bubble-md */
 }
 .chat-msg-user .chat-bubble      { background: rgba(74,240,160,.15); color: var(--text); border-bottom-right-radius: 2px }
@@ -1722,19 +1728,20 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 .chat-bubble-md { white-space: normal; font-family: var(--sans); max-width: 96% }
 .chat-md-p  { margin: 0 0 5px; line-height: 1.55 }
 .chat-md-p:last-child { margin-bottom: 0 }
-.chat-md-h  { margin: 4px 0 3px; font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 11px; letter-spacing: 1px }
+.chat-md-h  { margin: 4px 0 3px; font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: var(--chat-fs-sm, 11px); letter-spacing: 1px }
 .chat-md-ul { margin: 2px 0 5px 14px; padding: 0; list-style: disc }
 .chat-md-ul li { margin-bottom: 2px; line-height: 1.5 }
 .chat-md-ul:last-child { margin-bottom: 0 }
-.chat-md-pre { margin: 4px 0 6px; padding: 7px 9px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow-x: auto; font-family: var(--mono); font-size: 10.5px; line-height: 1.45; white-space: pre }
+.chat-md-pre { margin: 4px 0 6px; padding: 7px 9px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow-x: auto; font-family: var(--mono); font-size: var(--chat-fs-code, 10.5px); line-height: 1.45; white-space: pre }
 .chat-md-pre:last-child { margin-bottom: 0 }
-.chat-md-inline { background: var(--bg); border: 1px solid var(--border2); border-radius: 3px; padding: 0 3px; font-family: var(--mono); font-size: 10px }
+.chat-md-inline { background: var(--bg); border: 1px solid var(--border2); border-radius: 3px; padding: 0 3px; font-family: var(--mono); font-size: var(--chat-fs-sm, 10px) }
+.chat-empty     { color: var(--text3); font-size: var(--chat-fs-sm, 11px); font-style: italic; text-align: center; padding-top: 16px }
 .chat-loading { animation: chat-pulse 1s ease-in-out infinite }
 @keyframes chat-pulse { 0%,100% { opacity:.3 } 50% { opacity:1 } }
 .chat-input-row { display: flex; gap: 6px; padding: 5px 8px; border-top: 1px solid var(--border); flex-shrink: 0 }
 .chat-input {
   flex: 1; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm);
-  color: var(--text); font-family: var(--mono); font-size: 12px; padding: 3px 6px; outline: none; min-width: 0;
+  color: var(--text); font-family: var(--mono); font-size: var(--chat-fs, 12px); padding: 3px 6px; outline: none; min-width: 0;
 }
 .chat-input:focus { border-color: var(--border2) }
 
