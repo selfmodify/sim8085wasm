@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, GutterMarker, gutter, ViewPlugin } from '@codemirror/view';
+import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, GutterMarker, gutter, ViewPlugin, hoverTooltip } from '@codemirror/view';
 import { EditorState, StateEffect, StateField, RangeSetBuilder, Compartment } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { search, searchKeymap } from '@codemirror/search';
@@ -13,6 +13,7 @@ const setErrorLineEff = StateEffect.define()
 const setActiveLineEff = StateEffect.define()
 const setAddressesEff = StateEffect.define()
 const setWatchedWordsEff = StateEffect.define()
+const flashLineEff = StateEffect.define()
 
 const watchMark = Decoration.mark({ class: 'cm-watched-word' })
 const watchHighlightPlugin = ViewPlugin.fromClass(class {
@@ -192,6 +193,23 @@ const addressGutterExt = gutter({
   initialSpacer: () => new AddressMarker(0x0000, true)
 })
 
+const flashLineField = StateField.define({
+  create: () => Decoration.none,
+  update(deco, tr) {
+    for (const e of tr.effects) {
+      if (e.is(flashLineEff)) {
+        if (e.value == null) return Decoration.none
+        try {
+          const line = tr.state.doc.lineAt(e.value.pos)
+          return Decoration.set([Decoration.line({ class: 'cm-flash-line' }).range(line.from)])
+        } catch { return Decoration.none }
+      }
+    }
+    return deco.map(tr.changes)
+  },
+  provide: f => EditorView.decorations.from(f),
+})
+
 function getInstWord(state, pos) {
   const line = state.doc.lineAt(pos)
   const text = line.text
@@ -201,6 +219,45 @@ function getInstWord(state, pos) {
   while (e < text.length && /[A-Za-z]/.test(text[e])) e++
   return s < e ? text.slice(s, e).toUpperCase() : null
 }
+
+const hexHoverTooltip = hoverTooltip((view, pos, side) => {
+  const line = view.state.doc.lineAt(pos)
+  const text = line.text
+  const lp = pos - line.from
+  
+  let s = lp, e = lp
+  while (s > 0 && /[0-9A-Fa-fHh]/i.test(text[s - 1])) s--
+  while (e < text.length && /[0-9A-Fa-fHh]/i.test(text[e])) e++
+  if (s >= e) return null
+  
+  const word = text.slice(s, e)
+  if (!/^[0-9A-Fa-f]+H$/i.test(word)) return null
+  
+  const val = parseInt(word.slice(0, -1), 16)
+  if (isNaN(val)) return null
+
+  return {
+    pos: line.from + s,
+    end: line.from + e,
+    above: true,
+    create(view) {
+      const dom = document.createElement("div")
+      const bits = val > 0xFF ? 16 : 8
+      const binStr = val.toString(2).padStart(bits, '0').match(/.{4}/g).join(' ')
+      dom.innerHTML = `<div style="padding: 4px 6px; font-family: var(--mono); font-size: 12px; line-height: 1.6;">
+        <div style="display: flex; gap: 12px;">
+          <span style="color: var(--text3)">DEC:</span>
+          <span style="color: var(--accent); font-weight: 600;">${val}</span>
+        </div>
+        <div style="display: flex; gap: 12px;">
+          <span style="color: var(--text3)">BIN:</span>
+          <span style="color: var(--accent); font-weight: 600;">${binStr}</span>
+        </div>
+      </div>`
+      return { dom }
+    }
+  }
+})
 
 const asmCompletionSource = (context) => {
   let word = context.matchBefore(/[A-Za-z]+/)
@@ -229,7 +286,7 @@ const asmCompletionSource = (context) => {
   }
 }
 
-export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, activeLine, gotoRef, onRunTo, onJumpMem, buildId, lineAddrRef, theme, watchedWords, bps, onToggleBp, onAddressClick }) {
+export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, activeLine, gotoRef, onRunTo, onJumpMem, buildId, lineAddrRef, theme, watchedWords, bps, onToggleBp, onAddressClick, onFormat }) {
   const elRef      = useRef(null)
   const viewRef    = useRef(null)
   const syncing    = useRef(false)
@@ -240,13 +297,16 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
   const onToggleBpRef = useRef(onToggleBp)
   const onAddressClickRef = useRef(onAddressClick)
   const themeConf  = useRef(new Compartment())
+  const flashTimeoutRef = useRef(null)
   const [editorCtx, setEditorCtx] = useState(null)  // {addr, x, y}
+  const onFormatRef = useRef(onFormat)
   useEffect(() => { cursorCb.current   = onCursorInstruction }, [onCursorInstruction])
   useEffect(() => { detailCb.current   = onInstructionDetail }, [onInstructionDetail])
   useEffect(() => { onRunToRef.current = onRunTo },             [onRunTo])
   useEffect(() => { onJumpMemRef.current = onJumpMem },         [onJumpMem])
   useEffect(() => { onToggleBpRef.current = onToggleBp },       [onToggleBp])
   useEffect(() => { onAddressClickRef.current = onAddressClick }, [onAddressClick])
+  useEffect(() => { onFormatRef.current = onFormat }, [onFormat])
 
   useEffect(() => {
     if (!viewRef.current || !lineAddrRef?.current) return
@@ -287,7 +347,10 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
           highlightActiveLine(),
           search({ top: true }),
           autocompletion({ override: [asmCompletionSource] }),
-          keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, ...completionKeymap, indentWithTab]),
+          keymap.of([
+            ...defaultKeymap, ...historyKeymap, ...searchKeymap, ...completionKeymap, indentWithTab,
+            { key: 'Shift-Alt-f', run: () => { onFormatRef.current?.(); return true; } }
+          ]),
           themeConf.current.of(EditorView.theme({}, { dark: theme !== 'light' })),
           asm8085Lang.extension,
           asm8085Highlighting,
@@ -297,6 +360,8 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
           activeLineField,
           activeLineGutterState,
           activeLineGutterExt,
+          flashLineField,
+          hexHoverTooltip,
           watchHighlightPlugin,
           EditorView.theme({
             '&': { height:'100%', fontFamily:'"JetBrains Mono","Fira Code",monospace', fontSize:'15px', color:'var(--text)', backgroundColor:'transparent' },
@@ -358,18 +423,32 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
     viewRef.current = view
     if (gotoRef) gotoRef.current = (lineNum, labelName) => {
       try {
+        let targetPos = null
+        let headPos = null
         if (labelName) {
           const text = view.state.doc.toString()
           const escaped = labelName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
           const m = new RegExp(`(^|\\n)[\\t ]*(${escaped})[\\t ]*:`, 'im').exec(text)
           if (m) {
-            const nameIdx = m.index + m[0].indexOf(m[2])
-            view.dispatch({ selection: { anchor: nameIdx, head: nameIdx + m[2].length }, effects: EditorView.scrollIntoView(nameIdx, { y: 'center' }) })
-            return
+            targetPos = m.index + m[0].indexOf(m[2])
+            headPos = targetPos + m[2].length
           }
         }
-        const line = view.state.doc.line(lineNum)
-          view.dispatch({ selection: { anchor: line.from, head: line.to }, effects: EditorView.scrollIntoView(line.from, { y: 'center' }) })
+        if (targetPos === null) {
+          const line = view.state.doc.line(lineNum)
+          targetPos = line.from
+          headPos = line.to
+        }
+
+        view.dispatch({ 
+          selection: { anchor: targetPos, head: headPos }, 
+          effects: [EditorView.scrollIntoView(targetPos, { y: 'center' }), flashLineEff.of({ pos: targetPos })] 
+        })
+        
+        if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current)
+        flashTimeoutRef.current = setTimeout(() => {
+          if (viewRef.current) viewRef.current.dispatch({ effects: flashLineEff.of(null) })
+        }, 1200)
       } catch {}
     }
     return () => view.destroy()

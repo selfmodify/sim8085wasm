@@ -192,10 +192,17 @@ export default function App() {
   const [statusLog, setStatusLog]   = useState([])
   
   const fileInputRef   = useRef(null)
+  const initialMount   = useRef(true)
+  const [localSaveStatus, setLocalSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved'
 
   useEffect(() => {
-    const t = setTimeout(() => { try { localStorage.setItem('sim8085_program', src) } catch {} }, 1000)
-    return () => clearTimeout(t)
+    if (initialMount.current) { initialMount.current = false; return }
+    setLocalSaveStatus('saving')
+    let t2
+    const t1 = setTimeout(() => { 
+      try { localStorage.setItem('sim8085_program', src); setLocalSaveStatus('saved'); t2 = setTimeout(() => setLocalSaveStatus('idle'), 2000) } catch {} 
+    }, 1000)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [src])
 
   useEffect(() => {
@@ -713,8 +720,11 @@ export default function App() {
           )}
 
         {fileName && <span className="topbar-filename" style={{ marginLeft: 0 }} title={fileName}>File: {fileName}</span>}
-        {driveSaveStatus === 'saving' && <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>⏳ Saving…</span>}
-        {driveSaveStatus === 'success' && <span style={{ color: 'var(--accent)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>✓ Saved</span>}
+    {driveSaveStatus === 'saving' ? <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>⏳ Saving to Drive…</span>
+    : driveSaveStatus === 'success' ? <span style={{ color: 'var(--accent)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>✓ Saved to Drive</span>
+    : localSaveStatus === 'saving' ? <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>⏳ Auto-saving…</span>
+    : localSaveStatus === 'saved' ? <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px', opacity: 0.8 }}>✓ Auto-saved locally</span>
+    : null}
         <span className={`engine-chip engine-chip-${engine.engineMode}`} style={{ marginLeft: 'auto' }} title={engine.engineSwitching ? 'Switching engine…' : `Engine: ${engine.engineMode.toUpperCase()}`}>
           {engine.engineSwitching ? '…' : `Engine: ${engine.engineMode.toUpperCase()}`}
         </span>
@@ -828,6 +838,7 @@ export default function App() {
 
       {showChat && !chatPoppedOut && (
         <ChatPanel regs={engine.regs} src={src} symbols={engine.symbols} breakpoints={engine.bps} callStack={engine.callStack}
+          engine={engine} onReset={handleReset}
           onClose={() => setShowChat(false)}
           onPopout={() => setChatPoppedOut(true)} />
       )}
@@ -837,6 +848,7 @@ export default function App() {
           containerClass={`${isRetroTheme && crtGlitch !== 'off' ? `crt-glitch-${crtGlitch}` : ''}${isRetroTheme && !crtVignette ? ' crt-no-vignette' : ''}`}
           onClose={() => { setChatPoppedOut(false); setShowChat(false) }}>
           <ChatPanel regs={engine.regs} src={src} symbols={engine.symbols} breakpoints={engine.bps} callStack={engine.callStack}
+            engine={engine} onReset={handleReset}
             isPoppedOut
             onClose={() => { setChatPoppedOut(false); setShowChat(false) }} />
         </PopoutWindow>

@@ -1857,6 +1857,8 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 .memmap-legend { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--text2); font-family: var(--mono) }
 .memmap-legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 4px; }
 .memmap-swatch { display: inline-block; width: 12px; height: 12px; border: 1px solid; border-radius: 2px; margin-right: 6px; vertical-align: middle }
+.memmap-legend-item { cursor: pointer; transition: color .15s; }
+.memmap-legend-item:hover { color: var(--text); }
 
 /* ── Console panel ───────────────────────────────────────────────── */
 .console-panel { overflow: hidden; display: flex; flex-direction: column; min-height: 80px; max-height: 220px }
@@ -2020,6 +2022,18 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 
 /* ── Instruction tooltip (CodeMirror hover) ───────────────────────── */
 .cm-tooltip { border: 1px solid var(--border2) !important; border-radius: 5px !important; background: var(--bg2) !important; box-shadow: var(--shadow-pop) !important }
+
+@keyframes cm-flash-highlight {
+  0%   { background-color: var(--tint-amber); outline: 1px solid var(--amber); outline-offset: -1px; }
+  25%  { outline: 1px solid transparent; outline-offset: -1px; }
+  50%  { background-color: var(--tint-amber); outline: 1px solid var(--amber); outline-offset: -1px; }
+  100% { outline: 1px solid transparent; outline-offset: -1px; }
+}
+.cm-editor .cm-line.cm-flash-line {
+  animation: cm-flash-highlight 1.2s ease-out;
+  position: relative;
+  z-index: 1;
+}
 
 /* ── Status bar instruction hint ─────────────────────────────────── */
 .status-inst { display: flex; align-items: center; gap: 6px; color: var(--text3); font-size: 12px; max-width: 360px; overflow: hidden }

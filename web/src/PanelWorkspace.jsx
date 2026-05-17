@@ -152,7 +152,8 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
               onCursorInstruction={setCursorInst} onInstructionDetail={setHelpInst}
               errorLine={engine.errorLine} activeLine={engine.addrLineMap?.get(engine.regs?.pc)} onRunTo={engine.runToAddr} onJumpMem={(addr) => { engine.setMemStart(addr & 0xFFF0); setMemFlashReq({ addr, ts: Date.now() }) }} buildId={engine.buildId} lineAddrRef={engine.lineAddrRef} theme={theme} watchedWords={watchedWords}
               bps={engine.bps} onToggleBp={engine.toggleBp}
-              onAddressClick={(addr) => setDisasmFlashReq({ addr, ts: Date.now() })} />
+              onAddressClick={(addr) => setDisasmFlashReq({ addr, ts: Date.now() })}
+              onFormat={formatCode} />
           )}
         </div>
         <HelpPanel instruction={cursorInst} />
@@ -174,7 +175,7 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
                   if (!panels[key]) return null;
                   const dp = getDragProps(key, centerPanelOrder, setCenterPanelOrder, 'sim8085_center_panels')
                   if (key === 'stack') return <ErrorBoundary key={key}><StackPanel regs={engine.regs} {...dp} /></ErrorBoundary>
-                  if (key === 'callstack') return <ErrorBoundary key={key}><CallStackPanel callStack={engine.callStack} onJump={engine.setMemStart} {...dp} /></ErrorBoundary>
+                if (key === 'callstack') return <ErrorBoundary key={key}><CallStackPanel callStack={engine.callStack} onJump={engine.setMemStart} onGotoLine={(addr) => { const ln = engine.addrLineMap?.get(addr); if (ln) gotoLineRef.current?.(ln); }} {...dp} /></ErrorBoundary>
                   if (key === 'trace') return <ErrorBoundary key={key}><TracePanel trace={engine.trace} onClear={() => engine.setTrace([])} {...dp} /></ErrorBoundary>
                   return null
                 })}
@@ -211,7 +212,7 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
           if (key === 'flags')  return <ErrorBoundary key={key}><FlagPanel regs={engine.regs} {...dp} /></ErrorBoundary>
           if (key === 'ints')   return <ErrorBoundary key={key}><InterruptPanel intState={engine.intState} onAssert={engine.assertInterrupt} onDeassert={engine.deassertInterrupt} {...dp} /></ErrorBoundary>
           if (key === 'io')     return <ErrorBoundary key={key}><IOPortPanel outputPorts={engine.outputPorts} inputPresets={engine.inputPresets} onSetInput={engine.setInputPort} onRemoveInput={engine.removeInputPort} keyQueue={engine.keyQueue} onEnqueueKeys={engine.enqueueKeys} onClearKeyQueue={engine.clearKeyQueue} sid={engine.sid} sod={engine.sod} onSetSID={v => { sim.simSetSID(v); engine.setSid(v); }} {...dp} /></ErrorBoundary>
-          if (key === 'memmap') return <ErrorBoundary key={key}><MemMapPanel regs={engine.regs} programRegion={engine.programRegion} presetAddrs={engine.presetAddrs} onJump={engine.setMemStart} {...dp} /></ErrorBoundary>
+          if (key === 'memmap') return <ErrorBoundary key={key}><MemMapPanel regs={engine.regs} programRegion={engine.programRegion} presetAddrs={engine.presetAddrs} onJump={engine.setMemStart} onGotoLine={(addr) => { const ln = engine.addrLineMap?.get(addr); if (ln) gotoLineRef.current?.(ln); }} {...dp} /></ErrorBoundary>
           if (key === 'audio')  return <ErrorBoundary key={key}><AudioPanel outputPorts={engine.outputPorts} running={engine.running} onShowDialog={setAppDialog} {...dp} /></ErrorBoundary>
           return null
         })}

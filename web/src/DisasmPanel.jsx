@@ -35,6 +35,9 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
   const ignorePcScrollRef = useRef(false)
   useEffect(() => { linesRef.current = lines }, [lines])
 
+  // Keep track of the local maximum hit count so the heatmap scales correctly
+  const localMaxHitRef = useRef(0)
+
   // Build a complete address index by scanning all memory from 0 on each build.
   // Uninitialized RAM is 0x00 (NOP, 1 byte) so alignment from address 0 is always correct.
   useEffect(() => {
@@ -42,6 +45,7 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
     let addr = 0
     while (addr <= 0xFFFF) { idx.push(addr); const d = sim.simDisassemble(addr); addr += Math.max(1, d.len) }
     addrIdxRef.current = idx
+    localMaxHitRef.current = 0 // Reset heatmap max on rebuild
   }, [buildId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Binary search: largest table index whose address value <= addr
@@ -196,6 +200,13 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
           const bp    = breakpoints.has(row.addr)
           const cond  = breakpoints.get(row.addr) ?? null
           const label = addrToLabel.get(row.addr)
+          
+          // Fetch hit count natively from the Wasm bridge or fallback to passed props
+          const hit = hitcnts?.has(row.addr) ? hitcnts.get(row.addr) : ((typeof sim.simGetHitCount === 'function' ? sim.simGetHitCount(row.addr) : (typeof sim._sim_get_hitcnt === 'function' ? sim._sim_get_hitcnt(row.addr) : 0)) || 0)
+          if (hit > localMaxHitRef.current) localMaxHitRef.current = hit
+          const currentMax = Math.max(maxHit || 0, localMaxHitRef.current)
+          const hasHit = currentMax > 0 && hit > 0
+
           return (
             <div key={cur ? `cur-${regs.pc}-${pcFlash}` : row.addr}>
             {label && (
@@ -222,8 +233,8 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
                 {bp ? (cond ? '◆' : '●') : '·'}
               </span>
               <span className="disasm-heat"
-                title={maxHit > 0 && hitcnts?.has(row.addr) ? `${hitcnts.get(row.addr).toLocaleString()} hits` : undefined}
-                style={{opacity: maxHit > 0 && hitcnts?.has(row.addr) ? Math.max(0.15, hitcnts.get(row.addr) / maxHit) : 0}} />
+                title={hasHit ? `${hit.toLocaleString()} hits` : undefined}
+                style={{opacity: hasHit ? Math.max(0.15, hit / currentMax) : 0}} />
               <span className="disasm-text">
                 {(() => {
                   if (!cur) return row.text;
@@ -234,8 +245,8 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
               </span>
               {cond && bp && <span className="disasm-cond">{cond}</span>}
               {row.cycles > 0 && <span className="disasm-cycles">{row.cycles}T</span>}
-              <span className="disasm-hitcnt" title={maxHit > 0 && hitcnts?.has(row.addr) ? "Execution count" : undefined}>
-                {maxHit > 0 && hitcnts?.has(row.addr) ? fmtCount(hitcnts.get(row.addr)) : ''}
+              <span className="disasm-hitcnt" title={hasHit ? "Execution count" : undefined}>
+                {hasHit ? fmtCount(hit) : ''}
               </span>
               {cur && <span className="disasm-pc-arrow">◀</span>}
             </div>

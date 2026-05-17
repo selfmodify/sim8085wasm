@@ -98,6 +98,14 @@ export const CHALLENGES = [
     successMsg: '0210H correctly contains 01H (True).',
     solution: '    LXI H, 0200H  ; HL = Left pointer\n    LXI D, 0204H  ; DE = Right pointer\n    MVI B, 02H    ; B = 2 comparisons needed\nPALLOOP:\n    MOV A, M      ; A = Left char\n    MOV C, A      ; C = Save left char\n    LDAX D        ; A = Right char\n    CMP C         ; Compare Left and Right\n    JNZ NOTPAL    ; If not equal, not a palindrome\n    INX H         ; Move left pointer right\n    DCX D         ; Move right pointer left\n    DCR B\n    JNZ PALLOOP\n    MVI A, 01H    ; It is a palindrome\n    STA 0210H\n    HLT\nNOTPAL:\n    MVI A, 00H    ; It is NOT a palindrome\n    STA 0210H\n    HLT',
   },
+  {
+    id: 'c12', title: '12. Audio Siren',
+    desc: 'Create an audible siren by alternating a high pitch and low pitch to the Audio Panel (Port 40H) in a continuous loop.',
+    setup: '    ; Note: Turn ON the Audio Panel and set Speed to Fast!',
+    test: () => true, // Open-ended interactive challenge
+    successMsg: 'Awesome! Did you hear the beautiful siren sound?',
+    solution: 'SIREN:\n    MVI A, 30H    ; High pitch\n    OUT 40H       ; Send to audio port\n    CALL DELAY    ; Wait a moment\n    MVI A, 10H    ; Low pitch\n    OUT 40H       ; Send to audio port\n    CALL DELAY    ; Wait a moment\n    JMP SIREN     ; Repeat forever\n\nDELAY:\n    LXI B, 0FFFH  ; Load delay counter\nWAIT:\n    DCX B         ; Decrement counter\n    MOV A, B\n    ORA C         ; Check if zero\n    JNZ WAIT\n    RET',
+  },
 ]
 
 export function ChallengesView({ onSelect, onSolution, completedIds }) {
