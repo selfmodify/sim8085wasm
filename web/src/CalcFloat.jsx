@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react';
 
 const CALC_BASES = [
-  { key: 'bin', label: 'BIN', radix:  2, maxLen: 16, placeholder: '1111111111111111', allowed: /^[01]$/ },
-  { key: 'oct', label: 'OCT', radix:  8, maxLen:  6, placeholder: '177777',           allowed: /^[0-7]$/ },
-  { key: 'dec', label: 'DEC', radix: 10, maxLen:  5, placeholder: '65535',            allowed: /^[0-9]$/ },
+  { key: 'dec', label: 'DEC', radix: 10, maxLen:  5, placeholder: '65535',            allowed: /^[0-9]$/,     sep: true },
   { key: 'hex', label: 'HEX', radix: 16, maxLen:  4, placeholder: 'FFFF',             allowed: /^[0-9A-Fa-f]$/ },
+  { key: 'oct', label: 'OCT', radix:  8, maxLen:  6, placeholder: '177777',           allowed: /^[0-7]$/ },
+  { key: 'bin', label: 'BIN', radix:  2, maxLen: 16, placeholder: '1111111111111111', allowed: /^[01]$/ },
 ]
 const EMPTY_VALS = { bin: '', oct: '', dec: '', hex: '' }
 
@@ -56,8 +56,8 @@ export function CalcFloat({ onClose, onPopout, isPoppedOut }) {
         </div>
       </div>
       <div className="calc-body">
-        {CALC_BASES.map(({ key, label, maxLen, placeholder, allowed }) => (
-          <div key={key} className="calc-row">
+        {CALC_BASES.map(({ key, label, maxLen, placeholder, allowed, sep }, i) => (
+          <div key={key} className="calc-row" style={i === 1 ? { marginTop: 8 } : undefined}>
             <span className="calc-lbl">{label}</span>
             <input className="calc-input" value={vals[key]} maxLength={maxLen}
               placeholder={placeholder} spellCheck={false}

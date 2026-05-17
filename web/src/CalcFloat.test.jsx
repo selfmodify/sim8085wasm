@@ -15,17 +15,13 @@ describe('CalcFloat Component', () => {
 
   it('updates all other bases when a HEX value is entered', () => {
     render(<CalcFloat onClose={vi.fn()} />);
-    
-    // Get the inputs (ordered: BIN, OCT, DEC, HEX based on CALC_BASES array)
-    const inputs = screen.getAllByRole('textbox');
-    const hexInput = inputs[3];
-    const decInput = inputs[2];
-    const binInput = inputs[0];
 
-    // Simulate a user typing "FF" into the hex field
+    const hexInput = screen.getByPlaceholderText('FFFF');
+    const decInput = screen.getByPlaceholderText('65535');
+    const binInput = screen.getByPlaceholderText('1111111111111111');
+
     fireEvent.change(hexInput, { target: { value: 'FF' } });
 
-    // Check that the decimal and binary fields auto-calculated correctly
     expect(decInput.value).toBe('255');
     expect(binInput.value).toBe('11111111');
   });
