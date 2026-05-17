@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react';
 
 const CALC_BASES = [
-  { key: 'bin', label: 'BIN', radix:  2, maxLen: 16, placeholder: '1111111111111111' },
-  { key: 'oct', label: 'OCT', radix:  8, maxLen:  6, placeholder: '177777' },
-  { key: 'dec', label: 'DEC', radix: 10, maxLen:  5, placeholder: '65535' },
-  { key: 'hex', label: 'HEX', radix: 16, maxLen:  4, placeholder: 'FFFF' },
+  { key: 'bin', label: 'BIN', radix:  2, maxLen: 16, placeholder: '1111111111111111', allowed: /^[01]$/ },
+  { key: 'oct', label: 'OCT', radix:  8, maxLen:  6, placeholder: '177777',           allowed: /^[0-7]$/ },
+  { key: 'dec', label: 'DEC', radix: 10, maxLen:  5, placeholder: '65535',            allowed: /^[0-9]$/ },
+  { key: 'hex', label: 'HEX', radix: 16, maxLen:  4, placeholder: 'FFFF',             allowed: /^[0-9A-Fa-f]$/ },
 ]
 const EMPTY_VALS = { bin: '', oct: '', dec: '', hex: '' }
 
@@ -12,6 +12,10 @@ export function CalcFloat({ onClose, onPopout, isPoppedOut }) {
   const [vals, setVals] = useState(EMPTY_VALS)
   const [pos,  setPos]  = useState({ x: Math.max(0, window.innerWidth / 2 - 120), y: 100 })
   const posRef = useRef(pos)
+
+  function filterKey(e, allowed) {
+    if (e.key.length === 1 && !allowed.test(e.key)) e.preventDefault()
+  }
 
   function update(key, raw) {
     const { radix } = CALC_BASES.find(b => b.key === key)
@@ -52,11 +56,12 @@ export function CalcFloat({ onClose, onPopout, isPoppedOut }) {
         </div>
       </div>
       <div className="calc-body">
-        {CALC_BASES.map(({ key, label, maxLen, placeholder }) => (
+        {CALC_BASES.map(({ key, label, maxLen, placeholder, allowed }) => (
           <div key={key} className="calc-row">
             <span className="calc-lbl">{label}</span>
             <input className="calc-input" value={vals[key]} maxLength={maxLen}
               placeholder={placeholder} spellCheck={false}
+              onKeyDown={e => filterKey(e, allowed)}
               onChange={e => update(key, e.target.value)}
               onFocus={e => e.target.select()} />
           </div>
