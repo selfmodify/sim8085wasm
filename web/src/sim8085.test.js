@@ -186,6 +186,13 @@ describe('LDAX / STAX', () => {
     while (simIsRunning()) simStep();
     expect(simGetRegisters().a).toBe(0xDD);
   });
+  it('LDAX B loads A from [BC]', () => {
+    simInit();
+    simAssemble('ORG 100H\nLXI B, 0500H\nLDAX B\nHLT');
+    simWriteByte(0x500, 0xBB); // write after assembly
+    while (simIsRunning()) simStep();
+    expect(simGetRegisters().a).toBe(0xBB);
+  });
 });
 
 // ── LHLD / SHLD ──────────────────────────────────────────────────────────────

@@ -71,6 +71,33 @@ export const CHALLENGES = [
     successMsg: '0200H–0207H correctly reversed.',
     solution: '    LXI H, 0200H  ; HL = left pointer\n    LXI D, 0207H  ; DE = right pointer\n    MVI C, 04H    ; 4 swaps for 8 elements\nREVLOOP:\n    MOV A, M      ; A = left element\n    LDAX D        ; B via XCHG trick: load right\n    MOV B, A      ; B = right element\n    MOV A, M\n    STAX D        ; store left into right slot\n    MOV M, B      ; store right into left slot\n    INX H         ; advance left pointer\n    DCX D         ; retreat right pointer\n    DCR C\n    JNZ REVLOOP\n    HLT',
   },
+  {
+    id: 'c9', title: '9. Division',
+    desc: 'Divide the unsigned byte at 0200H by the byte at 0201H. Store the quotient at 0202H and remainder at 0203H.',
+    setup: '    setbyte 200H, 1BH\n    setbyte 201H, 04H',
+    test: () => sim.simReadByte(0x0202) === 0x06 && sim.simReadByte(0x0203) === 0x03,
+    successMsg: '0202H contains 06H (Quotient) and 0203H contains 03H (Remainder).',
+    solution: '    LDA 0200H     ; A = Dividend\n    MOV B, A\n    LDA 0201H     ; A = Divisor\n    MOV C, A\n    MVI D, 00H    ; D = Quotient counter\n    MOV A, B\nDIVLOOP:\n    CMP C         ; Can we subtract Divisor?\n    JC DIVDONE    ; If Dividend < Divisor, we are done\n    SUB C         ; Subtract Divisor\n    INR D         ; Increment Quotient\n    JMP DIVLOOP\nDIVDONE:\n    STA 0203H     ; Remainder is left in A\n    MOV A, D\n    STA 0202H     ; Store Quotient\n    HLT',
+  },
+  {
+    id: 'c10', title: '10. Fibonacci Sequence',
+    desc: 'Generate the first 8 numbers of the Fibonacci sequence (1, 1, 2, 3, 5, 8, 13, 21) and store them consecutively in memory starting at 0200H.',
+    setup: '    ; no setup required',
+    test: () => {
+      const expected = [1, 1, 2, 3, 5, 8, 13, 21]
+      return expected.every((v, i) => sim.simReadByte(0x0200 + i) === v)
+    },
+    successMsg: '0200H–0207H contains the correct Fibonacci sequence.',
+    solution: '    LXI H, 0200H  ; HL = Memory pointer\n    MVI C, 08H    ; C = Loop counter (8 numbers)\n    MVI D, 00H    ; D = Previous number 1 (initially 0)\n    MVI E, 01H    ; E = Previous number 2 (initially 1)\nFIBLOOP:\n    MOV M, E      ; Store current Fibonacci number\n    MOV A, D      ; A = Prev1\n    ADD E         ; A = Prev1 + Prev2\n    MOV D, E      ; Prev1 = Prev2\n    MOV E, A      ; Prev2 = New number\n    INX H         ; Advance memory pointer\n    DCR C         ; Decrement counter\n    JNZ FIBLOOP\n    HLT',
+  },
+  {
+    id: 'c11', title: '11. Palindrome Check',
+    desc: 'Check if the 5-byte string at 0200H is a palindrome. If it is, store 01H at 0210H, otherwise store 00H.',
+    setup: '    setbyte 200H, \'R\'\n    setbyte 201H, \'A\'\n    setbyte 202H, \'D\'\n    setbyte 203H, \'A\'\n    setbyte 204H, \'R\'',
+    test: () => sim.simReadByte(0x0210) === 0x01,
+    successMsg: '0210H correctly contains 01H (True).',
+    solution: '    LXI H, 0200H  ; HL = Left pointer\n    LXI D, 0204H  ; DE = Right pointer\n    MVI B, 02H    ; B = 2 comparisons needed\nPALLOOP:\n    MOV A, M      ; A = Left char\n    MOV C, A      ; C = Save left char\n    LDAX D        ; A = Right char\n    CMP C         ; Compare Left and Right\n    JNZ NOTPAL    ; If not equal, not a palindrome\n    INX H         ; Move left pointer right\n    DCX D         ; Move right pointer left\n    DCR B\n    JNZ PALLOOP\n    MVI A, 01H    ; It is a palindrome\n    STA 0210H\n    HLT\nNOTPAL:\n    MVI A, 00H    ; It is NOT a palindrome\n    STA 0210H\n    HLT',
+  },
 ]
 
 export function ChallengesView({ onSelect, onSolution, completedIds }) {

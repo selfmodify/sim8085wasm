@@ -656,8 +656,8 @@ describe('RegPanel', () => {
 import { CHALLENGES } from './ChallengesView.jsx';
 
 describe('CHALLENGES array', () => {
-  it('contains 8 challenges', () => {
-    expect(CHALLENGES.length).toBe(8);
+  it('contains 11 challenges', () => {
+    expect(CHALLENGES.length).toBe(11);
   });
 
   it('each challenge has required fields', () => {
