@@ -25,6 +25,7 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
   const [cursorInst, setCursorInst] = useState(null)
   const gotoLineRef = useRef(null)
   const [disasmFlashReq, setDisasmFlashReq] = useState(null)
+  const [memFlashReq,   setMemFlashReq]   = useState(null)
 
   const [editorCollapsed, toggleEditorCollapsed] = useCollapsible('editor', false)
   const [draggedPanel, setDraggedPanel] = useState(null)
@@ -149,7 +150,7 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
           {!editorCollapsed && (
             <AsmEditor value={src} onChange={v => { srcRef.current = v; setSrc(v) }} gotoRef={gotoLineRef}
               onCursorInstruction={setCursorInst} onInstructionDetail={setHelpInst}
-              errorLine={engine.errorLine} activeLine={engine.addrLineMap?.get(engine.regs?.pc)} onRunTo={engine.runToAddr} onJumpMem={engine.setMemStart} buildId={engine.buildId} lineAddrRef={engine.lineAddrRef} theme={theme} watchedWords={watchedWords}
+              errorLine={engine.errorLine} activeLine={engine.addrLineMap?.get(engine.regs?.pc)} onRunTo={engine.runToAddr} onJumpMem={(addr) => { engine.setMemStart(addr & 0xFFF0); setMemFlashReq({ addr, ts: Date.now() }) }} buildId={engine.buildId} lineAddrRef={engine.lineAddrRef} theme={theme} watchedWords={watchedWords}
               bps={engine.bps} onToggleBp={engine.toggleBp}
               onAddressClick={(addr) => setDisasmFlashReq({ addr, ts: Date.now() })} />
           )}
@@ -183,7 +184,7 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
         </div>
         <div className="mem-watch-row">
           <div className="mem-watch-mem" ref={memWatchMemRef}>
-            <MemPanel memStart={engine.memStart} onJump={engine.setMemStart} regs={engine.regs} buildId={engine.buildId} changedAddrs={engine.changedAddrs} programRegion={engine.programRegion} presetAddrs={engine.presetAddrs} onMemoryEdited={() => engine.setBuildId(id => id + 1)} memVisibleRangeRef={engine.memVisibleRangeRef} />
+            <MemPanel memStart={engine.memStart} onJump={engine.setMemStart} regs={engine.regs} buildId={engine.buildId} changedAddrs={engine.changedAddrs} programRegion={engine.programRegion} presetAddrs={engine.presetAddrs} onMemoryEdited={() => engine.setBuildId(id => id + 1)} memVisibleRangeRef={engine.memVisibleRangeRef} flashReq={memFlashReq} />
           </div>
           <div className="mem-watch-divider" onMouseDown={onMemWatchDividerDown} />
           <div className="mem-watch-watch" ref={memWatchWatchRef}>

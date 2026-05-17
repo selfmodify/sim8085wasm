@@ -452,7 +452,7 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
           <button className="ctx-menu-item" onClick={() => { onRunToRef.current?.(editorCtx.addr); setEditorCtx(null) }}>
             ▶ Run to {hex4(editorCtx.addr)}H
           </button>
-          <button className="ctx-menu-item" onClick={() => { onJumpMemRef.current?.(editorCtx.addr & 0xFFF0); setEditorCtx(null) }}>
+          <button className="ctx-menu-item" onClick={() => { onJumpMemRef.current?.(editorCtx.addr); setEditorCtx(null) }}>
             💾 Jump Memory here
           </button>
         </div>

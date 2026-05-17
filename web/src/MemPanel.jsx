@@ -4,11 +4,12 @@ import { PanelHelp } from './PanelHelp.jsx';
 import { hex2, hex4 } from './utils.js';
 import { useSimulator } from './SimulatorContext.jsx';
 
-export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion, presetAddrs, onMemoryEdited, memVisibleRangeRef }) {
+export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion, presetAddrs, onMemoryEdited, memVisibleRangeRef, flashReq }) {
   const { onShowDialog } = useSimulator()
   const memCacheRef = useRef(null) // { buildId, data: Uint8Array } — avoid re-fetching 64KB on each search
   const [mem, setMem] = useState(new Uint8Array(128))
   const [followPC, setFollowPC] = useState(false)
+  const [flashAddr, setFlashAddr] = useState(null)
   const [editing, setEditing] = useState(null)
   const [editBuf, setEditBuf] = useState('')
   const [rows, setRows] = useState(8)
@@ -74,6 +75,13 @@ export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, progra
       return (c < memStart || c > visEnd) ? memStart : c
     })
   }, [memStart, rows])
+
+  useEffect(() => {
+    if (flashReq?.addr === undefined) return
+    setFlashAddr(flashReq.addr)
+    const t = setTimeout(() => setFlashAddr(null), 1400)
+    return () => clearTimeout(t)
+  }, [flashReq])
 
   useEffect(() => {
     if (!scrollRef.current) return
@@ -319,6 +327,7 @@ export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, progra
                     const isMatchCur = searchMatches.length > 0 && addr === searchMatches[searchIdx]
                     const isMatch    = !isMatchCur && searchMatchSet.has(addr)
                     const isFillPrev = !isPC && !isSP && !isMatchCur && !isMatch && previewSet.has(addr)
+                    const isFlash    = addr === flashAddr
                     ascii += (val >= 0x20 && val <= 0x7E) ? String.fromCharCode(val) : '.'
                     if (editing === addr)
                       return (
@@ -333,7 +342,7 @@ export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, progra
                       )
                     return (
                       <td key={col}
-                        className={`mem-cell${isPC?' mem-pc':''}${isSP?' mem-sp':''}${isCode?' mem-code':''}${isPreset?' mem-preset':''}${isCursor?' mem-cursor':''}${val?' mem-nz':''}${changedAddrs?.has(addr)?' mem-diff':''}${isMatchCur?' mem-match-cur':''}${isMatch?' mem-match':''}${isFillPrev?' mem-fill-prev':''}`}
+                        className={`mem-cell${isPC?' mem-pc':''}${isSP?' mem-sp':''}${isCode?' mem-code':''}${isPreset?' mem-preset':''}${isCursor?' mem-cursor':''}${val?' mem-nz':''}${changedAddrs?.has(addr)?' mem-diff':''}${isMatchCur?' mem-match-cur':''}${isMatch?' mem-match':''}${isFillPrev?' mem-fill-prev':''}${isFlash?' mem-flash':''}`}
                         title={`${hex4(addr)}: ${hex2(val)}H = ${val}`}
                         onClick={()=>setCursor(addr)}
                         onDoubleClick={()=>{setEditing(addr);setEditBuf(hex2(val))}}

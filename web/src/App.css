@@ -1525,6 +1525,13 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 .mem-cell.mem-sp     { background: var(--tint-amber-sp); color: var(--amber); font-weight: 700 }
 .mem-cell.mem-cursor { outline: 1px solid rgba(100,160,255,.7); outline-offset: -1px }
 .mem-cell.mem-diff   { background: var(--tint-accent-flash) }
+@keyframes mem-cell-flash {
+  0%   { background: var(--tint-amber); outline: 1px solid var(--amber); outline-offset: -1px }
+  30%  { background: transparent; outline-color: transparent }
+  55%  { background: var(--tint-amber); outline: 1px solid var(--amber); outline-offset: -1px }
+  100% { background: transparent; outline-color: transparent }
+}
+.mem-cell.mem-flash  { animation: mem-cell-flash 1.2s ease-out; }
 .mem-cell.editing { padding: 0 }
 .mem-cell.editing input {
   width: 22px;
