@@ -1262,9 +1262,27 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 }
 
 /* Bit view of A */
+.reg-row:has(+ .reg-bits) {
+  background: var(--bg2);
+  padding-top: 6px;
+}
+.reg-row:has(+ .reg-bits):hover:not(.changed),
+.reg-row:has(+ .reg-bits):hover:not(.changed) + .reg-bits {
+  background: var(--bg3);
+}
+.reg-row.changed:has(+ .reg-bits) + .reg-bits {
+  background: var(--tint-accent);
+  border-left-color: var(--accent);
+  animation: reg-flash .45s ease-out;
+}
 .reg-bits {
-  display: flex; gap: 2px; padding: 4px 10px 6px;
+  display: flex; gap: 2px; padding: 2px 10px 8px;
   justify-content: space-between;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  border-left: 2px solid transparent;
+  margin-bottom: 4px;
+  transition: background .1s;
 }
 .reg-bit {
   display: flex; flex-direction: column; align-items: center; gap: 1px;
