@@ -176,6 +176,7 @@ export default function App() {
 
   const [showWelcome,    setShowWelcome]    = useState(() => !localStorage.getItem('sim8085_welcomed'))
   const [showCalc,       setShowCalc]       = useState(false)
+  const [calcPoppedOut,  setCalcPoppedOut]  = useState(false)
   const [showChat,       setShowChat]       = useState(false)
   const [chatPoppedOut,  setChatPoppedOut]  = useState(false)
   const [showShortcuts,  setShowShortcuts]  = useState(false)
@@ -813,8 +814,16 @@ export default function App() {
       {showWelcome && <WelcomeModal onClose={dismissWelcome} onBrewCoffee={onBrewCoffee} />}
       {helpInst && <HelpModal instruction={helpInst} onClose={() => setHelpInst(null)} />}
       
-      {(activeView === 'simulator' || activeView === 'breadboard') && showCalc && (
-        <CalcFloat onClose={() => setShowCalc(false)} />
+      {(activeView === 'simulator' || activeView === 'breadboard') && showCalc && !calcPoppedOut && (
+        <CalcFloat onClose={() => setShowCalc(false)} onPopout={() => setCalcPoppedOut(true)} />
+      )}
+      {showCalc && calcPoppedOut && (
+        <PopoutWindow title="Calculator - sim8085" theme={theme}
+          containerStyle={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}
+          containerClass={`${isRetroTheme && crtGlitch !== 'off' ? `crt-glitch-${crtGlitch}` : ''}${isRetroTheme && !crtVignette ? ' crt-no-vignette' : ''}`}
+          onClose={() => { setCalcPoppedOut(false); setShowCalc(false) }}>
+          <CalcFloat isPoppedOut onClose={() => { setCalcPoppedOut(false); setShowCalc(false) }} />
+        </PopoutWindow>
       )}
 
       {showChat && !chatPoppedOut && (

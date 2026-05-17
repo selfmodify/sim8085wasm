@@ -8,7 +8,7 @@ const CALC_BASES = [
 ]
 const EMPTY_VALS = { bin: '', oct: '', dec: '', hex: '' }
 
-export function CalcFloat({ onClose }) {
+export function CalcFloat({ onClose, onPopout, isPoppedOut }) {
   const [vals, setVals] = useState(EMPTY_VALS)
   const [pos,  setPos]  = useState({ x: Math.max(0, window.innerWidth / 2 - 120), y: 100 })
   const posRef = useRef(pos)
@@ -23,6 +23,7 @@ export function CalcFloat({ onClose }) {
   }
 
   function onDragDown(e) {
+    if (isPoppedOut) return
     if (e.target.closest('button')) return
     e.preventDefault()
     const ox = e.clientX - posRef.current.x, oy = e.clientY - posRef.current.y
@@ -34,11 +35,21 @@ export function CalcFloat({ onClose }) {
     document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
 
+  const wrapperClass = isPoppedOut ? 'calc-window' : 'calc-float'
+  const wrapperStyle = isPoppedOut ? {} : { left: pos.x, top: pos.y }
+
   return (
-    <div className="calc-float" style={{ left: pos.x, top: pos.y }}>
-      <div className="calc-float-hd" onMouseDown={onDragDown}>
+    <div className={wrapperClass} style={wrapperStyle}>
+      <div className="calc-float-hd" onMouseDown={onDragDown} style={{ cursor: isPoppedOut ? 'default' : 'move' }}>
         <span><span className="panel-icon">🖩</span>CALCULATOR</span>
-        <button className="calc-float-close" onClick={onClose} title="Close">✕</button>
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          {!isPoppedOut && onPopout && (
+            <button className="reg-base-btn" onClick={onPopout} title="Open in separate window">⧉</button>
+          )}
+          {onClose && (
+            <button className="calc-float-close" onClick={onClose} title="Close">✕</button>
+          )}
+        </div>
       </div>
       <div className="calc-body">
         {CALC_BASES.map(({ key, label, maxLen, placeholder }) => (
