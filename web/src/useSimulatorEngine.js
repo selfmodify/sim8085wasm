@@ -87,6 +87,7 @@ export function useSimulatorEngine(srcRef) {
   const lineAddrRef = useRef(new Map())
   const speedRef = useRef((() => { const s = parseInt(localStorage.getItem('sim8085_speed'), 10); return s >= 0 && s < SPEEDS.length ? s : 3 })())
   const historyRef = useRef([])
+  const prevRamRef = useRef(null)
   const bpsRef = useRef(new Map())
   const prevMemRef = useRef(null)
   const lastBuiltSrcRef = useRef(srcRef.current)
@@ -153,6 +154,7 @@ export function useSimulatorEngine(srcRef) {
     try {
       stopRun()
       historyRef.current = []
+      prevRamRef.current = null
       setHistLen(0)
       setHistIndex(0)
       setMaxHistLen(0)
@@ -203,10 +205,37 @@ export function useSimulatorEngine(srcRef) {
     }
   }
 
+  function reconstructRam(hist, targetIdx) {
+    const base = hist[0]
+    if (!base?.ram) return null
+    const ram = new Uint8Array(base.ram)
+    for (let i = 1; i <= targetIdx && i < hist.length; i++) {
+      const d = hist[i].ramDiff
+      if (d) for (let j = 0; j < d.length; j += 2) ram[d[j]] = d[j + 1]
+    }
+    return ram
+  }
+
   function pushHistory() {
-    const snap = { regs: sim.simGetRegisters(), ram: sim.simGetFullMemory(), cycles: sim.simGetCycles() }
+    const regs = sim.simGetRegisters()
+    const cycles = sim.simGetCycles()
+    const currRam = sim.simGetFullMemory()
     // Truncate 'future' history if the user steps back and starts running again
     const currentHist = historyRef.current.slice(0, histIndex)
+
+    let snap
+    if (currentHist.length === 0 || prevRamRef.current === null) {
+      snap = { regs, ram: currRam, cycles }
+    } else {
+      const prev = prevRamRef.current
+      const ramDiff = []
+      for (let i = 0; i < 65536; i++) {
+        if (currRam[i] !== prev[i]) { ramDiff.push(i, currRam[i]) }
+      }
+      snap = { regs, ramDiff, cycles }
+    }
+
+    prevRamRef.current = currRam
     const next = [...currentHist.slice(-49), snap]
     historyRef.current = next
     setHistLen(next.length)
@@ -218,10 +247,15 @@ export function useSimulatorEngine(srcRef) {
     if (targetIndex < 0 || targetIndex > maxHistLen) return
     setHistIndex(targetIndex)
     setHistLen(targetIndex) // Keep toolbar 'Back' button count in sync
-    
-    const snap = historyRef.current[targetIndex === maxHistLen ? Math.max(0, targetIndex - 1) : targetIndex]
+
+    const hist = historyRef.current
+    const actualIdx = targetIndex === maxHistLen ? Math.max(0, targetIndex - 1) : targetIndex
+    const snap = hist[actualIdx]
     if (snap) {
-      sim.simRestoreSnapshot(snap)
+      const ram = snap.ram ?? reconstructRam(hist, actualIdx)
+      sim.simRestoreSnapshot({ ...snap, ram })
+      // prevRamRef must hold the RAM at (actualIdx - 1) so the next pushHistory diffs correctly
+      prevRamRef.current = actualIdx > 0 ? reconstructRam(hist, actualIdx - 1) : null
       if (snap.cycles !== undefined) sim.simSetCycles(snap.cycles)
       refresh()
       updateMemDiff()

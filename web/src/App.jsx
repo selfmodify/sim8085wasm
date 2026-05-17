@@ -757,7 +757,7 @@ export default function App() {
 
         {engine.maxHistLen > 0 && (
           <div className="time-travel-bar" style={{ padding: '4px 10px', background: 'var(--bg2)', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid var(--border)' }}>
-            <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>TIME TRAVEL</span>
+            <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text2)', cursor: 'help' }} title="Drag to travel through instruction history. Each step captures a full snapshot — registers, flags, and memory are all restored exactly as they were.">TIME TRAVEL</span>
             <input type="range" min="0" max={engine.maxHistLen} value={engine.histIndex} onChange={(e) => engine.seekHistory && engine.seekHistory(parseInt(e.target.value))} style={{ flex: 1, cursor: 'pointer', accentColor: 'var(--accent)' }} />
             <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text2)', minWidth: 60, textAlign: 'right' }}>{engine.histIndex} / {engine.maxHistLen}</span>
           </div>
