@@ -2,6 +2,7 @@
 # Run the Vitest suite before every commit.
 # Tests live in web/ and must run under WSL (Node + npm are WSL-side).
 echo "[pre-commit] Running tests..."
+export PATH=/home/vijay/.nvm/versions/node/v22.22.2/bin:$PATH
 cd web && npm test -- --run 2>&1
 status=$?
 if [ $status -ne 0 ]; then
