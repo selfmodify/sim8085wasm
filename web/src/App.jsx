@@ -823,7 +823,10 @@ export default function App() {
           onPopout={() => setChatPoppedOut(true)} />
       )}
       {showChat && chatPoppedOut && (
-        <PopoutWindow title="AI Assistant - sim8085" theme={theme} onClose={() => { setChatPoppedOut(false); setShowChat(false) }}>
+        <PopoutWindow title="AI Assistant - sim8085" theme={theme}
+          containerStyle={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}
+          containerClass={`${isRetroTheme && crtGlitch !== 'off' ? `crt-glitch-${crtGlitch}` : ''}${isRetroTheme && !crtVignette ? ' crt-no-vignette' : ''}`}
+          onClose={() => { setChatPoppedOut(false); setShowChat(false) }}>
           <ChatPanel regs={engine.regs} src={src} symbols={engine.symbols} breakpoints={engine.bps} callStack={engine.callStack}
             isPoppedOut
             onClose={() => { setChatPoppedOut(false); setShowChat(false) }} />
@@ -848,7 +851,10 @@ export default function App() {
       {appDialog && <UIDialog dialog={appDialog} onClose={() => setAppDialog(null)} />}
 
       {breadboardPoppedOut && (
-        <PopoutWindow title="Hardware - sim8085" theme={theme} onClose={() => setBreadboardPoppedOut(false)}>
+        <PopoutWindow title="Hardware - sim8085" theme={theme}
+          containerStyle={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}
+          containerClass={`${isRetroTheme && crtGlitch !== 'off' ? `crt-glitch-${crtGlitch}` : ''}${isRetroTheme && !crtVignette ? ' crt-no-vignette' : ''}`}
+          onClose={() => setBreadboardPoppedOut(false)}>
           <BreadboardView engine={engine} panels={panels} togglePanel={togglePanel} ppiPos={ppiPos} setPpiPos={setPpiPos} pitPos={pitPos} setPitPos={setPitPos} ledPos={ledPos} setLedPos={setLedPos} isPoppedOut />
         </PopoutWindow>
       )}

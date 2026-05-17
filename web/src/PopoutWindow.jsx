@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
-export function PopoutWindow({ title, theme, onClose, children }) {
+export function PopoutWindow({ title, theme, containerStyle, containerClass, onClose, children }) {
   const [container, setContainer] = useState(null);
   const onCloseRef = useRef(onClose);
 
@@ -62,6 +62,16 @@ export function PopoutWindow({ title, theme, onClose, children }) {
       externalWindow.document.documentElement.setAttribute('data-theme', theme);
     }
   }, [theme, externalWindow]);
+
+  useEffect(() => {
+    if (!container) return;
+    container.style.filter = containerStyle?.filter || '';
+  }, [container, containerStyle]);
+
+  useEffect(() => {
+    if (!container) return;
+    container.className = ('app ' + (containerClass || '')).trim();
+  }, [container, containerClass]);
 
   if (!container) return null;
   return createPortal(children, container);
