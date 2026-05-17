@@ -18,6 +18,7 @@ vi.mock('./simProxy.js', () => ({
     len: 1, cycles: 7, mnem: 'HLT',
   })),
   simSetRegisters: vi.fn(),
+  simGetHitCount: vi.fn(() => 0),
 }));
 
 // Access the mocked simProxy functions for per-test configuration
@@ -656,8 +657,8 @@ describe('RegPanel', () => {
 import { CHALLENGES } from './ChallengesView.jsx';
 
 describe('CHALLENGES array', () => {
-  it('contains 11 challenges', () => {
-    expect(CHALLENGES.length).toBe(11);
+  it('contains 12 challenges', () => {
+    expect(CHALLENGES.length).toBe(12);
   });
 
   it('each challenge has required fields', () => {
