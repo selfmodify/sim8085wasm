@@ -293,6 +293,9 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
       {ctxMenu && (
         <div className="ctx-menu" style={{ left: ctxMenu.x, top: ctxMenu.y }}
           onMouseDown={e => e.stopPropagation()}>
+          <button className="ctx-menu-item" onClick={() => { onGotoLine?.(ctxMenu.addr); setCtxMenu(null) }}>
+            ✏️ Go to source
+          </button>
           <button className="ctx-menu-item" onClick={() => { onRunTo?.(ctxMenu.addr); setCtxMenu(null) }}>
             ▶ Run to {hex4(ctxMenu.addr)}H
           </button>
