@@ -181,7 +181,7 @@ export default function App() {
   const [chatPoppedOut,  setChatPoppedOut]  = useState(false)
   const [showShortcuts,  setShowShortcuts]  = useState(false)
   
-  function dismissWelcome() { localStorage.setItem('sim8085_welcomed', '1'); setShowWelcome(true) }
+  function dismissWelcome() { localStorage.setItem('sim8085_welcomed', '1'); setShowWelcome(false) }
   
   const [runSpeed, setRunSpeed]     = useState(() => {
     const s = parseInt(localStorage.getItem('sim8085_speed'), 10)
