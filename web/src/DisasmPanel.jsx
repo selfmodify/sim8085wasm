@@ -3,7 +3,7 @@ import * as sim from './simProxy.js';
 import { PanelHelp } from './PanelHelp.jsx';
 import { hex4, fmtCount } from './utils.js';
 
-export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondition, onGotoLine, buildId, pcFlash, onRunTo, symbols, onJumpMem, hitcnts, maxHit, flashReq }) {
+export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondition, onGotoLine, buildId, pcFlash, onRunTo, symbols, onJumpMem, hitcnts, maxHit, flashReq, addrLineMap }) {
   const [viewStart, setViewStart] = useState(() => regs.pc)
   const [ctxMenu, setCtxMenu]     = useState(null)   // {addr, x, y}
   const [followPC, setFollowPC]   = useState(true)
@@ -293,8 +293,13 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
       {ctxMenu && (
         <div className="ctx-menu" style={{ left: ctxMenu.x, top: ctxMenu.y }}
           onMouseDown={e => e.stopPropagation()}>
-          <button className="ctx-menu-item" onClick={() => { onGotoLine?.(ctxMenu.addr); setCtxMenu(null) }}>
-            ✏️ Go to source
+          {addrLineMap?.has(ctxMenu.addr) && (
+            <button className="ctx-menu-item" onClick={() => { onGotoLine?.(ctxMenu.addr); setCtxMenu(null) }}>
+              ✏️ Go to source
+            </button>
+          )}
+          <button className="ctx-menu-item" onClick={() => { onJumpMem?.(ctxMenu.addr & 0xFFF0); setCtxMenu(null) }}>
+            💾 Jump to memory location
           </button>
           <button className="ctx-menu-item" onClick={() => { onRunTo?.(ctxMenu.addr); setCtxMenu(null) }}>
             ▶ Run to {hex4(ctxMenu.addr)}H

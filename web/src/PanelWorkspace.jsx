@@ -166,6 +166,7 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
         <div className="disasm-trace-row">
           <DisasmPanel regs={engine.regs} breakpoints={engine.bps} onToggleBp={engine.toggleBp} onClearAllBps={engine.clearAllBps} buildId={engine.buildId} pcFlash={engine.pcFlash}
             onSetCondition={openConditionDialog} onRunTo={engine.runToAddr} symbols={engine.symbols} onJumpMem={engine.setMemStart} hitcnts={engine.hitcnts} maxHit={engine.maxHit} flashReq={disasmFlashReq}
+            addrLineMap={engine.addrLineMap}
             onGotoLine={(addr, labelName) => { const ln = engine.addrLineMap.get(addr); if (ln) gotoLineRef.current?.(ln, labelName) }} />
           {(panels.stack || panels.callstack || panels.trace) && (
             <>
