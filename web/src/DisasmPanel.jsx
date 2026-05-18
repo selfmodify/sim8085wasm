@@ -298,7 +298,7 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
               ✏️ Go to source
             </button>
           )}
-          <button className="ctx-menu-item" onClick={() => { onJumpMem?.(ctxMenu.addr & 0xFFF0); setCtxMenu(null) }}>
+          <button className="ctx-menu-item" onClick={() => { onJumpMem?.(ctxMenu.addr); setCtxMenu(null) }}>
             💾 Jump to memory location
           </button>
           <button className="ctx-menu-item" onClick={() => { onRunTo?.(ctxMenu.addr); setCtxMenu(null) }}>
