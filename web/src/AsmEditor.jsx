@@ -528,6 +528,9 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
       {editorCtx && (
         <div className="ctx-menu" style={{ left: editorCtx.x, top: editorCtx.y }}
           onMouseDown={e => e.stopPropagation()}>
+          <button className="ctx-menu-item" onClick={() => { onAddressClickRef.current?.(editorCtx.addr); setEditorCtx(null) }}>
+            📋 Jump to disassembly
+          </button>
           <button className="ctx-menu-item" onClick={() => { onRunToRef.current?.(editorCtx.addr); setEditorCtx(null) }}>
             ▶ Run to {hex4(editorCtx.addr)}H
           </button>
