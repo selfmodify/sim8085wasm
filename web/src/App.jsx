@@ -10,6 +10,7 @@ import { PIT8253Panel } from './PIT8253Panel.jsx'
 import { CalcFloat } from './CalcFloat.jsx'
 import { ChatPanel } from './ChatPanel.jsx'
 import { Toolbar } from './Toolbar.jsx'
+import { HelpMenu } from './HelpMenu.jsx'
 import { BrandMenu } from './BrandMenu.jsx'
 import { HelpPanel } from './HelpPanel.jsx'
 import { WelcomeModal } from './WelcomeModal.jsx'
@@ -19,7 +20,6 @@ import { DriveLoadModal } from './DriveLoadModal.jsx'
 import { GithubSetupModal } from './GithubSetupModal.jsx'
 import { UIDialog } from './UIDialog.jsx'
 import { ChallengesView, CHALLENGES } from './ChallengesView.jsx'
-import { CommunityView } from './CommunityView.jsx'
 import { useSimulatorEngine } from './useSimulatorEngine.js'
 import { useGoogleDrive } from './useGoogleDrive.js'
 import { PopoutWindow } from './PopoutWindow.jsx'
@@ -193,6 +193,9 @@ export default function App() {
   
   const fileInputRef   = useRef(null)
   const initialMount   = useRef(true)
+  const editorActionsRef = useRef(null)
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
   const [localSaveStatus, setLocalSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved'
 
   useEffect(() => {
@@ -428,7 +431,7 @@ export default function App() {
       message: 'This will completely clear the editor, wipe all RAM to 00H, and remove all watches, I/O presets, and breakpoints. Proceed?',
       confirmText: 'Yes, clear everything',
       onConfirm: () => {
-        const blank = '; New 8085 program\n\tORG 0000H\n\nSTART:\n\n\tHLT\n'
+        const blank = '; New 8085 program\n;\n; Quick Shortcuts:\n;   F5   Build / Assemble\n;   F6   Reset\n;   F7   Step one instruction\n;   F8   Step over\n;   F9   Run / Pause\n;   F10  Step out\n;   ?    Show all shortcuts\n\n\tORG 0000H\n\nSTART:\n\n\tHLT\n'
         srcRef.current = blank
         setSrc(blank)
         setFileName('untitled.asm')
@@ -707,7 +710,6 @@ export default function App() {
             <button className={`view-tab${activeView === 'simulator' ? ' active' : ''}`} onClick={() => handleSetView('simulator')}>Simulator</button>
             <button className={`view-tab${activeView === 'breadboard' ? ' active' : ''}`} onClick={() => handleSetView('breadboard')}>Hardware</button>
             <button className={`view-tab${activeView === 'challenges' ? ' active' : ''}`} onClick={() => handleSetView('challenges')}>Challenges</button>
-            <button className={`view-tab${activeView === 'community' ? ' active' : ''}`} onClick={() => handleSetView('community')}>Community</button>
           </div>
         </div>
           {/* Editor/Code/Regs tabs — inline in topbar on mobile, hidden on desktop */}
@@ -725,7 +727,12 @@ export default function App() {
     : localSaveStatus === 'saving' ? <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>⏳ Auto-saving…</span>
     : localSaveStatus === 'saved' ? <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px', opacity: 0.8 }}>✓ Auto-saved locally</span>
     : null}
-        <span className={`engine-chip engine-chip-${engine.engineMode}`} style={{ marginLeft: 'auto' }} title={engine.engineSwitching ? 'Switching engine…' : `Engine: ${engine.engineMode.toUpperCase()}`}>
+        <HelpMenu 
+          onShowWelcome={() => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) }}
+          onShowShortcuts={() => setShowShortcuts(true)}
+          onManageGithub={() => setShowGithubSetup(true)}
+        />
+        <span className={`engine-chip engine-chip-${engine.engineMode}`} style={{ marginLeft: '12px' }} title={engine.engineSwitching ? 'Switching engine…' : `Engine: ${engine.engineMode.toUpperCase()}`}>
           {engine.engineSwitching ? '…' : `Engine: ${engine.engineMode.toUpperCase()}`}
         </span>
         <span className="build-chip" title="Build timestamp">Build: {BUILD_TIME_STR}</span>
@@ -740,6 +747,10 @@ export default function App() {
           onTogglePanel={togglePanel}
           fileInputRef={fileInputRef}
           onImportFile={importFile}
+          onUndo={() => editorActionsRef.current?.undo()}
+          canUndo={canUndo}
+          onRedo={() => editorActionsRef.current?.redo()}
+          canRedo={canRedo}
           isDirty={engine.isDirty}
           onBuild={handleBuild}
           running={engine.running}
@@ -769,7 +780,11 @@ export default function App() {
             theme={theme}
             src={src} setSrc={setSrc} srcRef={srcRef}
             engine={engine}
+            editorActionsRef={editorActionsRef}
             panels={panels}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onHistoryChange={(u, r) => { setCanUndo(u); setCanRedo(r) }}
             setAppDialog={setAppDialog}
             setHelpInst={setHelpInst}
             formatCode={formatCode}
@@ -793,10 +808,6 @@ export default function App() {
 
       {activeView === 'challenges' && (
         <ChallengesView onSelect={loadChallenge} onSolution={loadSolution} completedIds={completedChallenges} />
-      )}
-
-      {activeView === 'community' && (
-        <CommunityView onSelect={loadFromGist} githubToken={localStorage.getItem('sim8085_github_token')} />
       )}
 
       <div className="statusbar">

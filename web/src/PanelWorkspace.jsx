@@ -21,7 +21,7 @@ import { InterruptPanel } from './InterruptPanel.jsx'
 import { LedDisplay } from './LedDisplay.jsx'
 import { HelpPanel } from './HelpPanel.jsx'
 
-export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, panels, setAppDialog, setHelpInst, formatCode, openConditionDialog, readOnlySource }) {
+export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, editorActionsRef, panels, canUndo, canRedo, onHistoryChange, setAppDialog, setHelpInst, formatCode, openConditionDialog, readOnlySource }) {
   const [cursorInst, setCursorInst] = useState(null)
   const gotoLineRef = useRef(null)
   const [disasmFlashReq, setDisasmFlashReq] = useState(null)
@@ -109,46 +109,72 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
   const memWatchWatchRef = useRef(null)
   const disasmStackRef   = useRef(null)
 
+  const initialWidths = useMemo(() => ({
+    editor: localStorage.getItem('sim8085_col_editor'),
+    right: localStorage.getItem('sim8085_col_right'),
+    memWatch: localStorage.getItem('sim8085_memwatch_width'),
+    stack: localStorage.getItem('sim8085_stack_width')
+  }), [])
+
   function onEditorResizeDown(e) {
     e.preventDefault(); const startX = e.clientX; const startW = editorColRef.current.getBoundingClientRect().width
-    function onMove(ev) { editorColRef.current.style.flexBasis = Math.max(180, Math.min(640, startW + (ev.clientX - startX))) + 'px' }
-    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    let newW = startW
+    function onMove(ev) { newW = Math.max(180, Math.min(640, startW + (ev.clientX - startX))); editorColRef.current.style.flexBasis = newW + 'px' }
+    function onUp() { 
+      document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp)
+      localStorage.setItem('sim8085_col_editor', newW + 'px')
+    }
     document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
   function onRightResizeDown(e) {
     e.preventDefault(); const startX = e.clientX; const startW = rightColRef.current.getBoundingClientRect().width
-    function onMove(ev) { rightColRef.current.style.flexBasis = Math.max(160, Math.min(600, startW - (ev.clientX - startX))) + 'px' }
-    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    let newW = startW
+    function onMove(ev) { newW = Math.max(160, Math.min(600, startW - (ev.clientX - startX))); rightColRef.current.style.flexBasis = newW + 'px' }
+    function onUp() { 
+      document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp)
+      localStorage.setItem('sim8085_col_right', newW + 'px')
+    }
     document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
   function onMemWatchDividerDown(e) {
     e.preventDefault(); const startX = e.clientX; const startW = memWatchMemRef.current?.getBoundingClientRect().width || 0
-    function onMove(ev) { if(memWatchMemRef.current) memWatchMemRef.current.style.flex = `0 0 ${Math.max(80, startW + (ev.clientX - startX))}px` }
-    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    let newW = startW
+    function onMove(ev) { newW = Math.max(80, startW + (ev.clientX - startX)); if(memWatchMemRef.current) memWatchMemRef.current.style.flex = `0 0 ${newW}px` }
+    function onUp() { 
+      document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp)
+      localStorage.setItem('sim8085_memwatch_width', newW + 'px')
+    }
     document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
   function onDisasmStackDividerDown(e) {
-    e.preventDefault(); const startX = e.clientX; const startW = document.querySelector('.disasm-trace-stack')?.getBoundingClientRect().width || 0
-    function onMove(ev) { const stack = document.querySelector('.disasm-trace-stack'); if(stack) stack.style.flex = `0 0 ${Math.max(100, startW - (ev.clientX - startX))}px` }
-    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    e.preventDefault(); const startX = e.clientX; const stack = disasmStackRef.current; const startW = stack?.getBoundingClientRect().width || 0
+    let newW = startW
+    function onMove(ev) { newW = Math.max(100, startW - (ev.clientX - startX)); if(stack) stack.style.flex = `0 0 ${newW}px` }
+    function onUp() { 
+      document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp)
+      localStorage.setItem('sim8085_stack_width', newW + 'px')
+    }
     document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
 
   return (
     <div className="workspace">
       {/* Editor column */}
-      <div className={`col col-editor${mobileTab!=='editor' ? ' mobile-hidden' : ''}`} ref={editorColRef}>
+      <div className={`col col-editor${mobileTab!=='editor' ? ' mobile-hidden' : ''}`} ref={editorColRef} style={initialWidths.editor ? { flexBasis: initialWidths.editor } : undefined}>
         <div className="panel editor-panel" style={editorCollapsed ? { flex: 'none' } : undefined}>
           <div className="panel-hd collapsible" onClick={toggleEditorCollapsed}>
             <span><span className="panel-icon">✏️</span>EDITOR</span>
             <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
+              <button className="reg-base-btn" onClick={() => editorActionsRef.current?.undo()} disabled={!canUndo} title="Undo typing (Ctrl+Z)">Undo</button>
+              <button className="reg-base-btn" onClick={() => editorActionsRef.current?.redo()} disabled={!canRedo} title="Redo typing (Ctrl+Y)">Redo</button>
               <button className="reg-base-btn" onClick={formatCode} title="Auto-format code alignment">Format</button>
               <PanelHelp panel="EDITOR" />
             </div>
             <span className="panel-chevron">{editorCollapsed ? '▶' : '▼'}</span>
           </div>
           {!editorCollapsed && (
-            <AsmEditor value={src} onChange={v => { srcRef.current = v; setSrc(v) }} gotoRef={gotoLineRef}
+          <AsmEditor value={src} onChange={v => { srcRef.current = v; setSrc(v) }} gotoRef={gotoLineRef} editorActionsRef={editorActionsRef} 
+              onHistoryChange={onHistoryChange}
               onCursorInstruction={setCursorInst} onInstructionDetail={setHelpInst}
               errorLine={engine.errorLine} activeLine={engine.addrLineMap?.get(engine.regs?.pc)} onRunTo={engine.runToAddr} onJumpMem={(addr) => { engine.setMemStart(addr & 0xFFF0); setMemFlashReq({ addr, ts: Date.now() }) }} buildId={engine.buildId} lineAddrRef={engine.lineAddrRef} theme={theme} watchedWords={watchedWords}
               bps={engine.bps} onToggleBp={engine.toggleBp}
@@ -171,7 +197,7 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
           {(panels.stack || panels.callstack || panels.trace) && (
             <>
               <div className="mem-watch-divider" onMouseDown={onDisasmStackDividerDown} />
-              <div className="disasm-trace-stack" ref={disasmStackRef}>
+              <div className="disasm-trace-stack" ref={disasmStackRef} style={initialWidths.stack ? { flex: `0 0 ${initialWidths.stack}` } : undefined}>
                 {centerPanelOrder.map(key => {
                   if (!panels[key]) return null;
                   const dp = getDragProps(key, centerPanelOrder, setCenterPanelOrder, 'sim8085_center_panels')
@@ -185,7 +211,7 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
           )}
         </div>
         <div className="mem-watch-row">
-          <div className="mem-watch-mem" ref={memWatchMemRef}>
+          <div className="mem-watch-mem" ref={memWatchMemRef} style={initialWidths.memWatch ? { flex: `0 0 ${initialWidths.memWatch}` } : undefined}>
             <MemPanel memStart={engine.memStart} onJump={engine.setMemStart} regs={engine.regs} buildId={engine.buildId} changedAddrs={engine.changedAddrs} programRegion={engine.programRegion} presetAddrs={engine.presetAddrs} onMemoryEdited={() => engine.setBuildId(id => id + 1)} memVisibleRangeRef={engine.memVisibleRangeRef} flashReq={memFlashReq} />
           </div>
           <div className="mem-watch-divider" onMouseDown={onMemWatchDividerDown} />
@@ -204,7 +230,7 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
       <div className="col-resize-handle" onMouseDown={onRightResizeDown} />
 
       {/* Registers column */}
-      <div className={`col col-right${mobileTab!=='regs' ? ' mobile-hidden' : ''}`} ref={rightColRef}>
+      <div className={`col col-right${mobileTab!=='regs' ? ' mobile-hidden' : ''}`} ref={rightColRef} style={initialWidths.right ? { flexBasis: initialWidths.right } : undefined}>
         {rightPanelOrder.map(key => {
           if (!panels[key]) return null;
           const dp = getDragProps(key, rightPanelOrder, setRightPanelOrder, 'sim8085_right_panels')

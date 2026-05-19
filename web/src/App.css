@@ -1093,7 +1093,7 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
   background: var(--border);
 }
 
-.col-editor { flex: 0 0 340px; min-width: 180px }
+.col-editor { flex: 0 0 480px; min-width: 180px }
 .col-center { flex: 1 0 280px; overflow-y: auto }
 .col-right  { flex: 0 0 300px; min-width: 200px; overflow-y: auto; overflow-x: hidden }
 
@@ -1252,7 +1252,8 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
   color: var(--amber); font-family: var(--mono); font-size: 10px;
   padding: 1px 5px; cursor: pointer; letter-spacing: 0; opacity: .75;
 }
-.reg-base-btn:hover { opacity: 1; background: var(--tint-amber) }
+.reg-base-btn:hover:not(:disabled) { opacity: 1; background: var(--tint-amber) }
+.reg-base-btn:disabled { opacity: .3; cursor: not-allowed; filter: grayscale(50%) }
 
 /* Editable register input */
 .reg-edit-input {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, GutterMarker, gutter, ViewPlugin, hoverTooltip } from '@codemirror/view';
+import { EditorView, keymap, lineNumbers, highlightActiveLine, Decoration, GutterMarker, gutter, ViewPlugin, hoverTooltip, placeholder } from '@codemirror/view';
 import { EditorState, StateEffect, StateField, RangeSetBuilder, Compartment } from '@codemirror/state';
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, indentWithTab, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
 import { search, searchKeymap } from '@codemirror/search';
 import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
 import { INST_HELP } from './instHelp.js';
@@ -286,7 +286,7 @@ const asmCompletionSource = (context) => {
   }
 }
 
-export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, activeLine, gotoRef, onRunTo, onJumpMem, buildId, lineAddrRef, theme, watchedWords, bps, onToggleBp, onAddressClick, onFormat }) {
+export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionDetail, errorLine, activeLine, gotoRef, editorActionsRef, onRunTo, onJumpMem, buildId, lineAddrRef, theme, watchedWords, bps, onToggleBp, onAddressClick, onFormat, onHistoryChange }) {
   const elRef      = useRef(null)
   const viewRef    = useRef(null)
   const syncing    = useRef(false)
@@ -300,6 +300,8 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
   const flashTimeoutRef = useRef(null)
   const [editorCtx, setEditorCtx] = useState(null)  // {addr, x, y}
   const onFormatRef = useRef(onFormat)
+  const onHistoryChangeRef = useRef(onHistoryChange)
+  const lastHistRef = useRef({ u: false, r: false })
   useEffect(() => { cursorCb.current   = onCursorInstruction }, [onCursorInstruction])
   useEffect(() => { detailCb.current   = onInstructionDetail }, [onInstructionDetail])
   useEffect(() => { onRunToRef.current = onRunTo },             [onRunTo])
@@ -307,11 +309,21 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
   useEffect(() => { onToggleBpRef.current = onToggleBp },       [onToggleBp])
   useEffect(() => { onAddressClickRef.current = onAddressClick }, [onAddressClick])
   useEffect(() => { onFormatRef.current = onFormat }, [onFormat])
+  useEffect(() => { onHistoryChangeRef.current = onHistoryChange }, [onHistoryChange])
 
   useEffect(() => {
     if (!viewRef.current || !lineAddrRef?.current) return
     viewRef.current.dispatch({ effects: setAddressesEff.of({ addrs: lineAddrRef.current, bps }) })
   }, [buildId, lineAddrRef, bps])
+
+  useEffect(() => {
+    if (editorActionsRef) {
+      editorActionsRef.current = {
+        undo: () => viewRef.current && undo(viewRef.current),
+        redo: () => viewRef.current && redo(viewRef.current)
+      }
+    }
+  }, [editorActionsRef])
 
   useEffect(() => {
     if (!viewRef.current || !watchedWords) return
@@ -340,13 +352,14 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
       state: EditorState.create({
         doc: value,
         extensions: [
-          history(),
+          history({ minDepth: 50 }),
           lineNumbers(),
           addressGutterState,
           addressGutterExt,
           highlightActiveLine(),
           search({ top: true }),
           autocompletion({ override: [asmCompletionSource] }),
+          placeholder('; Write 8085 assembly here...\n;\n; Quick Shortcuts:\n;   F5   Build / Assemble\n;   F6   Reset\n;   F7   Step one instruction\n;   F8   Step over\n;   F9   Run / Pause\n;   F10  Step out\n;   ?    Show all shortcuts'),
           keymap.of([
             ...defaultKeymap, ...historyKeymap, ...searchKeymap, ...completionKeymap, indentWithTab,
             { key: 'Shift-Alt-f', run: () => { onFormatRef.current?.(); return true; } }
@@ -387,12 +400,19 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
             '.cm-button': { background:'var(--bg3)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:'3px', padding:'2px 8px', cursor:'pointer' },
             '.cm-tooltip': { background: 'var(--bg2)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: '3px' },
             '.cm-tooltip-autocomplete > ul > li[aria-selected]': { background: 'var(--bg3)', color: 'var(--accent)' },
+            '.cm-placeholder': { color: 'var(--text3)' },
           }),
           EditorView.updateListener.of(u => {
             if (u.docChanged && !syncing.current) onChange(u.state.doc.toString())
             if (u.selectionSet || u.docChanged) {
               const word = getInstWord(u.state, u.state.selection.main.head)
               cursorCb.current?.(word && INST_HELP[word] ? word : null)
+            }
+            const canU = undoDepth(u.state) > 0
+            const canR = redoDepth(u.state) > 0
+            if (canU !== lastHistRef.current.u || canR !== lastHistRef.current.r) {
+              lastHistRef.current = { u: canU, r: canR }
+              onHistoryChangeRef.current?.(canU, canR)
             }
           }),
           EditorView.domEventHandlers({
@@ -414,6 +434,9 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
               e.preventDefault()
               setEditorCtx({ addr, x: e.clientX, y: e.clientY })
               return true
+            },
+            paste(e, view) {
+              setTimeout(() => onFormatRef.current?.(), 10)
             },
           }),
         ],

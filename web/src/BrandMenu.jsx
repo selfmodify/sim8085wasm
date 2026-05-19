@@ -38,7 +38,7 @@ export function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onL
             <span className="exmenu-arrow">▶</span>
             {activeSub === 'views' && (
               <div className="exmenu-sub" onClick={e => e.stopPropagation()}>
-                {[['simulator','🖥','Simulator'],['challenges','🏆','Challenges'],['community','🌐','Community Gists']].map(([v,icon,label]) => (
+                {[['simulator','🖥','Simulator'],['challenges','🏆','Challenges']].map(([v,icon,label]) => (
                   <button key={v} className="exmenu-sub-item" onClick={() => { onSetView(v); setOpen(false); setActiveSub(null) }}>
                     <span style={{display:'inline-block',width:16}}>{activeView===v?'✓':''}</span>{icon} {label}
                   </button>
@@ -108,7 +108,7 @@ export function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onL
             )}
           </div>
 
-          <div className={`bmenu-item exmenu-cat ${activeSub === 'help' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('help')} onClick={() => setActiveSub(activeSub === 'help' ? null : 'help')}>
+          <div className={`bmenu-item exmenu-cat bmenu-mobile-only ${activeSub === 'help' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('help')} onClick={() => setActiveSub(activeSub === 'help' ? null : 'help')}>
             <span>❓  Help &amp; Community</span>
             <span className="exmenu-arrow">▶</span>
             {activeSub === 'help' && (
