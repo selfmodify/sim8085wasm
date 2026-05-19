@@ -14,7 +14,7 @@ export function HelpMenu({ onShowWelcome, onShowShortcuts, onManageGithub }) {
   }, [open]);
 
   return (
-    <div className="bmenu-wrap bmenu-mobile-hide" ref={wrapRef} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+    <div className="bmenu-wrap bmenu-mobile-hide" ref={wrapRef} style={{ display: 'flex', alignItems: 'center' }}>
       <button className="view-tab" onClick={() => setOpen(o => !o)} style={{ padding: '6px 12px', fontWeight: 600 }}>
         ❓ Help {open ? '▴' : '▾'}
       </button>

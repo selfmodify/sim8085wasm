@@ -33,7 +33,7 @@ export function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onL
       </button>
       {open &&
         <div className="bmenu-dropdown" style={{ overflow: 'visible' }} onMouseLeave={() => setActiveSub(null)}>
-          <div className={`bmenu-item exmenu-cat bmenu-mobile-only ${activeSub === 'views' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('views')} onClick={() => setActiveSub(activeSub === 'views' ? null : 'views')}>
+          <div className={`bmenu-item exmenu-cat ${activeSub === 'views' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('views')} onClick={() => setActiveSub(activeSub === 'views' ? null : 'views')}>
             <span>🖥  Views</span>
             <span className="exmenu-arrow">▶</span>
             {activeSub === 'views' && (

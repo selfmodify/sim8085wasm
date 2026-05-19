@@ -664,6 +664,41 @@ export default function App() {
     [regBase] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
+  const brandMenuProps = {
+    onShowWelcome: () => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) },
+    onShowShortcuts: () => setShowShortcuts(true),
+    onNew: newFile,
+    onImport: () => fileInputRef.current.click(),
+    onLoadFromDrive: loadFromDrive,
+    onLoadFromGist: loadFromGist,
+    onExport: exportFile,
+    onExportHex: exportHex,
+    onExportBin: exportBin,
+    onSaveToDrive: saveToDrive,
+    onSaveAsToDrive: saveAsToDrive,
+    onSaveToGist: saveToGist,
+    driveToken,
+    onConnectDrive: connectDrive,
+    onDriveDisconnect: handleDriveDisconnect,
+    onShare: shareURL,
+    onCalc: () => setShowCalc(c => !c),
+    onChat: () => setShowChat(c => !c),
+    memSize: engine.memSize, onMemSize: engine.changeMemSize,
+    engineMode: engine.engineMode, onEngineSwitch: engine.handleEngineSwitch,
+    engineSwitching: engine.engineSwitching,
+    theme, onTheme: toggleTheme, onSetTheme: setTheme,
+    crtBrightness, onCrtBrightness: v => { setCrtBrightness(v); localStorage.setItem(`sim8085_crt_b_${theme}`, v) },
+    crtContrast, onCrtContrast: v => { setCrtContrast(v); localStorage.setItem(`sim8085_crt_c_${theme}`, v) },
+    crtGlitch, onCrtGlitch: () => { const modes = ['off','flicker','static','vsync','hsync','chroma','chaos']; const next = modes[(modes.indexOf(crtGlitch) + 1) % modes.length]; setCrtGlitch(next); localStorage.setItem('sim8085_crt_glitch', next) },
+    crtVignette, onCrtVignette: v => { setCrtVignette(v); localStorage.setItem('sim8085_crt_vignette', String(v)) },
+    onManageGithub: () => setShowGithubSetup(true),
+    panels, onTogglePanel: togglePanel,
+    activeView, onSetView: handleSetView,
+    topbarVisible,
+    onToggleTopbar: () => setTopbarVisible(v => !v),
+    onBrewCoffee
+  }
+
   return (
     <SimulatorContext.Provider value={simCtxValue}>
     <div className={`app${isRetroTheme && crtGlitch !== 'off' ? ` crt-glitch-${crtGlitch}` : ''}${isRetroTheme && !crtVignette ? ' crt-no-vignette' : ''}`} style={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}>
@@ -673,8 +708,9 @@ export default function App() {
         }} />
       )}
       {/* ── Topbar ── */}
-      <div className="topbar">
-        <div className="brand">
+      {topbarVisible && (
+        <div className="topbar">
+          <div className="brand">
           <BrandMenu
             onShowWelcome={() => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) }}
             onShowShortcuts={() => setShowShortcuts(true)}
@@ -705,6 +741,7 @@ export default function App() {
             onManageGithub={() => setShowGithubSetup(true)}
             panels={panels} onTogglePanel={togglePanel}
             activeView={activeView} onSetView={handleSetView}
+            onHideTopbar={() => setTopbarVisible(false)}
             onBrewCoffee={onBrewCoffee} />
           <div className="view-tabs">
             <button className={`view-tab${activeView === 'simulator' ? ' active' : ''}`} onClick={() => handleSetView('simulator')}>Simulator</button>
@@ -721,23 +758,25 @@ export default function App() {
             </div>
           )}
 
+        <HelpMenu 
+          onShowWelcome={() => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) }}
+          onShowShortcuts={() => setShowShortcuts(true)}
+          onManageGithub={() => setShowGithubSetup(true)}
+        />
+
+        <div style={{ flex: 1 }} className="mobile-hidden" />
+
         {fileName && <span className="topbar-filename" style={{ marginLeft: 0 }} title={fileName}>File: {fileName}</span>}
     {driveSaveStatus === 'saving' ? <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>⏳ Saving to Drive…</span>
     : driveSaveStatus === 'success' ? <span style={{ color: 'var(--accent)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>✓ Saved to Drive</span>
     : localSaveStatus === 'saving' ? <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>⏳ Auto-saving…</span>
     : localSaveStatus === 'saved' ? <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px', opacity: 0.8 }}>✓ Auto-saved locally</span>
     : null}
-        <HelpMenu 
-          onShowWelcome={() => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) }}
-          onShowShortcuts={() => setShowShortcuts(true)}
-          onManageGithub={() => setShowGithubSetup(true)}
-        />
         <span className={`engine-chip engine-chip-${engine.engineMode}`} style={{ marginLeft: '12px' }} title={engine.engineSwitching ? 'Switching engine…' : `Engine: ${engine.engineMode.toUpperCase()}`}>
           {engine.engineSwitching ? '…' : `Engine: ${engine.engineMode.toUpperCase()}`}
         </span>
         <span className="build-chip" title="Build timestamp">Build: {BUILD_TIME_STR}</span>
       </div>
-
 
       {/* ── Simulator & Breadboard Views ── */}
       <div style={{ display: (activeView === 'simulator' || activeView === 'breadboard') ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
@@ -747,10 +786,6 @@ export default function App() {
           onTogglePanel={togglePanel}
           fileInputRef={fileInputRef}
           onImportFile={importFile}
-          onUndo={() => editorActionsRef.current?.undo()}
-          canUndo={canUndo}
-          onRedo={() => editorActionsRef.current?.redo()}
-          canRedo={canRedo}
           isDirty={engine.isDirty}
           onBuild={handleBuild}
           running={engine.running}

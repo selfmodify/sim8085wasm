@@ -3,7 +3,7 @@ import { PanelsMenu } from './PanelsMenu.jsx';
 import { SPEEDS } from './utils.js';
 
 export function Toolbar({
-  onLoadExample, panels, onTogglePanel, fileInputRef, onImportFile, onUndo, onRedo, canUndo, canRedo,
+  onLoadExample, panels, onTogglePanel, fileInputRef, onImportFile,
   isDirty, onBuild, running, appState, onStep, onStepOver, onStepOut,
   onStepBack, histLen, onRun, runSpeed, onSpeedChange, onReset
 }) {
@@ -12,10 +12,6 @@ export function Toolbar({
       <ExampleMenu onLoad={onLoadExample} />
       <PanelsMenu panels={panels} onToggle={onTogglePanel} />
       <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".asm,.85,.s,.txt,.hex,.bin" onChange={onImportFile} />
-      <div style={{ display: 'flex', gap: 2, marginLeft: 4, marginRight: 4 }}>
-        <button className="btn" style={{ padding: '5px 8px' }} onClick={onUndo} disabled={!canUndo} title="Undo typing (Ctrl+Z)">↶</button>
-        <button className="btn" style={{ padding: '5px 8px' }} onClick={onRedo} disabled={!canRedo} title="Redo typing (Ctrl+Y)">↷</button>
-      </div>
       <button className={`btn btn-asm${isDirty ? ' btn-asm-dirty' : ''}`} onClick={onBuild} title={isDirty ? "Unsaved changes — click to rebuild" : "Code is up to date"}>
         ⚙ Build{isDirty ? ' •' : ''}  <kbd>F5</kbd>
       </button>
