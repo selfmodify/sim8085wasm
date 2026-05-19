@@ -19,9 +19,15 @@ export class SimWorkerProxy {
     this.sharedRegBuffer = new SharedArrayBuffer(128);
     this.sharedRegs = new Int32Array(this.sharedRegBuffer);
 
+    // Create a 512-byte SharedArrayBuffer for I/O ports (0-255 IN, 256-511 OUT)
+    this.sharedIoBuffer = new SharedArrayBuffer(512);
+    this.sharedInPorts = new Uint8Array(this.sharedIoBuffer, 0, 256);
+    this.sharedOutPorts = new Uint8Array(this.sharedIoBuffer, 256, 256);
+
     // Share the buffers with the worker
     this.worker.postMessage({ type: 'INIT_SHARED_MEM', payload: this.sharedMemBuffer });
     this.worker.postMessage({ type: 'INIT_SHARED_REGS', payload: this.sharedRegBuffer });
+    this.worker.postMessage({ type: 'INIT_SHARED_IO', payload: this.sharedIoBuffer });
 
     this.worker.onmessage = (e) => {
       const { id, type, payload } = e.data;
@@ -179,6 +185,41 @@ export class SimWorkerProxy {
   }
   simGetDataWatchHit() { 
     return this.jsDataWatchHit; 
+  }
+
+  // --- Interrupts ---
+  simAssertInterrupt(intType) {
+    this.worker.postMessage({ type: 'ASSERT_INTERRUPT', payload: { intType } });
+  }
+
+  simDeassertInterrupt(intType) {
+    this.worker.postMessage({ type: 'DEASSERT_INTERRUPT', payload: { intType } });
+  }
+
+  simGetIntState() {
+    return {
+      iff: !!this.sharedRegs[14],
+      mask: this.sharedRegs[15],
+      rst75: !!this.sharedRegs[16],
+      trap: !!this.sharedRegs[17],
+      rst65: !!this.sharedRegs[18],
+      rst55: !!this.sharedRegs[19]
+    };
+  }
+
+  // --- I/O Ports ---
+  simGetOutPort(port) {
+    return this.sharedOutPorts[port];
+  }
+
+  simGetInPort(port) {
+    return this.sharedInPorts[port];
+  }
+
+  simSetInPort(port, val) {
+    this.sharedInPorts[port] = val;
+    // Notify the worker to update the internal C-core IN port state
+    this.worker.postMessage({ type: 'SET_INPUT_PORT', payload: { port, val } });
   }
 
   // --- Snapshots ---

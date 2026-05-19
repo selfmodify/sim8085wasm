@@ -6,6 +6,8 @@ let isRunning = false;
 let runInterval = null;
 let sharedRam = null;
 let sharedRegs = null;
+let sharedInPorts = null;
+let sharedOutPorts = null;
 let activeBreakpoints = new Set();
 let tempBreakpoint = -1;
 let stepOutDepth = 0;
@@ -46,6 +48,26 @@ function broadcastState(mhz = 0) {
     sharedRegs[11] = simModule._wasm_reg_has_error();
     sharedRegs[12] = simModule._sim_get_cycles_lo();
     sharedRegs[13] = simModule._sim_get_cycles_hi();
+
+    // Snapshot and sync interrupt states
+    simModule._wasm_snap_ints();
+    sharedRegs[14] = simModule._wasm_int_iff();
+    sharedRegs[15] = simModule._wasm_int_mask();
+    sharedRegs[16] = simModule._wasm_int_rst75ff();
+    sharedRegs[17] = simModule._wasm_int_trap_pend();
+    sharedRegs[18] = simModule._wasm_int_rst65();
+    sharedRegs[19] = simModule._wasm_int_rst55();
+  }
+
+  // Sync I/O Ports to SharedArrayBuffer
+  if (sharedInPorts && sharedOutPorts && simModule) {
+    const inPtr = simModule._wasm_get_all_input_ports();
+    const inView = new Uint8Array(simModule.HEAPU8.buffer, inPtr, 256);
+    sharedInPorts.set(inView);
+
+    const outPtr = simModule._wasm_get_all_output_ports();
+    const outView = new Uint8Array(simModule.HEAPU8.buffer, outPtr, 256);
+    sharedOutPorts.set(outView);
   }
   
   // Dispatch a lightweight signal to trigger UI re-renders
@@ -163,6 +185,11 @@ self.onmessage = function(e) {
 
     case 'INIT_SHARED_REGS':
       sharedRegs = new Int32Array(payload);
+      break;
+
+    case 'INIT_SHARED_IO':
+      sharedInPorts = new Uint8Array(payload, 0, 256);
+      sharedOutPorts = new Uint8Array(payload, 256, 256);
       break;
 
     case 'ASSEMBLE':
@@ -289,6 +316,19 @@ self.onmessage = function(e) {
       simModule._wasm_restore_regs(r.a, r.b, r.c, r.d, r.e, r.h, r.l, r.flags, r.pc, r.sp);
       
       broadcastState();
+      break;
+
+    case 'ASSERT_INTERRUPT':
+      if (simModule) simModule._sim_assert_interrupt(payload.intType);
+      break;
+      
+    case 'DEASSERT_INTERRUPT':
+      if (simModule) simModule._sim_deassert_interrupt(payload.intType);
+      break;
+
+    case 'SET_INPUT_PORT':
+      if (simModule) simModule._sim_set_input_port(payload.port, payload.val);
+      if (sharedInPorts) sharedInPorts[payload.port] = payload.val;
       break;
   }
 };

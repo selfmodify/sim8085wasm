@@ -33,6 +33,11 @@ describe('SimWorkerProxy', () => {
       type: 'INIT_SHARED_REGS',
       payload: proxy.sharedRegBuffer,
     });
+    
+    expect(mockWorker.postMessage).toHaveBeenCalledWith({
+      type: 'INIT_SHARED_IO',
+      payload: proxy.sharedIoBuffer,
+    });
   });
 
   it('should handle async assemble() requests and resolve promises', async () => {
@@ -92,5 +97,37 @@ describe('SimWorkerProxy', () => {
 
     expect(onStateUpdateSpy).toHaveBeenCalled();
     expect(proxy.simGetMHz()).toBe(2.5);
+  });
+
+  it('should send interrupt assertions to the worker', () => {
+    // Let's assume TRAP is enum 4
+    proxy.simAssertInterrupt(4);
+    expect(mockWorker.postMessage).toHaveBeenCalledWith({
+      type: 'ASSERT_INTERRUPT',
+      payload: { intType: 4 }
+    });
+  });
+
+  it('should expose synchronous interrupt state', () => {
+    // Manually mutate the shared buffer to test the getter
+    proxy.sharedRegs[14] = 1; // IFF
+    proxy.sharedRegs[17] = 1; // TRAP Pending
+    
+    const intState = proxy.simGetIntState();
+    expect(intState.iff).toBe(true);
+    expect(intState.trap).toBe(true);
+  });
+
+  it('should handle synchronous I/O port reads and writes', () => {
+    proxy.simSetInPort(0x42, 0xAA);
+    
+    expect(proxy.sharedInPorts[0x42]).toBe(0xAA);
+    expect(mockWorker.postMessage).toHaveBeenCalledWith({
+      type: 'SET_INPUT_PORT',
+      payload: { port: 0x42, val: 0xAA }
+    });
+
+    proxy.sharedOutPorts[0x10] = 0x55; // Simulate worker writing to out port
+    expect(proxy.simGetOutPort(0x10)).toBe(0x55);
   });
 });
