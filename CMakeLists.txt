@@ -35,6 +35,8 @@ if(EMSCRIPTEN)
         "_sim_get_memory"
         "_sim_read_byte"
         "_sim_write_byte"
+        "_sim_get_cycles_lo"
+        "_sim_get_cycles_hi"
         "_sim_set_breakpoint"
         "_sim_clear_all_breakpoints"
         "_sim_get_all_leds"
