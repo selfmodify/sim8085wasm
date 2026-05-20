@@ -1037,13 +1037,30 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
   padding: 2px 6px; border-radius: var(--radius-sm); border: 1px solid;
   flex-shrink: 0; letter-spacing: .5px;
 }
-.engine-chip-js   { border-color: var(--border2); color: var(--text3) }
+.engine-chip-js   { border-color: var(--amber); color: var(--amber) }
 .engine-chip-wasm { border-color: var(--blue);    color: var(--blue) }
+
+button.engine-chip {
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+button.engine-chip:hover:not(:disabled) { background: var(--bg3); border-color: var(--text2); color: var(--text); }
+button.engine-chip:disabled { cursor: wait; opacity: 0.5; }
 
 .build-chip {
   font-family: var(--mono); font-size: 10px; color: var(--text2);
   flex-shrink: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
+.build-chip:hover { background: var(--bg3); border-color: var(--text2); color: var(--text); }
 
 /* Speed slider */
 .speed-label { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 12px; color: var(--text3); white-space: nowrap }
@@ -2474,10 +2491,11 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: color .12s, border-color .12s;
+    transition: color .12s, border-color .12s, background .12s;
   }
   .mobile-tab.active {
-    color: var(--accent);
+    background: var(--accent);
+    color: var(--bg);
     border-bottom-color: var(--accent);
   }
   .mobile-tab:hover:not(.active) { color: var(--text2) }

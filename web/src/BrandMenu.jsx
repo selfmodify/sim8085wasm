@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { RETRO_THEMES } from './utils.js';
 
-export function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveAsToDrive, onSaveToGist, onShare, onCalc, onChat, memSize, onMemSize, engineMode, onEngineSwitch, engineSwitching, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast, crtGlitch, onCrtGlitch, crtVignette, onCrtVignette, onManageGithub, panels, onTogglePanel, activeView, onSetView, driveToken, onConnectDrive, onDriveDisconnect, onBrewCoffee }) {
+export function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onLoadFromDrive, onLoadFromGist, onExport, onExportHex, onExportBin, onSaveToDrive, onSaveAsToDrive, onSaveToGist, onShare, onCalc, onChat, memSize, onMemSize, theme, onTheme, onSetTheme, crtBrightness, onCrtBrightness, crtContrast, onCrtContrast, crtGlitch, onCrtGlitch, crtVignette, onCrtVignette, onManageGithub, panels, onTogglePanel, driveToken, onConnectDrive, onDriveDisconnect, onBrewCoffee }) {
   const [open, setOpen] = useState(false);
   const [activeSub, setActiveSub] = useState(null);
   const wrapRef = useRef(null)
@@ -33,20 +33,6 @@ export function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onL
       </button>
       {open &&
         <div className="bmenu-dropdown" style={{ overflow: 'visible' }} onMouseLeave={() => setActiveSub(null)}>
-          <div className={`bmenu-item exmenu-cat ${activeSub === 'views' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('views')} onClick={() => setActiveSub(activeSub === 'views' ? null : 'views')}>
-            <span>🖥  Views</span>
-            <span className="exmenu-arrow">▶</span>
-            {activeSub === 'views' && (
-              <div className="exmenu-sub" onClick={e => e.stopPropagation()}>
-                {[['simulator','🖥','Simulator'],['challenges','🏆','Challenges']].map(([v,icon,label]) => (
-                  <button key={v} className="exmenu-sub-item" onClick={() => { onSetView(v); setOpen(false); setActiveSub(null) }}>
-                    <span style={{display:'inline-block',width:16}}>{activeView===v?'✓':''}</span>{icon} {label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="bmenu-sep" />
           <div className={`bmenu-item exmenu-cat ${activeSub === 'import' ? 'exmenu-cat-active' : ''}`} onMouseEnter={() => setActiveSub('import')} onClick={() => setActiveSub(activeSub === 'import' ? null : 'import')}>
             <span>⇡  Import</span>
             <span className="exmenu-arrow">▶</span>
@@ -202,24 +188,6 @@ export function BrandMenu({ onShowWelcome, onShowShortcuts, onNew, onImport, onL
               <option value={32*1024}>32 KB</option>
               <option value={64*1024}>64 KB</option>
             </select>
-          </div>
-          <div className="bmenu-setting">
-            <span className="bmenu-setting-label">Engine</span>
-            <span style={{display:'flex',gap:3}}>
-              {['js','wasm'].map(m => (
-                <button key={m} disabled={engineSwitching}
-                  className={`bmenu-setting-sel`}
-                  style={{
-                    cursor: engineSwitching ? 'wait' : 'pointer',
-                    borderColor: engineMode === m ? 'var(--accent)' : undefined,
-                    color: engineMode === m ? 'var(--accent)' : undefined,
-                    fontWeight: engineMode === m ? 700 : 400,
-                  }}
-                  onClick={() => { onEngineSwitch(m); setOpen(false) }}>
-                  {m.toUpperCase()}
-                </button>
-              ))}
-            </span>
           </div>
           <div className="bmenu-sep" />
           <button className="bmenu-item" onClick={() => { onBrewCoffee(); setOpen(false); setActiveSub(null) }}>

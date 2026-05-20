@@ -87,6 +87,29 @@ export default function App() {
   const engine = useSimulatorEngine(srcRef)
   
   const [mobileTab,      setMobileTab]      = useState('editor')
+  const touchStartRef = useRef(null)
+  const touchEndRef = useRef(null)
+  const onTouchStart = (e) => {
+    touchEndRef.current = null
+    touchStartRef.current = { x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY }
+  }
+  const onTouchMove = (e) => {
+    touchEndRef.current = { x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY }
+  }
+  const onTouchEnd = () => {
+    if (!touchStartRef.current || !touchEndRef.current) return
+    const dx = touchStartRef.current.x - touchEndRef.current.x
+    const dy = touchStartRef.current.y - touchEndRef.current.y
+    if (window.innerWidth <= 700 && Math.abs(dx) > Math.abs(dy) * 1.5 && Math.abs(dx) > 75) {
+      const tabs = ['editor', 'code', 'regs']
+      const idx = tabs.indexOf(mobileTab)
+      if (dx > 0 && idx < tabs.length - 1) setMobileTab(tabs[idx + 1])
+      else if (dx < 0 && idx > 0) setMobileTab(tabs[idx - 1])
+    }
+    touchStartRef.current = null
+    touchEndRef.current = null
+  }
+
   const [activeView,     setActiveView]     = useState('simulator') // 'simulator' | 'challenges'
   const [theme, setTheme] = useState(() => localStorage.getItem('sim8085_theme') || 'dracula')
   const [breadboardPoppedOut, setBreadboardPoppedOut] = useState(() => localStorage.getItem('sim8085_breadboard_popped_out') === 'true')
@@ -708,8 +731,6 @@ export default function App() {
                 onCalc={() => setShowCalc(c => !c)}
                 onChat={() => setShowChat(c => !c)}
                 memSize={engine.memSize} onMemSize={engine.changeMemSize}
-                engineMode={engine.engineMode} onEngineSwitch={engine.handleEngineSwitch}
-                engineSwitching={engine.engineSwitching}
                 theme={theme} onTheme={toggleTheme} onSetTheme={setTheme}
                 crtBrightness={crtBrightness} onCrtBrightness={v => { setCrtBrightness(v); localStorage.setItem(`sim8085_crt_b_${theme}`, v) }}
                 crtContrast={crtContrast} onCrtContrast={v => { setCrtContrast(v); localStorage.setItem(`sim8085_crt_c_${theme}`, v) }}
@@ -717,12 +738,11 @@ export default function App() {
                 crtVignette={crtVignette} onCrtVignette={v => { setCrtVignette(v); localStorage.setItem('sim8085_crt_vignette', String(v)) }}
                 onManageGithub={() => setShowGithubSetup(true)}
                 panels={panels} onTogglePanel={togglePanel}
-                activeView={activeView} onSetView={handleSetView}
                 onBrewCoffee={onBrewCoffee} />
               <div className="view-tabs">
-                <button className={`view-tab${activeView === 'simulator' ? ' active' : ''}`} onClick={() => handleSetView('simulator')}>Simulator</button>
-                <button className={`view-tab${activeView === 'breadboard' ? ' active' : ''}`} onClick={() => handleSetView('breadboard')}>Hardware</button>
-                <button className={`view-tab${activeView === 'challenges' ? ' active' : ''}`} onClick={() => handleSetView('challenges')}>Challenges</button>
+                <button className={`view-tab${activeView === 'simulator' ? ' active' : ''}`} onClick={() => handleSetView('simulator')} title="Code editor, memory, and debugger">Simulator</button>
+                <button className={`view-tab${activeView === 'breadboard' ? ' active' : ''}`} onClick={() => handleSetView('breadboard')} title="Interactive hardware peripherals">Hardware</button>
+                <button className={`view-tab${activeView === 'challenges' ? ' active' : ''}`} onClick={() => handleSetView('challenges')} title="Programming challenges">Challenges</button>
                 <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 4px' }} className="mobile-hidden" />
                 <button className="view-tab mobile-hidden" onClick={() => window.dispatchEvent(new Event('sim-dock-all'))} title="Dock all popped-out windows (F12)" style={{ padding: '8px 12px' }}>⧉ Dock All</button>
               </div>
@@ -730,8 +750,8 @@ export default function App() {
             {/* Editor/Code/Regs tabs — inline in topbar on mobile, hidden on desktop */}
             {activeView === 'simulator' && (
               <div className="mobile-tabs">
-                {[['editor','✏ Editor'],['code','📋 Code'],['regs','🧠 Regs']].map(([id, label]) => (
-                  <button key={id} className={`mobile-tab${mobileTab===id?' active':''}`} onClick={() => setMobileTab(id)}>{label}</button>
+                {[['editor','✏ Editor','Code editor and help'],['code','📋 Code','Disassembly, memory, and trace'],['regs','🧠 Regs','Registers, flags, and I/O']].map(([id, label, tooltip]) => (
+                  <button key={id} className={`mobile-tab${mobileTab===id?' active':''}`} onClick={() => setMobileTab(id)} title={tooltip}>{label}</button>
                 ))}
               </div>
             )}
@@ -795,7 +815,12 @@ export default function App() {
           </div>
         )}
 
-        <div style={{ display: activeView === 'simulator' ? 'flex' : 'none', flex: 1, minHeight: 0, flexDirection: 'column' }}>
+        <div 
+          style={{ display: activeView === 'simulator' ? 'flex' : 'none', flex: 1, minHeight: 0, flexDirection: 'column' }}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
           <PanelWorkspace
             mobileTab={mobileTab}
             theme={theme}
@@ -848,10 +873,17 @@ export default function App() {
           }
         </div>
         <div className="statusbar-counters">
-          <span className={`engine-chip engine-chip-${engine.engineMode}`} title={engine.engineSwitching ? 'Switching engine…' : `Engine: ${engine.engineMode.toUpperCase()}`}>
-            {engine.engineSwitching ? '…' : `Engine: ${engine.engineMode.toUpperCase()}`}
-          </span>
-          <span className="build-chip" title="Build timestamp" style={{ marginLeft: '6px' }}>Build: {BUILD_TIME_STR}</span>
+          <button 
+            className={`engine-chip engine-chip-${engine.engineMode}`} 
+            title={engine.engineSwitching ? 'Switching engine…' : `Engine: ${engine.engineMode.toUpperCase()} — Click to switch`}
+            disabled={engine.engineSwitching}
+            onClick={() => engine.handleEngineSwitch(engine.engineMode === 'js' ? 'wasm' : 'js')}
+          >
+            {engine.engineSwitching ? '…' : `Engine: ${engine.engineMode.toUpperCase()} ⇄`}
+          </button>
+          <button className="build-chip" title="Build timestamp — Click to rebuild" style={{ marginLeft: '6px' }} onClick={handleBuild}>
+            Build: {BUILD_TIME_STR}
+          </button>
           <span className="sbar-sep" style={{ marginLeft: '6px' }}>·</span>
           {engine.isDirty && <><span className="sbar-counter" style={{ color: 'var(--amber)', fontWeight: 600 }}>• editor out of sync</span><span className="sbar-sep">·</span></>}
           {engine.running && SPEEDS[runSpeed].warp && <><span className="sbar-counter" style={{ color: 'var(--accent)', fontWeight: 600 }} title="UI is updating once per second to maximize throughput">⚡ UI Throttled</span><span className="sbar-sep">·</span></>}

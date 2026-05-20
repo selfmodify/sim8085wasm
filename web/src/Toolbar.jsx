@@ -16,11 +16,11 @@ export function Speedometer({ mhz, running, size = 'lg', className, style }) {
     return (
       <div className={`toolbar-speedometer ${className || ''}`} title="Simulated throughput" style={style}>
         <svg width="24" height="24" viewBox="0 0 24 24" style={{ overflow: 'visible', flexShrink: 0 }}>
-          <circle cx="12" cy="12" r="9" fill="none" stroke="var(--bg3)" strokeWidth="3" strokeLinecap="round" strokeDasharray={`${dash} ${full}`} transform="rotate(135 12 12)" />
+          <circle cx="12" cy="12" r="9" fill="none" stroke="var(--border)" strokeWidth="3" strokeLinecap="round" strokeDasharray={`${dash} ${full}`} transform="rotate(135 12 12)" />
           {Array.from({ length: 3 }).map((_, i) => (
-            <line key={i} x1="19.5" y1="12" x2="16.5" y2="12" stroke="var(--text3)" strokeWidth="1.5" strokeLinecap="round" transform={`rotate(${135 + (i / 2) * 270} 12 12)`} />
+            <line key={i} x1="19.5" y1="12" x2="16.5" y2="12" stroke="var(--text2)" strokeWidth="1.5" strokeLinecap="round" transform={`rotate(${135 + (i / 2) * 270} 12 12)`} />
           ))}
-          <circle cx="12" cy="12" r="9" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${dash} ${full}`} strokeDashoffset={dash * (1 - activePct)} transform="rotate(135 12 12)" style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.2s', filter: running ? 'drop-shadow(0 0 4px currentColor)' : 'none', opacity: running ? 1 : 0.4 }} />
+          <circle cx="12" cy="12" r="9" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${dash} ${full}`} strokeDashoffset={dash * (1 - activePct)} transform="rotate(135 12 12)" style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.2s', filter: running ? 'drop-shadow(0 0 4px currentColor)' : 'none', opacity: running ? 1 : 0.55 }} />
           <g style={{ transform: `rotate(${135 + activePct * 270}deg)`, transformOrigin: '12px 12px', transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}>
             <g className={running ? 'needle-vibrating' : ''} style={{ transformOrigin: '12px 12px' }}>
               <line x1="12" y1="12" x2="19" y2="12" stroke="var(--text)" strokeWidth="1.5" strokeLinecap="round" style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))' }} />
@@ -39,18 +39,18 @@ export function Speedometer({ mhz, running, size = 'lg', className, style }) {
   return (
     <div className={`speedometer-main ${className || ''}`} title="Simulated throughput" style={style}>
       <svg width="96" height="96" viewBox="0 0 96 96" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', overflow: 'visible' }}>
-        <circle cx="48" cy="48" r="40" fill="transparent" stroke="var(--bg3)" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${dash} ${full}`} transform="rotate(135 48 48)" />
+        <circle cx="48" cy="48" r="40" fill="transparent" stroke="var(--border)" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${dash} ${full}`} transform="rotate(135 48 48)" />
         {Array.from({ length: 9 }).map((_, i) => {
           const isMajor = i % 2 === 0;
-          return <line key={i} x1="85" y1="48" x2={isMajor ? "75" : "79"} y2="48" stroke="var(--text3)" strokeWidth={isMajor ? "2" : "1.5"} strokeLinecap="round" transform={`rotate(${135 + (i / 8) * 270} 48 48)`} />
+          return <line key={i} x1="85" y1="48" x2={isMajor ? "75" : "79"} y2="48" stroke="var(--text2)" strokeWidth={isMajor ? "2" : "1.5"} strokeLinecap="round" transform={`rotate(${135 + (i / 8) * 270} 48 48)`} />
         })}
-        <circle cx="48" cy="48" r="40" fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" strokeDasharray={`${dash} ${full}`} strokeDashoffset={dash * (1 - activePct)} transform="rotate(135 48 48)" style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.2s', filter: running ? 'drop-shadow(0 0 8px currentColor)' : 'none', opacity: running ? 1 : 0.4 }} />
+        <circle cx="48" cy="48" r="40" fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" strokeDasharray={`${dash} ${full}`} strokeDashoffset={dash * (1 - activePct)} transform="rotate(135 48 48)" style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.2s', filter: running ? 'drop-shadow(0 0 8px currentColor)' : 'none', opacity: running ? 1 : 0.55 }} />
         <g style={{ transform: `rotate(${135 + activePct * 270}deg)`, transformOrigin: '48px 48px', transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}>
           <g className={running ? 'needle-vibrating' : ''} style={{ transformOrigin: '48px 48px' }}>
             <line x1="48" y1="48" x2="80" y2="48" stroke="var(--text)" strokeWidth="3" strokeLinecap="round" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.5))' }} />
           </g>
         </g>
-        <circle cx="48" cy="48" r="5" fill="var(--text)" stroke="var(--bg1)" strokeWidth="2" />
+        <circle cx="48" cy="48" r="5" fill="var(--text)" stroke="var(--border2)" strokeWidth="2" />
       </svg>
       <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, 8px)', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <span style={{ fontFamily: 'var(--mono)', fontSize: 20, color: color, opacity: textOpacity, fontWeight: 700, letterSpacing: '-0.5px', textShadow: running ? '0 0 10px currentColor' : 'none', lineHeight: 1, transition: 'opacity 0.6s' }}>{text}</span>
