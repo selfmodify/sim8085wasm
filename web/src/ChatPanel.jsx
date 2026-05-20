@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { PanelHelp } from './PanelHelp.jsx';
 
 // ── Lightweight markdown renderer (assistant messages only) ───────────────────
@@ -61,10 +61,38 @@ export function ChatPanel({ regs, src, symbols, breakpoints, callStack, onClose,
   const [input,     setInput]     = useState('')
   const [loading,   setLoading]   = useState(false)
   const [fontSize,  setFontSize]  = useState(() => localStorage.getItem('sim8085_chat_fs') || 'md')
-  const [pos,       setPos]       = useState({ x: Math.max(0, window.innerWidth / 2 - 170), y: 150 })
+  const [pos,       setPos]       = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('sim8085_chat_pos'))
+      if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') return saved
+    } catch {}
+    return { x: Math.max(0, window.innerWidth / 2 - 170), y: 150 }
+  })
+  const initialSize = useMemo(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('sim8085_chat_size'))
+      if (saved && typeof saved.w === 'number' && typeof saved.h === 'number') return saved
+    } catch {}
+    return { w: 340, h: 420 }
+  }, [])
+
   const posRef    = useRef(pos)
   const scrollRef = useRef(null)
   const inputRef  = useRef(null)
+  const wrapRef   = useRef(null)
+
+  useEffect(() => {
+    if (isPoppedOut || !wrapRef.current) return
+    let timeout = null
+    const ro = new ResizeObserver(([e]) => {
+      clearTimeout(timeout)
+      timeout = setTimeout(() => {
+        localStorage.setItem('sim8085_chat_size', JSON.stringify({ w: e.target.offsetWidth, h: e.target.offsetHeight }))
+      }, 200)
+    })
+    ro.observe(wrapRef.current)
+    return () => { ro.disconnect(); clearTimeout(timeout) }
+  }, [isPoppedOut])
 
   function onDragDown(e) {
     if (isPoppedOut) return
@@ -75,7 +103,10 @@ export function ChatPanel({ regs, src, symbols, breakpoints, callStack, onClose,
       const p = { x: ev.clientX - ox, y: Math.max(0, ev.clientY - oy) }
       posRef.current = p; setPos(p)
     }
-    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    function onUp() { 
+      document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp);
+      localStorage.setItem('sim8085_chat_pos', JSON.stringify(posRef.current))
+    }
     document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
 
@@ -162,10 +193,10 @@ export function ChatPanel({ regs, src, symbols, breakpoints, callStack, onClose,
   }
 
   const wrapperClass = isPoppedOut ? 'chat-window' : 'chat-float'
-  const wrapperStyle = isPoppedOut ? {} : { left: pos.x, top: pos.y }
+  const wrapperStyle = isPoppedOut ? {} : { left: pos.x, top: pos.y, width: initialSize.w, height: initialSize.h }
 
   return (
-    <div className={wrapperClass} style={wrapperStyle} data-chat-size={fontSize}>
+    <div ref={wrapRef} className={wrapperClass} style={wrapperStyle} data-chat-size={fontSize}>
       <div className="chat-float-hd" onMouseDown={onDragDown} style={{ cursor: isPoppedOut ? 'default' : 'move' }}>
         <span><span className="panel-icon">🤖</span>AI ASSISTANT</span>
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>

@@ -3,9 +3,11 @@ import * as sim from './simProxy.js';
 import { useCollapsible } from './hooks.js';
 import { PanelHelp } from './PanelHelp.jsx';
 import { hex2 } from './utils.js';
+import { PopoutWindow } from './PopoutWindow.jsx';
 
-export function AudioPanel({ running, onShowDialog, dragHandleProps, dropTargetProps, isDragOver }) {
+export function AudioPanel({ running, onShowDialog, dragHandleProps, dropTargetProps, isDragOver, theme, popoutCrtProps }) {
   const [collapsed, toggleCollapsed] = useCollapsible('audio', false)
+  const [poppedOut, setPoppedOut] = useState(() => localStorage.getItem('sim8085_audio_popped_out') === 'true')
   const [enabled, setEnabled] = useState(false)
   const [volume, setVolume] = useState(0.05)
   const [displayVal, setDisplayVal] = useState(0)
@@ -15,6 +17,10 @@ export function AudioPanel({ running, onShowDialog, dragHandleProps, dropTargetP
 
   useEffect(() => { runningRef.current = running }, [running])
   useEffect(() => { volRef.current = volume }, [volume])
+
+  useEffect(() => {
+    localStorage.setItem('sim8085_audio_popped_out', String(poppedOut))
+  }, [poppedOut])
 
   function toggleAudio() {
     if (!enabled) {
@@ -103,17 +109,8 @@ export function AudioPanel({ running, onShowDialog, dragHandleProps, dropTargetP
     }
   }, [])
 
-  return (
-    <div className={`panel audio-panel${isDragOver ? ' drag-over' : ''}`} {...dropTargetProps}>
-      <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
-        <span><span className="panel-icon">🔊</span>AUDIO (PORT 40H)</span>
-        <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
-          <PanelHelp panel="AUDIO OUTPUT" />
-        </div>
-        <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
-      </div>
-      {!collapsed && (
-        <div className="panel-anim-body audio-body">
+  const content = (
+        <div className="panel-anim-body audio-body" style={poppedOut ? { flex: 1, overflowY: 'auto' } : undefined}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button className={`btn btn-xs ${enabled ? 'btn-run' : ''}`} onClick={toggleAudio}>
               {enabled ? 'ON' : 'OFF'}
@@ -131,7 +128,52 @@ export function AudioPanel({ running, onShowDialog, dragHandleProps, dropTargetP
             OUT 40H &gt; 0 plays tone. Set Simulator Speed to <b>Fast</b> for best playback.
           </div>
         </div>
+  )
+
+  return (
+    <>
+      <div className={`panel audio-panel${!poppedOut && isDragOver ? ' drag-over' : ''}`} {...(!poppedOut ? dropTargetProps : {})}>
+        {poppedOut ? (
+          <>
+            <div className="panel-hd" {...dragHandleProps}>
+              <span><span className="panel-icon">🔊</span>AUDIO (PORT 40H)</span>
+              <div className="panel-hd-right">
+                <PanelHelp panel="AUDIO OUTPUT" />
+              </div>
+            </div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: 'var(--text2)', minHeight: 120 }}>
+              <div style={{ fontSize: 24, marginBottom: 8 }}>🪟</div>
+              <div style={{ fontSize: 12 }}>Opened in another window.</div>
+              <button className="btn btn-xs" style={{ marginTop: 12 }} onClick={() => setPoppedOut(false)}>Bring it back</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
+              <span><span className="panel-icon">🔊</span>AUDIO (PORT 40H)</span>
+              <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
+                <button className="reg-base-btn" style={{ marginRight: 6 }} onClick={() => setPoppedOut(true)} title="Open in separate window">⧉</button>
+                <PanelHelp panel="AUDIO OUTPUT" />
+              </div>
+              <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
+            </div>
+            {!collapsed && content}
+          </>
+        )}
+      </div>
+      {poppedOut && (
+        <PopoutWindow title="Audio - sim8085" theme={theme} onClose={() => setPoppedOut(false)} {...popoutCrtProps}>
+          <div className="panel audio-panel" style={{ flex: 1, border: 'none', borderRadius: 0, paddingBottom: 0 }}>
+            <div className="panel-hd">
+              <span><span className="panel-icon">🔊</span>AUDIO (PORT 40H)</span>
+              <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
+                <PanelHelp panel="AUDIO OUTPUT" />
+              </div>
+            </div>
+            {content}
+          </div>
+        </PopoutWindow>
       )}
-    </div>
+    </>
   )
 }

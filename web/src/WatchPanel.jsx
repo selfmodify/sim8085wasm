@@ -1,14 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as sim from './simProxy.js';
 import { PanelHelp } from './PanelHelp.jsx';
 import { hex4, fmtWord, fmtByte, BASE_CYCLE } from './utils.js';
 import { useSimulator } from './SimulatorContext.jsx';
+import { PopoutWindow } from './PopoutWindow.jsx';
 
-export function WatchPanel({ watches, regs, prevRegs, changedAddrs, onAdd, onRemove, dataBps, onToggleBreak }) {
+export function WatchPanel({ watches, regs, prevRegs, changedAddrs, onAdd, onRemove, dataBps, onToggleBreak, theme, popoutCrtProps }) {
   const { regBase, onRegBase } = useSimulator()
+  const [poppedOut, setPoppedOut] = useState(() => localStorage.getItem('sim8085_watch_popped_out') === 'true')
   const [input, setInput] = useState('')
   const PAIR_KEYS = { bc: ['b','c'], de: ['d','e'], hl: ['h','l'] }
   const REG_NAMES = new Set(['a','b','c','d','e','h','l','pc','sp','flags','bc','de','hl'])
+
+  useEffect(() => {
+    localStorage.setItem('sim8085_watch_popped_out', String(poppedOut))
+  }, [poppedOut])
 
   function getValue(w) {
     if (w.type === 'reg') {
@@ -37,23 +43,15 @@ export function WatchPanel({ watches, regs, prevRegs, changedAddrs, onAdd, onRem
     setInput('')
   }
 
-  return (
-    <div className="panel watch-panel">
-      <div className="panel-hd">
-        <span className="panel-icon">👁</span>WATCH
-        <div className="panel-hd-right">
-          <button className="reg-base-btn" onClick={() => onRegBase(BASE_CYCLE[(BASE_CYCLE.indexOf(regBase)+1)%3])}
-            title="Toggle display: hex / dec / bin">{(regBase||'hex').toUpperCase()}</button>
-          <PanelHelp panel="WATCH" />
-        </div>
-      </div>
+  const content = (
+    <>
       <div className="watch-add-row">
         <input className="watch-input" value={input} placeholder="A  BC  0200H…"
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && addWatch()} />
         <button className="btn btn-xs" onClick={addWatch}>+</button>
       </div>
-      <div className="watch-body">
+      <div className="watch-body" style={poppedOut ? { flex: 1, overflowY: 'auto' } : undefined}>
         {watches.length === 0
           ? <div className="watch-empty">Type a register or address above</div>
           : watches.map((w, i) => {
@@ -90,6 +88,56 @@ export function WatchPanel({ watches, regs, prevRegs, changedAddrs, onAdd, onRem
             })
         }
       </div>
-    </div>
+    </>
+  )
+
+  return (
+    <>
+      <div className="panel watch-panel">
+        {poppedOut ? (
+          <>
+            <div className="panel-hd">
+              <span><span className="panel-icon">👁</span>WATCH</span>
+              <div className="panel-hd-right">
+                <PanelHelp panel="WATCH" />
+              </div>
+            </div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: 'var(--text2)' }}>
+              <div style={{ fontSize: 24, marginBottom: 8 }}>🪟</div>
+              <div style={{ fontSize: 12 }}>Opened in another window.</div>
+              <button className="btn btn-xs" style={{ marginTop: 12 }} onClick={() => setPoppedOut(false)}>Bring it back</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="panel-hd">
+              <span><span className="panel-icon">👁</span>WATCH</span>
+              <div className="panel-hd-right">
+                <button className="reg-base-btn" style={{ marginRight: 6 }} onClick={() => setPoppedOut(true)} title="Open in separate window">⧉</button>
+                <button className="reg-base-btn" onClick={() => onRegBase(BASE_CYCLE[(BASE_CYCLE.indexOf(regBase)+1)%3])}
+                  title="Toggle display: hex / dec / bin">{(regBase||'hex').toUpperCase()}</button>
+                <PanelHelp panel="WATCH" />
+              </div>
+            </div>
+            {content}
+          </>
+        )}
+      </div>
+      {poppedOut && (
+        <PopoutWindow title="Watch - sim8085" theme={theme} onClose={() => setPoppedOut(false)} {...popoutCrtProps}>
+          <div className="panel watch-panel" style={{ flex: 1, border: 'none', borderRadius: 0, paddingBottom: 0 }}>
+            <div className="panel-hd">
+              <span><span className="panel-icon">👁</span>WATCH</span>
+              <div className="panel-hd-right">
+                <button className="reg-base-btn" onClick={() => onRegBase(BASE_CYCLE[(BASE_CYCLE.indexOf(regBase)+1)%3])}
+                  title="Toggle display: hex / dec / bin">{(regBase||'hex').toUpperCase()}</button>
+                <PanelHelp panel="WATCH" />
+              </div>
+            </div>
+            {content}
+          </div>
+        </PopoutWindow>
+      )}
+    </>
   )
 }

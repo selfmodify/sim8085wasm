@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as sim from './simProxy.js';
 import { useCollapsible } from './hooks.js';
 import { PanelHelp } from './PanelHelp.jsx';
 import { hex2, hex4, fmtByte, fmtWord, BASE_CYCLE } from './utils.js';
 import { useSimulator } from './SimulatorContext.jsx';
+import { PopoutWindow } from './PopoutWindow.jsx';
 
 const PAIR_DEFS = [
   { name: 'BC', hi: 'b', lo: 'c' },
@@ -11,12 +12,17 @@ const PAIR_DEFS = [
   { name: 'HL', hi: 'h', lo: 'l' },
 ]
 
-export function PairPanel({ regs, prev, onJump, onMemoryEdited, dragHandleProps, dropTargetProps, isDragOver }) {
+export function PairPanel({ regs, prev, onJump, onMemoryEdited, dragHandleProps, dropTargetProps, isDragOver, theme, popoutCrtProps }) {
   const { regBase, onRegBase, onEdit } = useSimulator()
   const [collapsed, toggleCollapsed] = useCollapsible('pairs', true)
+  const [poppedOut, setPoppedOut] = useState(() => localStorage.getItem('sim8085_pairs_popped_out') === 'true')
   const [editing, setEditing] = useState(null)  // { key, field: 'addr'|'content' }
   const [buf, setBuf] = useState('')
   const p = prev || {}
+
+  useEffect(() => {
+    localStorage.setItem('sim8085_pairs_popped_out', String(poppedOut))
+  }, [poppedOut])
 
   function startEdit(key, field, initial) {
     setEditing({ key, field })
@@ -42,18 +48,9 @@ export function PairPanel({ regs, prev, onJump, onMemoryEdited, dragHandleProps,
     setEditing(null)
   }
 
-  return (
-    <div className={`panel reg-panel${isDragOver ? ' drag-over' : ''}`} {...dropTargetProps}>
-      <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
-        <span className="panel-icon">🔗</span>REGISTER PAIRS
-        <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
-          <button className="reg-base-btn" onClick={() => onRegBase(BASE_CYCLE[(BASE_CYCLE.indexOf(regBase)+1)%3])}
-            title="Toggle display: hex / dec / bin">{(regBase||'hex').toUpperCase()}</button>
-          <PanelHelp panel="REGISTER PAIRS" />
-        </div>
-        <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
-      </div>
-      {!collapsed && <div className="panel-anim-body"><div className="pair-col-hdr">
+  const content = (
+    <div className="panel-anim-body" style={poppedOut ? { flex: 1, overflowY: 'auto' } : undefined}>
+      <div className="pair-col-hdr">
         <span />
         <span>ADDR</span>
         <span>CONTENT</span>
@@ -93,7 +90,58 @@ export function PairPanel({ regs, prev, onJump, onMemoryEdited, dragHandleProps,
             }
           </div>
         )
-      })}</div>}
+      })}
     </div>
+  )
+
+  return (
+    <>
+      <div className={`panel reg-panel${!poppedOut && isDragOver ? ' drag-over' : ''}`} {...(!poppedOut ? dropTargetProps : {})}>
+        {poppedOut ? (
+          <>
+            <div className="panel-hd" {...dragHandleProps}>
+              <span><span className="panel-icon">🔗</span>REGISTER PAIRS</span>
+              <div className="panel-hd-right">
+                <PanelHelp panel="REGISTER PAIRS" />
+              </div>
+            </div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: 'var(--text2)', minHeight: 120 }}>
+              <div style={{ fontSize: 24, marginBottom: 8 }}>🪟</div>
+              <div style={{ fontSize: 12 }}>Opened in another window.</div>
+              <button className="btn btn-xs" style={{ marginTop: 12 }} onClick={() => setPoppedOut(false)}>Bring it back</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
+              <span><span className="panel-icon">🔗</span>REGISTER PAIRS</span>
+              <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
+                <button className="reg-base-btn" style={{ marginRight: 6 }} onClick={() => setPoppedOut(true)} title="Open in separate window">⧉</button>
+                <button className="reg-base-btn" onClick={() => onRegBase(BASE_CYCLE[(BASE_CYCLE.indexOf(regBase)+1)%3])}
+                  title="Toggle display: hex / dec / bin">{(regBase||'hex').toUpperCase()}</button>
+                <PanelHelp panel="REGISTER PAIRS" />
+              </div>
+              <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
+            </div>
+            {!collapsed && content}
+          </>
+        )}
+      </div>
+      {poppedOut && (
+        <PopoutWindow title="Register Pairs - sim8085" theme={theme} onClose={() => setPoppedOut(false)} {...popoutCrtProps}>
+          <div className="panel reg-panel" style={{ flex: 1, border: 'none', borderRadius: 0, paddingBottom: 0 }}>
+            <div className="panel-hd">
+              <span><span className="panel-icon">🔗</span>REGISTER PAIRS</span>
+              <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
+                <button className="reg-base-btn" onClick={() => onRegBase(BASE_CYCLE[(BASE_CYCLE.indexOf(regBase)+1)%3])}
+                  title="Toggle display: hex / dec / bin">{(regBase||'hex').toUpperCase()}</button>
+                <PanelHelp panel="REGISTER PAIRS" />
+              </div>
+            </div>
+            {content}
+          </div>
+        </PopoutWindow>
+      )}
+    </>
   )
 }

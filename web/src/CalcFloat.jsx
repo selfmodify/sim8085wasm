@@ -10,7 +10,13 @@ const EMPTY_VALS = { bin: '', oct: '', dec: '', hex: '' }
 
 export function CalcFloat({ onClose, onPopout, isPoppedOut }) {
   const [vals, setVals] = useState(EMPTY_VALS)
-  const [pos,  setPos]  = useState({ x: Math.max(0, window.innerWidth / 2 - 120), y: 100 })
+  const [pos,  setPos]  = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('sim8085_calc_pos'));
+      if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') return saved;
+    } catch {}
+    return { x: Math.max(0, window.innerWidth / 2 - 120), y: 100 }
+  })
   const posRef = useRef(pos)
 
   function filterKey(e, allowed) {
@@ -35,7 +41,10 @@ export function CalcFloat({ onClose, onPopout, isPoppedOut }) {
       const p = { x: ev.clientX - ox, y: Math.max(0, ev.clientY - oy) }
       posRef.current = p; setPos(p)
     }
-    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    function onUp() { 
+      document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp);
+      localStorage.setItem('sim8085_calc_pos', JSON.stringify(posRef.current));
+    }
     document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
 

@@ -2,14 +2,20 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import * as sim from './simProxy.js';
 import { PanelHelp } from './PanelHelp.jsx';
 import { hex4, fmtCount } from './utils.js';
+import { PopoutWindow } from './PopoutWindow.jsx';
 
-export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondition, onGotoLine, buildId, pcFlash, onRunTo, symbols, onJumpMem, hitcnts, maxHit, flashReq, addrLineMap }) {
+export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSetCondition, onGotoLine, buildId, pcFlash, onRunTo, symbols, onJumpMem, hitcnts, maxHit, flashReq, addrLineMap, theme, popoutCrtProps }) {
   const [viewStart, setViewStart] = useState(() => regs.pc)
   const [ctxMenu, setCtxMenu]     = useState(null)   // {addr, x, y}
   const [followPC, setFollowPC]   = useState(true)
   const [addrInput, setAddrInput] = useState('')
   const [showBpList, setShowBpList] = useState(false)
+  const [poppedOut, setPoppedOut] = useState(() => localStorage.getItem('sim8085_disasm_popped_out') === 'true')
   const curRowRef = useRef(null)
+
+  useEffect(() => {
+    localStorage.setItem('sim8085_disasm_popped_out', String(poppedOut))
+  }, [poppedOut])
 
   const addrToLabel = useMemo(() => {
     const m = new Map()
@@ -31,24 +37,20 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
   const hoveredRef  = useRef(false)
   const listRef     = useRef(null)
   const linesRef    = useRef(lines)
-  const addrIdxRef  = useRef([])  // complete instruction address table, rebuilt on each build
+  const addrIdxRef  = useRef([])
   const ignorePcScrollRef = useRef(false)
   useEffect(() => { linesRef.current = lines }, [lines])
 
-  // Keep track of the local maximum hit count so the heatmap scales correctly
   const localMaxHitRef = useRef(0)
 
-  // Build a complete address index by scanning all memory from 0 on each build.
-  // Uninitialized RAM is 0x00 (NOP, 1 byte) so alignment from address 0 is always correct.
   useEffect(() => {
     const idx = []
     let addr = 0
     while (addr <= 0xFFFF) { idx.push(addr); const d = sim.simDisassemble(addr); addr += Math.max(1, d.len) }
     addrIdxRef.current = idx
-    localMaxHitRef.current = 0 // Reset heatmap max on rebuild
-  }, [buildId]) // eslint-disable-line react-hooks/exhaustive-deps
+    localMaxHitRef.current = 0
+  }, [buildId])
 
-  // Binary search: largest table index whose address value <= addr
   const findIdx = useCallback((addr) => {
     const idx = addrIdxRef.current
     let lo = 0, hi = idx.length - 1
@@ -56,7 +58,7 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
     return lo
   }, [])
 
-  useEffect(() => { setViewStart(regs.pc) }, [buildId]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setViewStart(regs.pc) }, [buildId])
 
   useEffect(() => {
     if (!followPC) return
@@ -65,15 +67,13 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
     const lo = ls[0].addr
     const hi = ls[ls.length - 1].addr
     if (regs.pc >= lo && regs.pc <= hi) {
-      // Only scroll if PC is not already fully visible (e.g., if it's at the very edge)
-      // or if ignorePcScrollRef is false (meaning user hasn't scrolled manually)
       if (!ignorePcScrollRef.current || (regs.pc < lo + 2 || regs.pc > hi - 2)) curRowRef.current?.scrollIntoView({ block: 'nearest' })
     } else if (regs.pc > hi && regs.pc - hi <= 6) {
       setViewStart(vs => { const i = findIdx(vs); return addrIdxRef.current[Math.min(addrIdxRef.current.length - 1, i + 1)] })
     } else {
       setViewStart(regs.pc)
     }
-  }, [regs.pc, followPC]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [regs.pc, followPC])
 
   useEffect(() => {
     if (flashReq && flashReq.addr !== undefined) {
@@ -93,7 +93,7 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
         if (row) {
           row.scrollIntoView({ behavior: 'smooth', block: 'center' })
           row.classList.remove('flash-highlight')
-          void row.offsetWidth // trigger reflow
+          void row.offsetWidth
           row.classList.add('flash-highlight')
         } else if (retries < 15) {
           retries++
@@ -124,7 +124,6 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
       }
       const pageRows = listRef.current ? Math.max(1, Math.floor(listRef.current.clientHeight / 20) - 1) : 15
 
-      // Detect manual scrolling and disable followPC
       let manualScroll = false
       if (e.key === 'ArrowDown') {
         e.preventDefault(); setViewStart(vs => step(vs, 1)); manualScroll = true
@@ -141,7 +140,7 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
       }
       if (manualScroll) {
         setFollowPC(false)
-        ignorePcScrollRef.current = true // Indicate user is actively scrolling
+        ignorePcScrollRef.current = true
       }
     }
     window.addEventListener('keydown', handler)
@@ -150,32 +149,32 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
 
   const bpList = useMemo(() => [...breakpoints.keys()].sort((a,b) => a-b), [breakpoints])
 
-  return (
-    <div className="panel disasm-panel">
-      <div className="panel-hd">
-        <span className="panel-icon">📋</span>DISASSEMBLY
-        <div className="panel-hd-right">
-          <input className="disasm-addr-input" placeholder="addr" value={addrInput}
-            onChange={e => setAddrInput(e.target.value.toUpperCase())}
-            onFocus={e => e.target.select()}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                const v = parseInt(addrInput, 16)
-                if (!isNaN(v)) { setViewStart(v & 0xFFFF); setFollowPC(false) }
-                setAddrInput(''); ignorePcScrollRef.current = true
-              }
-              if (e.key === 'Escape') setAddrInput('')
-            }}
-            title="Jump to hex address (Enter)" />
-          <button className={`reg-base-btn${followPC ? ' active' : ''}`}
-            onClick={() => setFollowPC(f => !f)}
-            title={followPC ? 'Following PC — click to unlock' : 'Not following PC — click to lock'}>
-            {followPC ? 'PC↓' : 'PC·'}
-          </button>
-          <PanelHelp panel="DISASSEMBLY" />
-        </div>
-      </div>
-      <div className="disasm-list" ref={listRef}
+  const headerRight = (
+    <>
+      <input className="disasm-addr-input" placeholder="addr" value={addrInput}
+        onChange={e => setAddrInput(e.target.value.toUpperCase())}
+        onFocus={e => e.target.select()}
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            const v = parseInt(addrInput, 16)
+            if (!isNaN(v)) { setViewStart(v & 0xFFFF); setFollowPC(false) }
+            setAddrInput(''); ignorePcScrollRef.current = true
+          }
+          if (e.key === 'Escape') setAddrInput('')
+        }}
+        title="Jump to hex address (Enter)" />
+      <button className={`reg-base-btn${followPC ? ' active' : ''}`}
+        onClick={() => setFollowPC(f => !f)}
+        title={followPC ? 'Following PC — click to unlock' : 'Not following PC — click to lock'}>
+        {followPC ? 'PC↓' : 'PC·'}
+      </button>
+      <PanelHelp panel="DISASSEMBLY" />
+    </>
+  )
+
+  const content = (
+    <>
+      <div className="disasm-list" ref={listRef} style={poppedOut ? { flex: 1, overflowY: 'auto' } : undefined}
         onWheel={e => {
           if (!listRef.current) return
           const idx = addrIdxRef.current
@@ -201,7 +200,6 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
           const cond  = breakpoints.get(row.addr) ?? null
           const label = addrToLabel.get(row.addr)
           
-          // Fetch hit count natively from the Wasm bridge or fallback to passed props
           const hit = hitcnts?.has(row.addr) ? hitcnts.get(row.addr) : ((typeof sim.simGetHitCount === 'function' ? sim.simGetHitCount(row.addr) : (typeof sim._sim_get_hitcnt === 'function' ? sim._sim_get_hitcnt(row.addr) : 0)) || 0)
           if (hit > localMaxHitRef.current) localMaxHitRef.current = hit
           const currentMax = Math.max(maxHit || 0, localMaxHitRef.current)
@@ -221,7 +219,14 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
               className={`disasm-row${cur ? ' cur' : ''}${bp ? ' bp' : ''}${row.mnem === 'ASSERT' ? ' assert' : ''}`}
               data-addr={row.addr}
               onClick={() => onGotoLine?.(row.addr)}
-              onContextMenu={e => { e.preventDefault(); setCtxMenu({ addr: row.addr, x: e.clientX, y: e.clientY }) }}
+              onContextMenu={e => { 
+                e.preventDefault(); 
+                setCtxMenu({ 
+                  addr: row.addr, 
+                  x: Math.min(e.clientX, window.innerWidth - 180), 
+                  y: Math.min(e.clientY, window.innerHeight - 150) 
+                }) 
+              }}
             >
               <span className="disasm-bp"
                 role="button"
@@ -314,6 +319,52 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
           )}
         </div>
       )}
-    </div>
+    </>
+  )
+
+  return (
+    <>
+      <div className="panel disasm-panel">
+        {poppedOut ? (
+          <>
+            <div className="panel-hd">
+              <span><span className="panel-icon">📋</span>DISASSEMBLY</span>
+              <div className="panel-hd-right">
+                <PanelHelp panel="DISASSEMBLY" />
+              </div>
+            </div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: 'var(--text2)' }}>
+              <div style={{ fontSize: 24, marginBottom: 8 }}>🪟</div>
+              <div style={{ fontSize: 12 }}>Opened in another window.</div>
+              <button className="btn btn-xs" style={{ marginTop: 12 }} onClick={() => setPoppedOut(false)}>Bring it back</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="panel-hd">
+              <span><span className="panel-icon">📋</span>DISASSEMBLY</span>
+              <div className="panel-hd-right">
+                <button className="reg-base-btn" style={{ marginRight: 6 }} onClick={() => setPoppedOut(true)} title="Open in separate window">⧉</button>
+                {headerRight}
+              </div>
+            </div>
+            {content}
+          </>
+        )}
+      </div>
+      {poppedOut && (
+        <PopoutWindow title="Disassembly - sim8085" theme={theme} onClose={() => setPoppedOut(false)} {...popoutCrtProps}>
+          <div className="panel disasm-panel" style={{ flex: 1, border: 'none', borderRadius: 0, paddingBottom: 0 }}>
+            <div className="panel-hd">
+              <span><span className="panel-icon">📋</span>DISASSEMBLY</span>
+              <div className="panel-hd-right">
+                {headerRight}
+              </div>
+            </div>
+            {content}
+          </div>
+        </PopoutWindow>
+      )}
+    </>
   )
 }

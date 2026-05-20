@@ -3,11 +3,13 @@ import * as sim from './simProxy.js';
 import { PanelHelp } from './PanelHelp.jsx';
 import { hex2, hex4 } from './utils.js';
 import { useSimulator } from './SimulatorContext.jsx';
+import { PopoutWindow } from './PopoutWindow.jsx';
 
-export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion, presetAddrs, onMemoryEdited, memVisibleRangeRef, flashReq }) {
+export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, programRegion, presetAddrs, onMemoryEdited, memVisibleRangeRef, flashReq, theme, popoutCrtProps }) {
   const { onShowDialog } = useSimulator()
   const memCacheRef = useRef(null) // { buildId, data: Uint8Array } — avoid re-fetching 64KB on each search
   const [mem, setMem] = useState(new Uint8Array(128))
+  const [poppedOut, setPoppedOut] = useState(() => localStorage.getItem('sim8085_mem_popped_out') === 'true')
   const [followPC, setFollowPC] = useState(false)
   const [flashAddr, setFlashAddr] = useState(null)
   const [editing, setEditing] = useState(null)
@@ -31,6 +33,10 @@ export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, progra
   const COLS = 16
   const scrollRef = useRef(null)
   const panelRef  = useRef(null)
+
+  useEffect(() => {
+    localStorage.setItem('sim8085_mem_popped_out', String(poppedOut))
+  }, [poppedOut])
 
   const searchMatchSet  = useMemo(() => new Set(searchMatches), [searchMatches])
   const previewSet = useMemo(() => {
@@ -90,7 +96,7 @@ export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, progra
     })
     ro.observe(scrollRef.current)
     return () => ro.disconnect()
-  }, [])
+  }, [poppedOut])
 
   function onHandleMouseDown(e) {
     e.preventDefault()
@@ -210,50 +216,53 @@ export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, progra
     })
   }
 
-  return (
-    <div className="panel mem-panel" ref={panelRef} tabIndex={0} onKeyDown={onPanelKey}>
-      <div className="mem-resize-handle" onMouseDown={onHandleMouseDown} />
-      <div className="panel-hd">
-        <span className="panel-icon">💾</span>MEMORY
-        <div className="panel-hd-right">
-        <span className="mem-ctrl">
-          <button className={`mem-btn${followPC ? ' mem-btn-active' : ''}`} style={{ width: 42 }}
-            title={followPC ? 'Following PC — click to unlock' : 'Not following PC — click to lock'}
-            onClick={() => setFollowPC(f => !f)}>
-            {followPC ? 'PC↓' : 'PC·'}
-          </button>
-          <button className="mem-btn" title="Back 4 pages" onClick={() => manualJump(Math.max(0, memStart - COLS*rows*4))}>«</button>
-          <button className="mem-btn" onClick={() => manualJump(Math.max(0, memStart - COLS*rows))}>◀</button>
-          <input
-            className="mem-cur-addr"
-            value={addrBuf}
-            maxLength={4}
-            spellCheck={false}
-            onChange={e => setAddrBuf(e.target.value.toUpperCase())}
-            onFocus={e => { addrFocused.current = true; e.target.select() }}
-            onBlur={() => { addrFocused.current = false; setAddrBuf(hex4(memStart)) }}
-            onKeyDown={e => {
-              if (e.key === 'Enter') { const v = parseInt(addrBuf, 16); if (!isNaN(v)) manualJump(v & 0xFFF0); e.target.blur() }
-              if (e.key === 'Escape') { setAddrBuf(hex4(memStart)); e.target.blur() }
-            }}
-          />
-        <button className="mem-btn" onClick={() => manualJump(Math.min(0xFFF0, memStart + COLS*rows))}>▶</button>
-        <button className="mem-btn" title="Forward 4 pages" onClick={() => manualJump(Math.min(0xFFF0, memStart + COLS*rows*4))}>»</button>
-        </span>
-        <span style={{width:8, flexShrink:0}} />
-        <button className={`mem-btn${showSearch ? ' mem-btn-active' : ''}`}
-          title="Find byte in memory (toggle)"
-          onClick={() => { setShowSearch(s => !s); setShowFill(false); setShowExport(false) }}>🔍</button>
-        <button className={`mem-btn${showFill ? ' mem-btn-active' : ''}`}
-          title="Fill memory range (toggle)"
-          onClick={() => { setShowFill(s => !s); setShowSearch(false); setShowExport(false) }}>⊞</button>
-        <button className={`mem-btn${showExport ? ' mem-btn-active' : ''}`}
-          title="Export memory range (toggle)"
-          onClick={() => { setShowExport(s => !s); setShowSearch(false); setShowFill(false) }}>⬇</button>
-      <button className="mem-btn" title="Clear all memory" onClick={clearMemory}>🗑</button>
-        <PanelHelp panel="MEMORY" wide />
-        </div>
+  const fullHeader = (
+    <div className="panel-hd">
+      <span><span className="panel-icon">💾</span>MEMORY</span>
+      <div className="panel-hd-right">
+      <span className="mem-ctrl">
+        <button className={`mem-btn${followPC ? ' mem-btn-active' : ''}`} style={{ width: 42 }}
+          title={followPC ? 'Following PC — click to unlock' : 'Not following PC — click to lock'}
+          onClick={() => setFollowPC(f => !f)}>
+          {followPC ? 'PC↓' : 'PC·'}
+        </button>
+        <button className="mem-btn" title="Back 4 pages" onClick={() => manualJump(Math.max(0, memStart - COLS*rows*4))}>«</button>
+        <button className="mem-btn" onClick={() => manualJump(Math.max(0, memStart - COLS*rows))}>◀</button>
+        <input
+          className="mem-cur-addr"
+          value={addrBuf}
+          maxLength={4}
+          spellCheck={false}
+          onChange={e => setAddrBuf(e.target.value.toUpperCase())}
+          onFocus={e => { addrFocused.current = true; e.target.select() }}
+          onBlur={() => { addrFocused.current = false; setAddrBuf(hex4(memStart)) }}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { const v = parseInt(addrBuf, 16); if (!isNaN(v)) manualJump(v & 0xFFF0); e.target.blur() }
+            if (e.key === 'Escape') { setAddrBuf(hex4(memStart)); e.target.blur() }
+          }}
+        />
+      <button className="mem-btn" onClick={() => manualJump(Math.min(0xFFF0, memStart + COLS*rows))}>▶</button>
+      <button className="mem-btn" title="Forward 4 pages" onClick={() => manualJump(Math.min(0xFFF0, memStart + COLS*rows*4))}>»</button>
+      </span>
+      <span style={{width:8, flexShrink:0}} />
+      <button className={`mem-btn${showSearch ? ' mem-btn-active' : ''}`}
+        title="Find byte in memory (toggle)"
+        onClick={() => { setShowSearch(s => !s); setShowFill(false); setShowExport(false) }}>🔍</button>
+      <button className={`mem-btn${showFill ? ' mem-btn-active' : ''}`}
+        title="Fill memory range (toggle)"
+        onClick={() => { setShowFill(s => !s); setShowSearch(false); setShowExport(false) }}>⊞</button>
+      <button className={`mem-btn${showExport ? ' mem-btn-active' : ''}`}
+        title="Export memory range (toggle)"
+        onClick={() => { setShowExport(s => !s); setShowSearch(false); setShowFill(false) }}>⬇</button>
+    <button className="mem-btn" title="Clear all memory" onClick={clearMemory}>🗑</button>
+      {!poppedOut && <button className="reg-base-btn" style={{ marginLeft: 6 }} onClick={() => setPoppedOut(true)} title="Open in separate window">⧉</button>}
+      <PanelHelp panel="MEMORY" wide />
       </div>
+    </div>
+  )
+
+  const content = (
+    <>
       {showSearch && (
         <div className="mem-toolbar mem-toolbar-search">
           <span className="mem-toolbar-lbl">FIND</span>
@@ -363,6 +372,42 @@ export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, progra
         <span className="legend-preset">■</span> Data &nbsp;
         <span className="legend-tip">double-click to edit · click + ↑↓ PgUp/Dn to scroll</span>
       </div>
-    </div>
+    </>
+  )
+
+  return (
+    <>
+      <div className="panel mem-panel" ref={!poppedOut ? panelRef : null} tabIndex={!poppedOut ? 0 : undefined} onKeyDown={!poppedOut ? onPanelKey : undefined}>
+        <div className="mem-resize-handle" onMouseDown={onHandleMouseDown} />
+        {poppedOut ? (
+          <>
+            <div className="panel-hd">
+              <span><span className="panel-icon">💾</span>MEMORY</span>
+              <div className="panel-hd-right">
+                <PanelHelp panel="MEMORY" wide />
+              </div>
+            </div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: 'var(--text2)' }}>
+              <div style={{ fontSize: 24, marginBottom: 8 }}>🪟</div>
+              <div style={{ fontSize: 12 }}>Opened in another window.</div>
+              <button className="btn btn-xs" style={{ marginTop: 12 }} onClick={() => setPoppedOut(false)}>Bring it back</button>
+            </div>
+          </>
+        ) : (
+          <>
+            {fullHeader}
+            {content}
+          </>
+        )}
+      </div>
+      {poppedOut && (
+        <PopoutWindow title="Memory - sim8085" theme={theme} onClose={() => setPoppedOut(false)} {...popoutCrtProps}>
+          <div className="panel mem-panel" style={{ flex: 1, border: 'none', borderRadius: 0 }} ref={panelRef} tabIndex={0} onKeyDown={onPanelKey}>
+            {fullHeader}
+            {content}
+          </div>
+        </PopoutWindow>
+      )}
+    </>
   )
 }

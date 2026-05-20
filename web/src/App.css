@@ -1993,6 +1993,9 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
   box-shadow: var(--shadow-pop);
   padding: 4px 0;
   min-width: 160px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 .ctx-menu-item {
   display: block;
@@ -2244,6 +2247,7 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 .statusbar-entry.sbar-success { color: var(--accent) }
 .statusbar-entry.sbar-error   { color: var(--red) }
 .statusbar-entry.sbar-halted  { color: var(--amber) }
+.statusbar-entry.sbar-running { color: var(--accent); animation: blink 1s infinite; text-shadow: 0 0 10px currentColor }
 .statusbar-empty { padding: 0 10px; color: var(--text3); align-self: center }
 .statusbar-events { flex: 1; min-width: 0; display: flex; align-items: stretch; overflow: hidden }
 .statusbar-counters {
@@ -2255,7 +2259,7 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 .sbar-counter { color: var(--text2); display: inline-block; text-align: right }
 .sc-steps  { min-width: 80px }
 .sc-cycles { min-width: 56px }
-.sc-mhz    { min-width: 64px }
+.sc-mhz    { min-width: 80px }
 .sbar-sep { color: var(--text3) }
 
 /* ── Scrollbars ───────────────────────────────────────────────────── */

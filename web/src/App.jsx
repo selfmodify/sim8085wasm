@@ -89,7 +89,11 @@ export default function App() {
   const [mobileTab,      setMobileTab]      = useState('editor')
   const [activeView,     setActiveView]     = useState('simulator') // 'simulator' | 'challenges'
   const [theme, setTheme] = useState(() => localStorage.getItem('sim8085_theme') || 'dracula')
-  const [breadboardPoppedOut, setBreadboardPoppedOut] = useState(false)
+  const [breadboardPoppedOut, setBreadboardPoppedOut] = useState(() => localStorage.getItem('sim8085_breadboard_popped_out') === 'true')
+
+  useEffect(() => {
+    localStorage.setItem('sim8085_breadboard_popped_out', String(breadboardPoppedOut))
+  }, [breadboardPoppedOut])
 
   function handleSetView(v) {
     setActiveView(v)
@@ -231,6 +235,7 @@ export default function App() {
       if (e.key === 'F10') { e.preventDefault(); if (!h.running && h.appState !== 'error') h.doStepOut() }
       if (e.key === 'F9') { e.preventDefault(); if (h.appState !== 'error' || h.running) h.handleRun() }
       if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); if (h.appState !== 'error' || h.running) h.handleRun() }
+      if (e.key === 'F12') { e.preventDefault(); window.dispatchEvent(new Event('sim-dock-all')) }
       if (e.key === 's' && e.ctrlKey) { e.preventDefault(); if (h.driveToken) h.saveToDrive(); else h.setMsg('✓ Saved locally') }
       if (e.key === 'Escape' && h.running) { e.preventDefault(); h.handleRun() }
       if (e.key === '?' && !e.ctrlKey && !e.altKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
@@ -664,39 +669,9 @@ export default function App() {
     [regBase] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
-  const brandMenuProps = {
-    onShowWelcome: () => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) },
-    onShowShortcuts: () => setShowShortcuts(true),
-    onNew: newFile,
-    onImport: () => fileInputRef.current.click(),
-    onLoadFromDrive: loadFromDrive,
-    onLoadFromGist: loadFromGist,
-    onExport: exportFile,
-    onExportHex: exportHex,
-    onExportBin: exportBin,
-    onSaveToDrive: saveToDrive,
-    onSaveAsToDrive: saveAsToDrive,
-    onSaveToGist: saveToGist,
-    driveToken,
-    onConnectDrive: connectDrive,
-    onDriveDisconnect: handleDriveDisconnect,
-    onShare: shareURL,
-    onCalc: () => setShowCalc(c => !c),
-    onChat: () => setShowChat(c => !c),
-    memSize: engine.memSize, onMemSize: engine.changeMemSize,
-    engineMode: engine.engineMode, onEngineSwitch: engine.handleEngineSwitch,
-    engineSwitching: engine.engineSwitching,
-    theme, onTheme: toggleTheme, onSetTheme: setTheme,
-    crtBrightness, onCrtBrightness: v => { setCrtBrightness(v); localStorage.setItem(`sim8085_crt_b_${theme}`, v) },
-    crtContrast, onCrtContrast: v => { setCrtContrast(v); localStorage.setItem(`sim8085_crt_c_${theme}`, v) },
-    crtGlitch, onCrtGlitch: () => { const modes = ['off','flicker','static','vsync','hsync','chroma','chaos']; const next = modes[(modes.indexOf(crtGlitch) + 1) % modes.length]; setCrtGlitch(next); localStorage.setItem('sim8085_crt_glitch', next) },
-    crtVignette, onCrtVignette: v => { setCrtVignette(v); localStorage.setItem('sim8085_crt_vignette', String(v)) },
-    onManageGithub: () => setShowGithubSetup(true),
-    panels, onTogglePanel: togglePanel,
-    activeView, onSetView: handleSetView,
-    topbarVisible,
-    onToggleTopbar: () => setTopbarVisible(v => !v),
-    onBrewCoffee
+  const popoutCrtProps = {
+    containerStyle: isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined,
+    containerClass: `${isRetroTheme && crtGlitch !== 'off' ? `crt-glitch-${crtGlitch}` : ''}${isRetroTheme && !crtVignette ? ' crt-no-vignette' : ''}`
   }
 
   return (
@@ -708,9 +683,8 @@ export default function App() {
         }} />
       )}
       {/* ── Topbar ── */}
-      {topbarVisible && (
-        <div className="topbar">
-          <div className="brand">
+      <div className="topbar">
+        <div className="brand">
           <BrandMenu
             onShowWelcome={() => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) }}
             onShowShortcuts={() => setShowShortcuts(true)}
@@ -741,12 +715,13 @@ export default function App() {
             onManageGithub={() => setShowGithubSetup(true)}
             panels={panels} onTogglePanel={togglePanel}
             activeView={activeView} onSetView={handleSetView}
-            onHideTopbar={() => setTopbarVisible(false)}
             onBrewCoffee={onBrewCoffee} />
           <div className="view-tabs">
             <button className={`view-tab${activeView === 'simulator' ? ' active' : ''}`} onClick={() => handleSetView('simulator')}>Simulator</button>
             <button className={`view-tab${activeView === 'breadboard' ? ' active' : ''}`} onClick={() => handleSetView('breadboard')}>Hardware</button>
             <button className={`view-tab${activeView === 'challenges' ? ' active' : ''}`} onClick={() => handleSetView('challenges')}>Challenges</button>
+            <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 4px' }} className="mobile-hidden" />
+            <button className="view-tab mobile-hidden" onClick={() => window.dispatchEvent(new Event('sim-dock-all'))} title="Dock all popped-out windows (F12)" style={{ padding: '8px 12px' }}>⧉ Dock All</button>
           </div>
         </div>
           {/* Editor/Code/Regs tabs — inline in topbar on mobile, hidden on desktop */}
@@ -766,7 +741,7 @@ export default function App() {
 
         <div style={{ flex: 1 }} className="mobile-hidden" />
 
-        {fileName && <span className="topbar-filename" style={{ marginLeft: 0 }} title={fileName}>File: {fileName}</span>}
+        {fileName && <span className="topbar-filename" style={{ marginLeft: 0, color: engine.isDirty ? 'var(--amber)' : undefined }} title={engine.isDirty ? `${fileName} (unsaved changes)` : fileName}>File: {fileName}{engine.isDirty ? '*' : ''}</span>}
     {driveSaveStatus === 'saving' ? <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>⏳ Saving to Drive…</span>
     : driveSaveStatus === 'success' ? <span style={{ color: 'var(--accent)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>✓ Saved to Drive</span>
     : localSaveStatus === 'saving' ? <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>⏳ Auto-saving…</span>
@@ -825,6 +800,7 @@ export default function App() {
             formatCode={formatCode}
             openConditionDialog={openConditionDialog}
             readOnlySource={readOnlySource}
+            popoutCrtProps={popoutCrtProps}
           />
         </div>
 
@@ -850,11 +826,14 @@ export default function App() {
         <div className="statusbar-events">
           {statusLog.length === 0
             ? <span className="statusbar-empty">—</span>
-            : (() => { const e = statusLog[statusLog.length - 1]; return (
-              <div className={`statusbar-entry sbar-${e.kind}`}>
-                <span className="statusbar-text">{e.text}</span>
-              </div>
-            )})()
+            : (() => { 
+                const e = statusLog[statusLog.length - 1]; 
+                const activeKind = engine.running ? 'running' : engine.appState === 'error' ? 'error' : engine.appState === 'halted' ? 'halted' : e.kind;
+                return (
+                  <div className={`statusbar-entry sbar-${activeKind}`}>
+                    <span className="statusbar-text">{e.text}</span>
+                  </div>
+                )})()
           }
         </div>
         <div className="statusbar-counters">
@@ -864,7 +843,23 @@ export default function App() {
           <span className="sbar-sep">·</span>
           <span className="sbar-counter sc-cycles" title={`${engine.cycles.toLocaleString()} T-states elapsed`}>{fmtCount(engine.cycles)} T</span>
           <span className="sbar-sep">·</span>
-          <span className="sbar-counter sc-mhz" title="Simulated throughput">{engine.mhz >= 1000 ? `${(engine.mhz/1000).toFixed(2)} GHz` : engine.mhz >= 1 ? `${engine.mhz.toFixed(2)} MHz` : `${(engine.mhz*1000).toFixed(2)} kHz`}</span>
+          <span className="sbar-counter sc-mhz" title="Simulated throughput" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+            {(() => {
+              const mhz = engine.mhz || 0;
+              const pct = mhz <= 0 ? 0 : Math.max(0, Math.min(1, (Math.log10(mhz) + 4) / 5));
+              const text = mhz >= 1000 ? `${(mhz/1000).toFixed(1)} GHz` : mhz >= 1 ? `${mhz.toFixed(1)} MHz` : `${(mhz*1000).toFixed(0)} kHz`;
+              const dash = 28.274;
+              return (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 16 16" style={{ marginRight: 6, transform: 'rotate(135deg)', overflow: 'visible' }}>
+                    <circle cx="8" cy="8" r="6" fill="none" stroke="var(--bg3)" strokeWidth="2.5" strokeLinecap="round" strokeDasharray={`${dash} 37.699`} />
+                    <circle cx="8" cy="8" r="6" fill="none" stroke={pct > 0.9 ? 'var(--red)' : pct > 0.7 ? 'var(--amber)' : 'var(--accent)'} strokeWidth="2.5" strokeLinecap="round" strokeDasharray={`${dash} 37.699`} strokeDashoffset={dash * (1 - pct)} style={{ transition: 'stroke-dashoffset 0.2s, stroke 0.2s' }} />
+                  </svg>
+                  <span style={{ display: 'inline-block', minWidth: '56px', textAlign: 'right' }}>{text}</span>
+                </>
+              )
+            })()}
+          </span>
         </div>
       </div>
       {showWelcome && <WelcomeModal onClose={dismissWelcome} onBrewCoffee={onBrewCoffee} />}
@@ -875,8 +870,7 @@ export default function App() {
       )}
       {showCalc && calcPoppedOut && (
         <PopoutWindow title="Calculator - sim8085" theme={theme}
-          containerStyle={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}
-          containerClass={`${isRetroTheme && crtGlitch !== 'off' ? `crt-glitch-${crtGlitch}` : ''}${isRetroTheme && !crtVignette ? ' crt-no-vignette' : ''}`}
+          {...popoutCrtProps}
           onClose={() => { setCalcPoppedOut(false); setShowCalc(false) }}>
           <CalcFloat isPoppedOut onClose={() => { setCalcPoppedOut(false); setShowCalc(false) }} />
         </PopoutWindow>
@@ -890,8 +884,7 @@ export default function App() {
       )}
       {showChat && chatPoppedOut && (
         <PopoutWindow title="AI Assistant - sim8085" theme={theme}
-          containerStyle={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}
-          containerClass={`${isRetroTheme && crtGlitch !== 'off' ? `crt-glitch-${crtGlitch}` : ''}${isRetroTheme && !crtVignette ? ' crt-no-vignette' : ''}`}
+          {...popoutCrtProps}
           onClose={() => { setChatPoppedOut(false); setShowChat(false) }}>
           <ChatPanel regs={engine.regs} src={src} symbols={engine.symbols} breakpoints={engine.bps} callStack={engine.callStack}
             engine={engine} onReset={handleReset}
@@ -919,8 +912,7 @@ export default function App() {
 
       {breadboardPoppedOut && (
         <PopoutWindow title="Hardware - sim8085" theme={theme}
-          containerStyle={isRetroTheme ? { filter: `brightness(${crtBrightness}) contrast(${crtContrast})` } : undefined}
-          containerClass={`${isRetroTheme && crtGlitch !== 'off' ? `crt-glitch-${crtGlitch}` : ''}${isRetroTheme && !crtVignette ? ' crt-no-vignette' : ''}`}
+          {...popoutCrtProps}
           onClose={() => setBreadboardPoppedOut(false)}>
           <BreadboardView engine={engine} panels={panels} togglePanel={togglePanel} ppiPos={ppiPos} setPpiPos={setPpiPos} pitPos={pitPos} setPitPos={setPitPos} ledPos={ledPos} setLedPos={setLedPos} isPoppedOut />
         </PopoutWindow>

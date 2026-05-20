@@ -9,9 +9,25 @@ export function PopoutWindow({ title, theme, containerStyle, containerClass, onC
     onCloseRef.current = onClose;
   }, [onClose]);
 
+  useEffect(() => {
+    const handleDockAll = () => {
+      if (onCloseRef.current) onCloseRef.current();
+    };
+    window.addEventListener('sim-dock-all', handleDockAll);
+    return () => window.removeEventListener('sim-dock-all', handleDockAll);
+  }, []);
+
   const externalWindow = useMemo(() => {
-    const win = window.open('', '', 'width=900,height=600,left=100,top=100');
-    if (!win) alert('Please allow pop-ups to open the Breadboard in a new window.');
+    let features = 'width=900,height=600,left=100,top=100';
+    const key = 'sim8085_popout_' + title.replace(/\W+/g, '');
+    try {
+      const saved = JSON.parse(localStorage.getItem(key));
+      if (saved && saved.w && saved.h) {
+        features = `width=${saved.w},height=${saved.h},left=${saved.x},top=${saved.y}`;
+      }
+    } catch {}
+    const win = window.open('', '', features);
+    if (!win) alert('Please allow pop-ups to open this in a new window.');
     return win;
   }, []);
 
@@ -20,6 +36,23 @@ export function PopoutWindow({ title, theme, containerStyle, containerClass, onC
       onCloseRef.current();
       return;
     }
+
+    const key = 'sim8085_popout_' + title.replace(/\W+/g, '');
+    const saveBounds = () => {
+      if (externalWindow.closed) return;
+      try {
+        if (externalWindow.innerWidth > 0) {
+          localStorage.setItem(key, JSON.stringify({
+            w: externalWindow.innerWidth,
+            h: externalWindow.innerHeight,
+            x: externalWindow.screenX,
+            y: externalWindow.screenY
+          }));
+        }
+      } catch {}
+    };
+
+    const interval = setInterval(saveBounds, 1000);
 
     // Copy all CSS over to the new window
     const styles = document.querySelectorAll('style, link[rel="stylesheet"]');
@@ -42,14 +75,19 @@ export function PopoutWindow({ title, theme, containerStyle, containerClass, onC
     
     setContainer(target);
 
-    const handleUnload = () => onCloseRef.current();
+    const handleUnload = () => {
+      saveBounds();
+      onCloseRef.current();
+    };
     externalWindow.addEventListener('unload', handleUnload);
 
     return () => { 
+      clearInterval(interval);
+      saveBounds();
       externalWindow.removeEventListener('unload', handleUnload);
       externalWindow.close(); 
     };
-  }, [externalWindow]);
+  }, [externalWindow, title]);
 
   useEffect(() => {
     if (externalWindow) {

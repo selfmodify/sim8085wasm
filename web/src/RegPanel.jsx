@@ -1,13 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as sim from './simProxy.js';
 import { useCopy, useCollapsible } from './hooks.js';
 import { PanelHelp } from './PanelHelp.jsx';
 import { hex4, fmtWord, fmtByte, BASE_CYCLE } from './utils.js';
 import { useSimulator } from './SimulatorContext.jsx';
+import { PopoutWindow } from './PopoutWindow.jsx';
 
-export function RegPanel({ regs, prev, onJump, dragHandleProps, dropTargetProps, isDragOver }) {
+export function RegPanel({ regs, prev, onJump, dragHandleProps, dropTargetProps, isDragOver, theme, popoutCrtProps }) {
   const { regBase, onRegBase, onEdit, onShowDialog } = useSimulator()
   const [collapsed, toggleCollapsed] = useCollapsible('reg', false)
+  const [poppedOut, setPoppedOut] = useState(() => localStorage.getItem('sim8085_regs_popped_out') === 'true')
+
+  useEffect(() => {
+    localStorage.setItem('sim8085_regs_popped_out', String(poppedOut))
+  }, [poppedOut])
   const p = prev || {}
 
   function EditableRow({ name, val, prevVal, regKey, is16 }) {
@@ -98,18 +104,8 @@ export function RegPanel({ regs, prev, onJump, dragHandleProps, dropTargetProps,
 
   const nextBase = BASE_CYCLE[(BASE_CYCLE.indexOf(regBase) + 1) % 3]
 
-  return (
-    <div className={`panel reg-panel${isDragOver ? ' drag-over' : ''}`} {...dropTargetProps}>
-      <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
-        <span className="panel-icon">🧠</span>REGISTERS
-        <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
-          <button className="reg-base-btn" onClick={() => onRegBase(nextBase)}
-            title="Toggle display: hex / dec / bin">{regBase.toUpperCase()}</button>
-          <PanelHelp panel="REGISTERS" />
-        </div>
-        <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
-      </div>
-      {!collapsed && <div className="panel-anim-body">
+  const content = (
+      <div className="panel-anim-body" style={poppedOut ? { flex: 1, overflowY: 'auto' } : undefined}>
         <EditableRow name="A" val={regs.a} prevVal={p.a} regKey="a" />
         <div className="reg-bits">
           {[7,6,5,4,3,2,1,0].map(bit => {
@@ -150,7 +146,57 @@ export function RegPanel({ regs, prev, onJump, dragHandleProps, dropTargetProps,
         <div className="reg-sep" />
         <EditableRow name="PC" val={regs.pc} prevVal={p.pc} regKey="pc" is16 />
         <EditableRow name="SP" val={regs.sp} prevVal={p.sp} regKey="sp" is16 />
-      </div>}
-    </div>
+      </div>
+  )
+
+  return (
+    <>
+      <div className={`panel reg-panel${!poppedOut && isDragOver ? ' drag-over' : ''}`} {...(!poppedOut ? dropTargetProps : {})}>
+        {poppedOut ? (
+          <>
+            <div className="panel-hd" {...dragHandleProps}>
+              <span><span className="panel-icon">🧠</span>REGISTERS</span>
+              <div className="panel-hd-right">
+                <PanelHelp panel="REGISTERS" />
+              </div>
+            </div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: 'var(--text2)', minHeight: 120 }}>
+              <div style={{ fontSize: 24, marginBottom: 8 }}>🪟</div>
+              <div style={{ fontSize: 12 }}>Opened in another window.</div>
+              <button className="btn btn-xs" style={{ marginTop: 12 }} onClick={() => setPoppedOut(false)}>Bring it back</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="panel-hd collapsible" onClick={toggleCollapsed} {...dragHandleProps}>
+              <span><span className="panel-icon">🧠</span>REGISTERS</span>
+              <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
+                <button className="reg-base-btn" style={{ marginRight: 6 }} onClick={() => setPoppedOut(true)} title="Open in separate window">⧉</button>
+                <button className="reg-base-btn" onClick={() => onRegBase(nextBase)}
+                  title="Toggle display: hex / dec / bin">{regBase.toUpperCase()}</button>
+                <PanelHelp panel="REGISTERS" />
+              </div>
+              <span className="panel-chevron">{collapsed ? '▶' : '▼'}</span>
+            </div>
+            {!collapsed && content}
+          </>
+        )}
+      </div>
+      {poppedOut && (
+        <PopoutWindow title="Registers - sim8085" theme={theme} onClose={() => setPoppedOut(false)} {...popoutCrtProps}>
+          <div className="panel reg-panel" style={{ flex: 1, border: 'none', borderRadius: 0, paddingBottom: 0 }}>
+            <div className="panel-hd">
+              <span><span className="panel-icon">🧠</span>REGISTERS</span>
+              <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
+                <button className="reg-base-btn" onClick={() => onRegBase(nextBase)}
+                  title="Toggle display: hex / dec / bin">{regBase.toUpperCase()}</button>
+                <PanelHelp panel="REGISTERS" />
+              </div>
+            </div>
+            {content}
+          </div>
+        </PopoutWindow>
+      )}
+    </>
   )
 }

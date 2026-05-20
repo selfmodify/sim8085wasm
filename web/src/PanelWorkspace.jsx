@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { ErrorBoundary } from './ErrorBoundary.jsx'
 import * as sim from './simProxy.js'
 import { PanelHelp } from './PanelHelp.jsx'
@@ -20,14 +20,20 @@ import { MemMapPanel } from './MemMapPanel.jsx'
 import { InterruptPanel } from './InterruptPanel.jsx'
 import { LedDisplay } from './LedDisplay.jsx'
 import { HelpPanel } from './HelpPanel.jsx'
+import { PopoutWindow } from './PopoutWindow.jsx'
 
-export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, editorActionsRef, panels, canUndo, canRedo, onHistoryChange, setAppDialog, setHelpInst, formatCode, openConditionDialog, readOnlySource }) {
+export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, editorActionsRef, panels, canUndo, canRedo, onHistoryChange, setAppDialog, setHelpInst, formatCode, openConditionDialog, readOnlySource, popoutCrtProps }) {
   const [cursorInst, setCursorInst] = useState(null)
   const gotoLineRef = useRef(null)
   const [disasmFlashReq, setDisasmFlashReq] = useState(null)
   const [memFlashReq,   setMemFlashReq]   = useState(null)
 
   const [editorCollapsed, toggleEditorCollapsed] = useCollapsible('editor', false)
+  const [editorPoppedOut, setEditorPoppedOut] = useState(() => localStorage.getItem('sim8085_editor_popped_out') === 'true')
+
+  useEffect(() => {
+    localStorage.setItem('sim8085_editor_popped_out', String(editorPoppedOut))
+  }, [editorPoppedOut])
   const [draggedPanel, setDraggedPanel] = useState(null)
   const [dragOverPanel, setDragOverPanel] = useState(null)
   const [rightPanelOrder, setRightPanelOrder] = useState(() => {
@@ -157,6 +163,16 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
     document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
 
+  const editorElement = (
+    <AsmEditor value={src} onChange={v => { srcRef.current = v; setSrc(v) }} gotoRef={gotoLineRef} editorActionsRef={editorActionsRef} 
+      onHistoryChange={onHistoryChange}
+      onCursorInstruction={setCursorInst} onInstructionDetail={setHelpInst}
+      errorLine={engine.errorLine} activeLine={engine.addrLineMap?.get(engine.regs?.pc)} onRunTo={engine.runToAddr} onJumpMem={(addr) => { engine.setMemStart(addr & 0xFFF0); setMemFlashReq({ addr, ts: Date.now() }) }} buildId={engine.buildId} lineAddrRef={engine.lineAddrRef} theme={theme} watchedWords={watchedWords}
+      bps={engine.bps} onToggleBp={engine.toggleBp}
+      onAddressClick={(addr) => setDisasmFlashReq({ addr, ts: Date.now() })}
+      onFormat={formatCode} />
+  );
+
   return (
     <div className="workspace">
       {/* Editor column */}
@@ -165,6 +181,7 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
           <div className="panel-hd collapsible" onClick={toggleEditorCollapsed}>
             <span><span className="panel-icon">✏️</span>EDITOR</span>
             <div className="panel-hd-right" onClick={e => e.stopPropagation()}>
+              {!editorPoppedOut && <button className="reg-base-btn" onClick={() => setEditorPoppedOut(true)} title="Open in separate window">⧉</button>}
               <button className="reg-base-btn" onClick={() => editorActionsRef.current?.undo()} disabled={!canUndo} title="Undo typing (Ctrl+Z)">Undo</button>
               <button className="reg-base-btn" onClick={() => editorActionsRef.current?.redo()} disabled={!canRedo} title="Redo typing (Ctrl+Y)">Redo</button>
               <button className="reg-base-btn" onClick={formatCode} title="Auto-format code alignment">Format</button>
@@ -173,16 +190,18 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
             <span className="panel-chevron">{editorCollapsed ? '▶' : '▼'}</span>
           </div>
           {!editorCollapsed && (
-          <AsmEditor value={src} onChange={v => { srcRef.current = v; setSrc(v) }} gotoRef={gotoLineRef} editorActionsRef={editorActionsRef} 
-              onHistoryChange={onHistoryChange}
-              onCursorInstruction={setCursorInst} onInstructionDetail={setHelpInst}
-              errorLine={engine.errorLine} activeLine={engine.addrLineMap?.get(engine.regs?.pc)} onRunTo={engine.runToAddr} onJumpMem={(addr) => { engine.setMemStart(addr & 0xFFF0); setMemFlashReq({ addr, ts: Date.now() }) }} buildId={engine.buildId} lineAddrRef={engine.lineAddrRef} theme={theme} watchedWords={watchedWords}
-              bps={engine.bps} onToggleBp={engine.toggleBp}
-              onAddressClick={(addr) => setDisasmFlashReq({ addr, ts: Date.now() })}
-              onFormat={formatCode} />
+            editorPoppedOut ? (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: 'var(--text2)' }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>🪟</div>
+                <div>Editor is open in another window.</div>
+                <button className="btn" style={{ marginTop: 16 }} onClick={() => setEditorPoppedOut(false)}>Bring it back</button>
+              </div>
+            ) : (
+              editorElement
+            )
           )}
         </div>
-        <HelpPanel instruction={cursorInst} />
+        <HelpPanel instruction={cursorInst} theme={theme} popoutCrtProps={popoutCrtProps} />
         <LedDisplay leds={engine.leds} />
       </div>
       <div className="col-resize-handle" onMouseDown={onEditorResizeDown} />
@@ -201,9 +220,9 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
                 {centerPanelOrder.map(key => {
                   if (!panels[key]) return null;
                   const dp = getDragProps(key, centerPanelOrder, setCenterPanelOrder, 'sim8085_center_panels')
-                  if (key === 'stack') return <ErrorBoundary key={key}><StackPanel regs={engine.regs} {...dp} /></ErrorBoundary>
-                if (key === 'callstack') return <ErrorBoundary key={key}><CallStackPanel callStack={engine.callStack} onJump={engine.setMemStart} onGotoLine={(addr) => { const ln = engine.addrLineMap?.get(addr); if (ln) gotoLineRef.current?.(ln); }} {...dp} /></ErrorBoundary>
-                  if (key === 'trace') return <ErrorBoundary key={key}><TracePanel trace={engine.trace} onClear={() => engine.setTrace([])} {...dp} /></ErrorBoundary>
+                  if (key === 'stack') return <ErrorBoundary key={key}><StackPanel regs={engine.regs} theme={theme} popoutCrtProps={popoutCrtProps} {...dp} /></ErrorBoundary>
+                  if (key === 'callstack') return <ErrorBoundary key={key}><CallStackPanel callStack={engine.callStack} onJump={engine.setMemStart} onGotoLine={(addr) => { const ln = engine.addrLineMap?.get(addr); if (ln) gotoLineRef.current?.(ln); }} theme={theme} popoutCrtProps={popoutCrtProps} {...dp} /></ErrorBoundary>
+                  if (key === 'trace') return <ErrorBoundary key={key}><TracePanel trace={engine.trace} onClear={() => engine.setTrace([])} theme={theme} popoutCrtProps={popoutCrtProps} {...dp} /></ErrorBoundary>
                   return null
                 })}
               </div>
@@ -212,12 +231,12 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
         </div>
         <div className="mem-watch-row">
           <div className="mem-watch-mem" ref={memWatchMemRef} style={initialWidths.memWatch ? { flex: `0 0 ${initialWidths.memWatch}` } : undefined}>
-            <MemPanel memStart={engine.memStart} onJump={engine.setMemStart} regs={engine.regs} buildId={engine.buildId} changedAddrs={engine.changedAddrs} programRegion={engine.programRegion} presetAddrs={engine.presetAddrs} onMemoryEdited={() => engine.setBuildId(id => id + 1)} memVisibleRangeRef={engine.memVisibleRangeRef} flashReq={memFlashReq} />
+            <MemPanel memStart={engine.memStart} onJump={engine.setMemStart} regs={engine.regs} buildId={engine.buildId} changedAddrs={engine.changedAddrs} programRegion={engine.programRegion} presetAddrs={engine.presetAddrs} onMemoryEdited={() => engine.setBuildId(id => id + 1)} memVisibleRangeRef={engine.memVisibleRangeRef} flashReq={memFlashReq} theme={theme} popoutCrtProps={popoutCrtProps} />
           </div>
           <div className="mem-watch-divider" onMouseDown={onMemWatchDividerDown} />
           <div className="mem-watch-watch" ref={memWatchWatchRef}>
-            <WatchPanel watches={engine.watches} regs={engine.regs} prevRegs={engine.prevRegs} changedAddrs={engine.changedAddrs} onAdd={w => engine.setWatches(ws => [...ws, w])} onRemove={i => { const w = engine.watches[i]; if (w.type === 'mem' && engine.dataBps.has(w.addr)) { sim.simClearDataBreakpoint(w.addr); engine.setDataBps(prev => { const n = new Set(prev); n.delete(w.addr); return n }) }; engine.setWatches(ws => ws.filter((_,j) => j !== i)) }} dataBps={engine.dataBps} onToggleBreak={engine.toggleDataBp} />
-            <ConsolePanel output={engine.consoleOutput} port={engine.consolePort} onSetPort={engine.changeConsolePort} onClear={() => { sim.simClearConsoleOutput(); engine.setConsoleOutput('') }} />
+            <WatchPanel watches={engine.watches} regs={engine.regs} prevRegs={engine.prevRegs} changedAddrs={engine.changedAddrs} onAdd={w => engine.setWatches(ws => [...ws, w])} onRemove={i => { const w = engine.watches[i]; if (w.type === 'mem' && engine.dataBps.has(w.addr)) { sim.simClearDataBreakpoint(w.addr); engine.setDataBps(prev => { const n = new Set(prev); n.delete(w.addr); return n }) }; engine.setWatches(ws => ws.filter((_,j) => j !== i)) }} dataBps={engine.dataBps} onToggleBreak={engine.toggleDataBp} theme={theme} popoutCrtProps={popoutCrtProps} />
+            <ConsolePanel output={engine.consoleOutput} port={engine.consolePort} onSetPort={engine.changeConsolePort} onClear={() => { sim.simClearConsoleOutput(); engine.setConsoleOutput('') }} theme={theme} popoutCrtProps={popoutCrtProps} />
           </div>
         </div>
         <div className="jump-row">
@@ -234,16 +253,33 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
         {rightPanelOrder.map(key => {
           if (!panels[key]) return null;
           const dp = getDragProps(key, rightPanelOrder, setRightPanelOrder, 'sim8085_right_panels')
-          if (key === 'regs')   return <ErrorBoundary key={key}><RegPanel regs={engine.regs} prev={engine.prevRegs} onJump={engine.setMemStart} {...dp} /></ErrorBoundary>
-          if (key === 'pairs')  return <ErrorBoundary key={key}><PairPanel regs={engine.regs} prev={engine.prevRegs} onJump={engine.setMemStart} onMemoryEdited={() => engine.setBuildId(id => id + 1)} {...dp} /></ErrorBoundary>
-          if (key === 'flags')  return <ErrorBoundary key={key}><FlagPanel regs={engine.regs} {...dp} /></ErrorBoundary>
-          if (key === 'ints')   return <ErrorBoundary key={key}><InterruptPanel intState={engine.intState} onAssert={engine.assertInterrupt} onDeassert={engine.deassertInterrupt} {...dp} /></ErrorBoundary>
-          if (key === 'io')     return <ErrorBoundary key={key}><IOPortPanel outputPorts={engine.outputPorts} inputPresets={engine.inputPresets} onSetInput={engine.setInputPort} onRemoveInput={engine.removeInputPort} keyQueue={engine.keyQueue} onEnqueueKeys={engine.enqueueKeys} onClearKeyQueue={engine.clearKeyQueue} sid={engine.sid} sod={engine.sod} onSetSID={v => { sim.simSetSID(v); engine.setSid(v); }} {...dp} /></ErrorBoundary>
-          if (key === 'memmap') return <ErrorBoundary key={key}><MemMapPanel regs={engine.regs} programRegion={engine.programRegion} presetAddrs={engine.presetAddrs} onJump={engine.setMemStart} onGotoLine={(addr) => { const ln = engine.addrLineMap?.get(addr); if (ln) gotoLineRef.current?.(ln); }} {...dp} /></ErrorBoundary>
-          if (key === 'audio')  return <ErrorBoundary key={key}><AudioPanel outputPorts={engine.outputPorts} running={engine.running} onShowDialog={setAppDialog} {...dp} /></ErrorBoundary>
+          if (key === 'regs')   return <ErrorBoundary key={key}><RegPanel regs={engine.regs} prev={engine.prevRegs} onJump={engine.setMemStart} theme={theme} popoutCrtProps={popoutCrtProps} {...dp} /></ErrorBoundary>
+          if (key === 'pairs')  return <ErrorBoundary key={key}><PairPanel regs={engine.regs} prev={engine.prevRegs} onJump={engine.setMemStart} onMemoryEdited={() => engine.setBuildId(id => id + 1)} theme={theme} popoutCrtProps={popoutCrtProps} {...dp} /></ErrorBoundary>
+          if (key === 'flags')  return <ErrorBoundary key={key}><FlagPanel regs={engine.regs} theme={theme} popoutCrtProps={popoutCrtProps} {...dp} /></ErrorBoundary>
+          if (key === 'ints')   return <ErrorBoundary key={key}><InterruptPanel intState={engine.intState} onAssert={engine.assertInterrupt} onDeassert={engine.deassertInterrupt} theme={theme} popoutCrtProps={popoutCrtProps} {...dp} /></ErrorBoundary>
+          if (key === 'io')     return <ErrorBoundary key={key}><IOPortPanel outputPorts={engine.outputPorts} inputPresets={engine.inputPresets} onSetInput={engine.setInputPort} onRemoveInput={engine.removeInputPort} keyQueue={engine.keyQueue} onEnqueueKeys={engine.enqueueKeys} onClearKeyQueue={engine.clearKeyQueue} sid={engine.sid} sod={engine.sod} onSetSID={v => { sim.simSetSID(v); engine.setSid(v); }} theme={theme} popoutCrtProps={popoutCrtProps} {...dp} /></ErrorBoundary>
+          if (key === 'memmap') return <ErrorBoundary key={key}><MemMapPanel regs={engine.regs} programRegion={engine.programRegion} presetAddrs={engine.presetAddrs} onJump={engine.setMemStart} onGotoLine={(addr) => { const ln = engine.addrLineMap?.get(addr); if (ln) gotoLineRef.current?.(ln); }} theme={theme} popoutCrtProps={popoutCrtProps} {...dp} /></ErrorBoundary>
+          if (key === 'audio')  return <ErrorBoundary key={key}><AudioPanel outputPorts={engine.outputPorts} running={engine.running} onShowDialog={setAppDialog} theme={theme} popoutCrtProps={popoutCrtProps} {...dp} /></ErrorBoundary>
           return null
         })}
       </div>
+
+      {editorPoppedOut && (
+        <PopoutWindow title="Editor - sim8085" theme={theme} onClose={() => setEditorPoppedOut(false)} {...popoutCrtProps}>
+          <div className="panel" style={{ flex: 1, border: 'none', borderRadius: 0 }}>
+            <div className="panel-hd" style={{ flexShrink: 0 }}>
+              <span><span className="panel-icon">✏️</span>EDITOR</span>
+              <div className="panel-hd-right">
+                <button className="reg-base-btn" onClick={() => editorActionsRef.current?.undo()} disabled={!canUndo} title="Undo typing (Ctrl+Z)">Undo</button>
+                <button className="reg-base-btn" onClick={() => editorActionsRef.current?.redo()} disabled={!canRedo} title="Redo typing (Ctrl+Y)">Redo</button>
+                <button className="reg-base-btn" onClick={formatCode} title="Auto-format code alignment">Format</button>
+                <PanelHelp panel="EDITOR" />
+              </div>
+            </div>
+            {editorElement}
+          </div>
+        </PopoutWindow>
+      )}
     </div>
   )
 }

@@ -432,7 +432,7 @@ export function AsmEditor({ value, onChange, onCursorInstruction, onInstructionD
               const addr = lineAddrRef.current.get(lineNum)
               if (addr === undefined) return false
               e.preventDefault()
-              setEditorCtx({ addr, x: e.clientX, y: e.clientY })
+              setEditorCtx({ addr, x: Math.min(e.clientX, window.innerWidth - 180), y: Math.min(e.clientY, window.innerHeight - 150) })
               return true
             },
             paste(e, view) {
