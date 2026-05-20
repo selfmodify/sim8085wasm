@@ -896,7 +896,6 @@ export default function App() {
           </span>
           <span className="sbar-sep" style={{ marginLeft: '6px' }}>·</span>
           {engine.isDirty && <><span className="sbar-counter" style={{ color: 'var(--amber)', fontWeight: 600 }}>• editor out of sync</span><span className="sbar-sep">·</span></>}
-          {engine.running && SPEEDS[runSpeed].warp && <><span className="sbar-counter" style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'help' }} title="Running at maximum speed. Visual UI updates are throttled to 1 frame per second to maximize CPU throughput.">⚡ Warp Mode</span><span className="sbar-sep">·</span></>}
           <span className="sbar-counter sc-steps" title={`${engine.steps.toLocaleString()} instructions executed (A step is one complete assembly instruction, which may take multiple T-states)`} style={{ cursor: 'help' }}>{fmtCount(engine.steps)} steps</span>
           <span className="sbar-sep">·</span>
           <span className="sbar-counter sc-cycles" title={`${engine.cycles.toLocaleString()} T-states elapsed (A T-state is a single clock cycle of the 8085 microprocessor)`} style={{ cursor: 'help' }}>{fmtCount(engine.cycles)} T</span>

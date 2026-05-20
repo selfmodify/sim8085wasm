@@ -438,7 +438,7 @@ export function useSimulatorEngine(srcRef) {
     }
 
     if (SPEEDS[speedRef.current].warp) {
-      setMsg('⚡ Warp…')
+      setMsg('⚡ Warp Mode (UI throttled)…')
       warpActiveRef.current = true
       lastUiRef.current = 0
       wasHaltWaitingRef.current = false
