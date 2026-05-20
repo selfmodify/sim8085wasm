@@ -7,6 +7,7 @@ export function HelpPanel({ instruction, theme, popoutCrtProps }) {
   const panelRef = useRef(null)
   const inst = instruction ? INST_HELP[instruction] : null
   const [poppedOut, setPoppedOut] = useState(() => localStorage.getItem('sim8085_help_popped_out') === 'true')
+  const [height, setHeight] = useState(() => localStorage.getItem('sim8085_help_height') || '')
 
   useEffect(() => {
     localStorage.setItem('sim8085_help_popped_out', String(poppedOut))
@@ -17,11 +18,16 @@ export function HelpPanel({ instruction, theme, popoutCrtProps }) {
     const startY = e.clientY
     const startH = panelRef.current.getBoundingClientRect().height
     function onMove(ev) {
-      panelRef.current.style.height = Math.max(60, startH + (startY - ev.clientY)) + 'px'
+      const newH = Math.max(60, startH + (startY - ev.clientY))
+      panelRef.current.style.flex = `0 0 ${newH}px`
+      panelRef.current.style.height = 'auto' // Override hardcoded CSS height
     }
     function onUp() {
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup', onUp)
+      const finalH = panelRef.current.style.flex
+      setHeight(finalH)
+      localStorage.setItem('sim8085_help_height', finalH)
     }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
@@ -51,7 +57,7 @@ export function HelpPanel({ instruction, theme, popoutCrtProps }) {
 
   return (
     <>
-      <div className="panel help-panel" ref={panelRef}>
+      <div className="panel help-panel" ref={panelRef} style={!poppedOut && height ? { flex: height, height: 'auto' } : undefined}>
         <div className="help-resize-handle" onMouseDown={onResizeDown} />
         <div className="panel-hd">
           <span><span className="panel-icon">📖</span>INSTRUCTION HELP</span>

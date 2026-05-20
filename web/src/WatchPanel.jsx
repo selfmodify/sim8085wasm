@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as sim from './simProxy.js';
 import { PanelHelp } from './PanelHelp.jsx';
 import { hex4, fmtWord, fmtByte, BASE_CYCLE } from './utils.js';
@@ -7,6 +7,7 @@ import { PopoutWindow } from './PopoutWindow.jsx';
 
 export function WatchPanel({ watches, regs, prevRegs, changedAddrs, onAdd, onRemove, dataBps, onToggleBreak, theme, popoutCrtProps }) {
   const { regBase, onRegBase } = useSimulator()
+  const panelRef = useRef(null)
   const [poppedOut, setPoppedOut] = useState(() => localStorage.getItem('sim8085_watch_popped_out') === 'true')
   const [input, setInput] = useState('')
   const PAIR_KEYS = { bc: ['b','c'], de: ['d','e'], hl: ['h','l'] }
@@ -41,6 +42,23 @@ export function WatchPanel({ watches, regs, prevRegs, changedAddrs, onAdd, onRem
         onAdd({ type: 'mem', addr: addr & 0xFFFF })
     }
     setInput('')
+  }
+
+  function onResizeDown(e) {
+    e.preventDefault()
+    const startY = e.clientY
+    const targetEl = panelRef.current.closest('.mem-watch-row') || panelRef.current
+    const startH = targetEl.getBoundingClientRect().height
+    function onMove(ev) {
+      targetEl.style.height = Math.max(80, startH + (startY - ev.clientY)) + 'px'
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      localStorage.setItem('sim8085_mem_row_height', targetEl.style.height)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
   }
 
   const content = (
@@ -93,7 +111,7 @@ export function WatchPanel({ watches, regs, prevRegs, changedAddrs, onAdd, onRem
 
   return (
     <>
-      <div className="panel watch-panel">
+      <div className="panel watch-panel" ref={!poppedOut ? panelRef : null}>
         {poppedOut ? (
           <>
             <div className="panel-hd">
@@ -110,6 +128,7 @@ export function WatchPanel({ watches, regs, prevRegs, changedAddrs, onAdd, onRem
           </>
         ) : (
           <>
+            {!poppedOut && <div className="watch-resize-handle" onMouseDown={onResizeDown} />}
             <div className="panel-hd">
               <span><span className="panel-icon">👁</span>WATCH</span>
               <div className="panel-hd-right">

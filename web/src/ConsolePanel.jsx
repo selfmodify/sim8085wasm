@@ -4,8 +4,10 @@ import { PopoutWindow } from './PopoutWindow.jsx';
 
 export function ConsolePanel({ output, port, onSetPort, onClear, theme, popoutCrtProps }) {
   const bodyRef  = useRef(null)
+  const panelRef = useRef(null)
   const [poppedOut, setPoppedOut] = useState(() => localStorage.getItem('sim8085_console_popped_out') === 'true')
   const [portBuf, setPortBuf] = useState(() => port.toString(16).toUpperCase().padStart(2,'0'))
+  const [height, setHeight] = useState(() => localStorage.getItem('sim8085_console_height') || '')
 
   useEffect(() => { setPortBuf(port.toString(16).toUpperCase().padStart(2,'0')) }, [port])
 
@@ -20,6 +22,26 @@ export function ConsolePanel({ output, port, onSetPort, onClear, theme, popoutCr
   function commitPort() {
     const n = parseInt(portBuf.replace(/h$/i,''), 16)
     if (!isNaN(n) && n >= 0 && n <= 255) onSetPort(n & 0xFF)
+  }
+
+  function onResizeDown(e) {
+    e.preventDefault()
+    const startY = e.clientY
+    const startH = panelRef.current.getBoundingClientRect().height
+    function onMove(ev) {
+      const newH = Math.max(60, startH + (startY - ev.clientY))
+      panelRef.current.style.flex = `0 0 ${newH}px`
+      panelRef.current.style.maxHeight = 'none' // Override CSS max-height constraint
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      const finalH = panelRef.current.style.flex
+      setHeight(finalH)
+      localStorage.setItem('sim8085_console_height', finalH)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
   }
 
   const lines = output.split('\n')
@@ -37,7 +59,7 @@ export function ConsolePanel({ output, port, onSetPort, onClear, theme, popoutCr
 
   return (
     <>
-      <div className="panel console-panel">
+      <div className="panel console-panel" ref={!poppedOut ? panelRef : null} style={!poppedOut && height ? { flex: height, maxHeight: 'none' } : undefined}>
         {poppedOut ? (
           <>
             <div className="panel-hd">
@@ -54,6 +76,7 @@ export function ConsolePanel({ output, port, onSetPort, onClear, theme, popoutCr
           </>
         ) : (
           <>
+            <div className="console-resize-handle" onMouseDown={onResizeDown} />
             <div className="panel-hd">
               <span><span className="panel-icon">🖥</span>CONSOLE</span>
               <div className="panel-hd-right">

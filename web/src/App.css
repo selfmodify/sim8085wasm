@@ -828,7 +828,7 @@ body {
   box-shadow: 0 2px 10px rgba(0,0,0,.4);
   flex-shrink: 0;
   position: relative;
-  z-index: 2;
+  z-index: 10;
 }
 
 .brand { display: flex; align-items: center }
@@ -969,7 +969,7 @@ body {
   box-shadow: 0 2px 6px rgba(0,0,0,.25);
   flex-shrink: 0;
   position: relative;
-  z-index: 1;
+  z-index: 9;
 }
 
 
@@ -1020,7 +1020,6 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 
 /* Topbar filename chip */
 .topbar-filename {
-  margin-left: auto;
   font-family: var(--mono);
   font-size: 13px;
   font-weight: 600;
@@ -1470,6 +1469,35 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 .disasm-pc-arrow { color: var(--accent); font-size: 12px; margin-left: 4px }
 .disasm-cond { font-size: 10px; color: var(--amber); font-family: var(--mono); opacity: .8; margin-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px }
 
+.speedometer-main {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-speedometer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+
+.mobile-only { display: none !important; }
+@keyframes needle-vibrate {
+  0%, 100% { transform: rotate(0deg); }
+  25%      { transform: rotate(-1.5deg); }
+  75%      { transform: rotate(1.5deg); }
+}
+.needle-vibrating {
+  animation: needle-vibrate 0.08s infinite;
+}
+
 /* ── Memory ───────────────────────────────────────────────────────── */
 .mem-panel { flex: 1 1 auto; min-height: 0; outline: none }
 .mem-panel:focus-visible { outline: 1px solid var(--border2); outline-offset: -1px }
@@ -1896,6 +1924,26 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 .console-empty { color: var(--text3); font-size: 11px; font-style: italic }
 .console-line { color: var(--accent2); line-height: 1.5; white-space: pre-wrap; word-break: break-all; min-height: 1em }
 
+.console-resize-handle {
+  height: 5px;
+  flex-shrink: 0;
+  cursor: ns-resize;
+  background: transparent;
+  border-top: 2px solid var(--border);
+  transition: border-color .15s;
+}
+.console-resize-handle:hover { border-top-color: var(--accent) }
+
+.watch-resize-handle {
+  height: 5px;
+  flex-shrink: 0;
+  cursor: ns-resize;
+  background: transparent;
+  border-top: 2px solid var(--border);
+  transition: border-color .15s;
+}
+.watch-resize-handle:hover { border-top-color: var(--accent) }
+
 /* ── Trace panel ─────────────────────────────────────────────────── */
 .trace-panel { overflow: hidden; display: flex; flex-direction: column; flex: 1 1 0; min-height: 72px }
 .trace-body { flex: 1; overflow-y: auto; font-family: var(--mono); font-size: 12px; min-height: 0 }
@@ -2259,7 +2307,6 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 .sbar-counter { color: var(--text2); display: inline-block; text-align: right }
 .sc-steps  { min-width: 80px }
 .sc-cycles { min-width: 56px }
-.sc-mhz    { min-width: 80px }
 .sbar-sep { color: var(--text3) }
 
 /* ── Scrollbars ───────────────────────────────────────────────────── */
@@ -2383,7 +2430,7 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
 /* ── Responsive / mobile layout ────────────────────────────────────── */
 @media (max-width: 700px) {
   /* Topbar: single row — details move into the ☰ brand menu; tabs inline to the right */
-  .topbar { height: auto; min-height: 48px; padding: 0 0 0 10px; flex-wrap: nowrap; gap: 0; align-items: stretch; }
+  .topbar { height: auto; min-height: 48px; padding: 0 10px 0 10px; flex-wrap: nowrap; gap: 0; align-items: stretch; }
   .engine-chip, .build-chip, .topbar-drive, .view-tabs { display: none !important }
   .brand-name { display: none }
   /* Toolbar: single scrollable row instead of wrapping to two rows */
@@ -2393,6 +2440,17 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
   .speed-val { display: none }
   .speed-label { gap: 4px }
   .editor-hint { display: none }
+
+  .speedometer-main {
+    position: relative;
+    top: 0;
+    right: 0;
+    transform: scale(0.45);
+    margin: -25px -25px -25px auto;
+    box-shadow: none;
+    border-color: transparent;
+    background: transparent;
+  }
 
   /* Mobile tabs — now inline inside the topbar row */
   .mobile-tabs {
@@ -2470,7 +2528,7 @@ input:focus-visible, select:focus-visible { outline: 1px solid var(--accent); bo
   .mem-panel    { flex: 0 0 auto !important; height: 280px; }
 
   /* Disable resize handles on touch screens */
-  .mem-resize-handle, .stack-resize-handle, .help-resize-handle { display: none; }
+  .mem-resize-handle, .stack-resize-handle, .help-resize-handle, .console-resize-handle { display: none; }
 
   /* Stack the memory and watch sections vertically */
   .mem-watch-row, .disasm-trace-row { flex-direction: column; height: auto !important; overflow: visible; }

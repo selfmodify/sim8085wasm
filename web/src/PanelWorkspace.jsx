@@ -119,7 +119,8 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
     editor: localStorage.getItem('sim8085_col_editor'),
     right: localStorage.getItem('sim8085_col_right'),
     memWatch: localStorage.getItem('sim8085_memwatch_width'),
-    stack: localStorage.getItem('sim8085_stack_width')
+    stack: localStorage.getItem('sim8085_stack_width'),
+    memRow: localStorage.getItem('sim8085_mem_row_height')
   }), [])
 
   function onEditorResizeDown(e) {
@@ -202,7 +203,7 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
           )}
         </div>
         <HelpPanel instruction={cursorInst} theme={theme} popoutCrtProps={popoutCrtProps} />
-        <LedDisplay leds={engine.leds} />
+        <LedDisplay leds={engine.leds} theme={theme} popoutCrtProps={popoutCrtProps} />
       </div>
       <div className="col-resize-handle" onMouseDown={onEditorResizeDown} />
 
@@ -212,7 +213,8 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
           <DisasmPanel regs={engine.regs} breakpoints={engine.bps} onToggleBp={engine.toggleBp} onClearAllBps={engine.clearAllBps} buildId={engine.buildId} pcFlash={engine.pcFlash}
             onSetCondition={openConditionDialog} onRunTo={engine.runToAddr} symbols={engine.symbols} onJumpMem={(addr) => { engine.setMemStart(addr & 0xFFF0); setMemFlashReq({ addr, ts: Date.now() }) }} hitcnts={engine.hitcnts} maxHit={engine.maxHit} flashReq={disasmFlashReq}
             addrLineMap={engine.addrLineMap}
-            onGotoLine={(addr, labelName) => { const ln = engine.addrLineMap.get(addr); if (ln) gotoLineRef.current?.(ln, labelName) }} />
+            onGotoLine={(addr, labelName) => { const ln = engine.addrLineMap.get(addr); if (ln) gotoLineRef.current?.(ln, labelName) }}
+            theme={theme} popoutCrtProps={popoutCrtProps} />
           {(panels.stack || panels.callstack || panels.trace) && (
             <>
               <div className="mem-watch-divider" onMouseDown={onDisasmStackDividerDown} />
@@ -229,7 +231,7 @@ export function PanelWorkspace({ mobileTab, theme, src, setSrc, srcRef, engine, 
             </>
           )}
         </div>
-        <div className="mem-watch-row">
+        <div className="mem-watch-row" style={initialWidths.memRow ? { height: initialWidths.memRow } : undefined}>
           <div className="mem-watch-mem" ref={memWatchMemRef} style={initialWidths.memWatch ? { flex: `0 0 ${initialWidths.memWatch}` } : undefined}>
             <MemPanel memStart={engine.memStart} onJump={engine.setMemStart} regs={engine.regs} buildId={engine.buildId} changedAddrs={engine.changedAddrs} programRegion={engine.programRegion} presetAddrs={engine.presetAddrs} onMemoryEdited={() => engine.setBuildId(id => id + 1)} memVisibleRangeRef={engine.memVisibleRangeRef} flashReq={memFlashReq} theme={theme} popoutCrtProps={popoutCrtProps} />
           </div>

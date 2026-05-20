@@ -89,7 +89,7 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
 
       let retries = 0
       const tryHighlight = () => {
-        const row = document.querySelector(`.disasm-row[data-addr="${flashReq.addr}"]`)
+        const row = listRef.current?.querySelector(`.disasm-row[data-addr="${flashReq.addr}"]`)
         if (row) {
           row.scrollIntoView({ behavior: 'smooth', block: 'center' })
           row.classList.remove('flash-highlight')

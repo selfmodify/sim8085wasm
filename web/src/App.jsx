@@ -9,7 +9,7 @@ import { PPI8255Panel } from './PPI8255Panel.jsx'
 import { PIT8253Panel } from './PIT8253Panel.jsx'
 import { CalcFloat } from './CalcFloat.jsx'
 import { ChatPanel } from './ChatPanel.jsx'
-import { Toolbar } from './Toolbar.jsx'
+import { Toolbar, Speedometer } from './Toolbar.jsx'
 import { HelpMenu } from './HelpMenu.jsx'
 import { BrandMenu } from './BrandMenu.jsx'
 import { HelpPanel } from './HelpPanel.jsx'
@@ -682,99 +682,110 @@ export default function App() {
           background: 'repeating-linear-gradient(90deg, rgba(255,0,0,.35) 0px, rgba(255,0,0,.35) 1px, rgba(0,255,0,.28) 1px, rgba(0,255,0,.28) 2px, rgba(0,0,255,.35) 2px, rgba(0,0,255,.35) 3px, transparent 3px, transparent 4px)'
         }} />
       )}
-      {/* ── Topbar ── */}
-      <div className="topbar">
-        <div className="brand">
-          <BrandMenu
-            onShowWelcome={() => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) }}
-            onShowShortcuts={() => setShowShortcuts(true)}
-            onNew={newFile}
-            onImport={() => fileInputRef.current.click()}
-            onLoadFromDrive={loadFromDrive}
-            onLoadFromGist={loadFromGist}
-            onExport={exportFile}
-            onExportHex={exportHex}
-            onExportBin={exportBin}
-            onSaveToDrive={saveToDrive}
-            onSaveAsToDrive={saveAsToDrive}
-            onSaveToGist={saveToGist}
-            driveToken={driveToken}
-            onConnectDrive={connectDrive}
-            onDriveDisconnect={handleDriveDisconnect}
-            onShare={shareURL}
-            onCalc={() => setShowCalc(c => !c)}
-            onChat={() => setShowChat(c => !c)}
-            memSize={engine.memSize} onMemSize={engine.changeMemSize}
-            engineMode={engine.engineMode} onEngineSwitch={engine.handleEngineSwitch}
-            engineSwitching={engine.engineSwitching}
-            theme={theme} onTheme={toggleTheme} onSetTheme={setTheme}
-            crtBrightness={crtBrightness} onCrtBrightness={v => { setCrtBrightness(v); localStorage.setItem(`sim8085_crt_b_${theme}`, v) }}
-            crtContrast={crtContrast} onCrtContrast={v => { setCrtContrast(v); localStorage.setItem(`sim8085_crt_c_${theme}`, v) }}
-            crtGlitch={crtGlitch} onCrtGlitch={() => { const modes = ['off','flicker','static','vsync','hsync','chroma','chaos']; const next = modes[(modes.indexOf(crtGlitch) + 1) % modes.length]; setCrtGlitch(next); localStorage.setItem('sim8085_crt_glitch', next) }}
-            crtVignette={crtVignette} onCrtVignette={v => { setCrtVignette(v); localStorage.setItem('sim8085_crt_vignette', String(v)) }}
-            onManageGithub={() => setShowGithubSetup(true)}
-            panels={panels} onTogglePanel={togglePanel}
-            activeView={activeView} onSetView={handleSetView}
-            onBrewCoffee={onBrewCoffee} />
-          <div className="view-tabs">
-            <button className={`view-tab${activeView === 'simulator' ? ' active' : ''}`} onClick={() => handleSetView('simulator')}>Simulator</button>
-            <button className={`view-tab${activeView === 'breadboard' ? ' active' : ''}`} onClick={() => handleSetView('breadboard')}>Hardware</button>
-            <button className={`view-tab${activeView === 'challenges' ? ' active' : ''}`} onClick={() => handleSetView('challenges')}>Challenges</button>
-            <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 4px' }} className="mobile-hidden" />
-            <button className="view-tab mobile-hidden" onClick={() => window.dispatchEvent(new Event('sim-dock-all'))} title="Dock all popped-out windows (F12)" style={{ padding: '8px 12px' }}>⧉ Dock All</button>
+      {/* ── Header Area ── */}
+      <div style={{ display: 'flex', zIndex: 10, position: 'relative', flexShrink: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          {/* ── Topbar ── */}
+          <div className="topbar">
+            <div className="brand">
+              <BrandMenu
+                onShowWelcome={() => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) }}
+                onShowShortcuts={() => setShowShortcuts(true)}
+                onNew={newFile}
+                onImport={() => fileInputRef.current.click()}
+                onLoadFromDrive={loadFromDrive}
+                onLoadFromGist={loadFromGist}
+                onExport={exportFile}
+                onExportHex={exportHex}
+                onExportBin={exportBin}
+                onSaveToDrive={saveToDrive}
+                onSaveAsToDrive={saveAsToDrive}
+                onSaveToGist={saveToGist}
+                driveToken={driveToken}
+                onConnectDrive={connectDrive}
+                onDriveDisconnect={handleDriveDisconnect}
+                onShare={shareURL}
+                onCalc={() => setShowCalc(c => !c)}
+                onChat={() => setShowChat(c => !c)}
+                memSize={engine.memSize} onMemSize={engine.changeMemSize}
+                engineMode={engine.engineMode} onEngineSwitch={engine.handleEngineSwitch}
+                engineSwitching={engine.engineSwitching}
+                theme={theme} onTheme={toggleTheme} onSetTheme={setTheme}
+                crtBrightness={crtBrightness} onCrtBrightness={v => { setCrtBrightness(v); localStorage.setItem(`sim8085_crt_b_${theme}`, v) }}
+                crtContrast={crtContrast} onCrtContrast={v => { setCrtContrast(v); localStorage.setItem(`sim8085_crt_c_${theme}`, v) }}
+                crtGlitch={crtGlitch} onCrtGlitch={() => { const modes = ['off','flicker','static','vsync','hsync','chroma','chaos']; const next = modes[(modes.indexOf(crtGlitch) + 1) % modes.length]; setCrtGlitch(next); localStorage.setItem('sim8085_crt_glitch', next) }}
+                crtVignette={crtVignette} onCrtVignette={v => { setCrtVignette(v); localStorage.setItem('sim8085_crt_vignette', String(v)) }}
+                onManageGithub={() => setShowGithubSetup(true)}
+                panels={panels} onTogglePanel={togglePanel}
+                activeView={activeView} onSetView={handleSetView}
+                onBrewCoffee={onBrewCoffee} />
+              <div className="view-tabs">
+                <button className={`view-tab${activeView === 'simulator' ? ' active' : ''}`} onClick={() => handleSetView('simulator')}>Simulator</button>
+                <button className={`view-tab${activeView === 'breadboard' ? ' active' : ''}`} onClick={() => handleSetView('breadboard')}>Hardware</button>
+                <button className={`view-tab${activeView === 'challenges' ? ' active' : ''}`} onClick={() => handleSetView('challenges')}>Challenges</button>
+                <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 4px' }} className="mobile-hidden" />
+                <button className="view-tab mobile-hidden" onClick={() => window.dispatchEvent(new Event('sim-dock-all'))} title="Dock all popped-out windows (F12)" style={{ padding: '8px 12px' }}>⧉ Dock All</button>
+              </div>
+            </div>
+            {/* Editor/Code/Regs tabs — inline in topbar on mobile, hidden on desktop */}
+            {activeView === 'simulator' && (
+              <div className="mobile-tabs">
+                {[['editor','✏ Editor'],['code','📋 Code'],['regs','🧠 Regs']].map(([id, label]) => (
+                  <button key={id} className={`mobile-tab${mobileTab===id?' active':''}`} onClick={() => setMobileTab(id)}>{label}</button>
+                ))}
+              </div>
+            )}
+
+            <HelpMenu 
+              onShowWelcome={() => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) }}
+              onShowShortcuts={() => setShowShortcuts(true)}
+              onManageGithub={() => setShowGithubSetup(true)}
+            />
+
+            {fileName && <span className="topbar-filename" style={{ color: engine.isDirty ? 'var(--amber)' : undefined }} title={engine.isDirty ? `${fileName} (unsaved changes)` : fileName}>File: {fileName}{engine.isDirty ? '*' : ''}</span>}
+            {driveSaveStatus === 'saving' ? <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>⏳ Saving to Drive…</span>
+            : driveSaveStatus === 'success' ? <span style={{ color: 'var(--accent)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>✓ Saved to Drive</span>
+            : localSaveStatus === 'saving' ? <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>⏳ Auto-saving…</span>
+            : localSaveStatus === 'saved' ? <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px', opacity: 0.8 }}>✓ Auto-saved locally</span>
+            : null}
+
+            <div style={{ flex: 1 }} className="mobile-hidden" />
+          </div>
+
+          {/* ── Toolbar ── */}
+          <div style={{ display: (activeView === 'simulator' || activeView === 'breadboard') ? 'block' : 'none', zIndex: 9, position: 'relative' }}>
+            <Toolbar
+              onLoadExample={loadExample}
+              panels={panels}
+              onTogglePanel={togglePanel}
+              fileInputRef={fileInputRef}
+              onImportFile={importFile}
+              isDirty={engine.isDirty}
+              onBuild={handleBuild}
+              running={engine.running}
+              appState={engine.appState}
+              mhz={engine.mhz}
+              onStep={engine.doStep}
+              onStepOver={engine.doStepOver}
+              onStepOut={engine.doStepOut}
+              onStepBack={engine.doStepBack}
+              histLen={engine.histLen}
+              onRun={engine.handleRun}
+              runSpeed={runSpeed}
+              onSpeedChange={e => { const v = +e.target.value; setRunSpeed(v); localStorage.setItem('sim8085_speed', v); engine.setRunSpeed?.(v); }}
+              onReset={handleReset}
+            />
           </div>
         </div>
-          {/* Editor/Code/Regs tabs — inline in topbar on mobile, hidden on desktop */}
-          {activeView === 'simulator' && (
-            <div className="mobile-tabs">
-              {[['editor','✏ Editor'],['code','📋 Code'],['regs','🧠 Regs']].map(([id, label]) => (
-                <button key={id} className={`mobile-tab${mobileTab===id?' active':''}`} onClick={() => setMobileTab(id)}>{label}</button>
-              ))}
-            </div>
-          )}
 
-        <HelpMenu 
-          onShowWelcome={() => { localStorage.removeItem('sim8085_welcomed'); setShowWelcome(true) }}
-          onShowShortcuts={() => setShowShortcuts(true)}
-          onManageGithub={() => setShowGithubSetup(true)}
-        />
-
-        <div style={{ flex: 1 }} className="mobile-hidden" />
-
-        {fileName && <span className="topbar-filename" style={{ marginLeft: 0, color: engine.isDirty ? 'var(--amber)' : undefined }} title={engine.isDirty ? `${fileName} (unsaved changes)` : fileName}>File: {fileName}{engine.isDirty ? '*' : ''}</span>}
-    {driveSaveStatus === 'saving' ? <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>⏳ Saving to Drive…</span>
-    : driveSaveStatus === 'success' ? <span style={{ color: 'var(--accent)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>✓ Saved to Drive</span>
-    : localSaveStatus === 'saving' ? <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px' }}>⏳ Auto-saving…</span>
-    : localSaveStatus === 'saved' ? <span style={{ color: 'var(--text3)', fontSize: 12, alignSelf: 'center', fontFamily: 'var(--mono)', marginLeft: '8px', opacity: 0.8 }}>✓ Auto-saved locally</span>
-    : null}
-        <span className={`engine-chip engine-chip-${engine.engineMode}`} style={{ marginLeft: '12px' }} title={engine.engineSwitching ? 'Switching engine…' : `Engine: ${engine.engineMode.toUpperCase()}`}>
-          {engine.engineSwitching ? '…' : `Engine: ${engine.engineMode.toUpperCase()}`}
-        </span>
-        <span className="build-chip" title="Build timestamp">Build: {BUILD_TIME_STR}</span>
+        {/* ── Speedometer Zone ── */}
+        <div className="mobile-hidden" style={{ display: (activeView === 'simulator' || activeView === 'breadboard') ? 'flex' : 'none', width: 130, backgroundColor: 'var(--bg2)', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 6px rgba(0,0,0,.25)', zIndex: 9, position: 'relative' }}>
+          <Speedometer mhz={engine.mhz} running={engine.running} />
+        </div>
       </div>
 
       {/* ── Simulator & Breadboard Views ── */}
       <div style={{ display: (activeView === 'simulator' || activeView === 'breadboard') ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        <Toolbar
-          onLoadExample={loadExample}
-          panels={panels}
-          onTogglePanel={togglePanel}
-          fileInputRef={fileInputRef}
-          onImportFile={importFile}
-          isDirty={engine.isDirty}
-          onBuild={handleBuild}
-          running={engine.running}
-          appState={engine.appState}
-          onStep={engine.doStep}
-          onStepOver={engine.doStepOver}
-          onStepOut={engine.doStepOut}
-          onStepBack={engine.doStepBack}
-          histLen={engine.histLen}
-          onRun={engine.handleRun}
-          runSpeed={runSpeed}
-          onSpeedChange={e => { const v = +e.target.value; setRunSpeed(v); localStorage.setItem('sim8085_speed', v); engine.setRunSpeed?.(v); }}
-          onReset={handleReset}
-        />
 
         {engine.maxHistLen > 0 && (
           <div className="time-travel-bar" style={{ padding: '4px 10px', background: 'var(--bg2)', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid var(--border)' }}>
@@ -837,29 +848,16 @@ export default function App() {
           }
         </div>
         <div className="statusbar-counters">
+          <span className={`engine-chip engine-chip-${engine.engineMode}`} title={engine.engineSwitching ? 'Switching engine…' : `Engine: ${engine.engineMode.toUpperCase()}`}>
+            {engine.engineSwitching ? '…' : `Engine: ${engine.engineMode.toUpperCase()}`}
+          </span>
+          <span className="build-chip" title="Build timestamp" style={{ marginLeft: '6px' }}>Build: {BUILD_TIME_STR}</span>
+          <span className="sbar-sep" style={{ marginLeft: '6px' }}>·</span>
           {engine.isDirty && <><span className="sbar-counter" style={{ color: 'var(--amber)', fontWeight: 600 }}>• editor out of sync</span><span className="sbar-sep">·</span></>}
           {engine.running && SPEEDS[runSpeed].warp && <><span className="sbar-counter" style={{ color: 'var(--accent)', fontWeight: 600 }} title="UI is updating once per second to maximize throughput">⚡ UI Throttled</span><span className="sbar-sep">·</span></>}
           <span className="sbar-counter sc-steps" title={`${engine.steps.toLocaleString()} instructions executed`}>{fmtCount(engine.steps)} steps</span>
           <span className="sbar-sep">·</span>
           <span className="sbar-counter sc-cycles" title={`${engine.cycles.toLocaleString()} T-states elapsed`}>{fmtCount(engine.cycles)} T</span>
-          <span className="sbar-sep">·</span>
-          <span className="sbar-counter sc-mhz" title="Simulated throughput" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-            {(() => {
-              const mhz = engine.mhz || 0;
-              const pct = mhz <= 0 ? 0 : Math.max(0, Math.min(1, (Math.log10(mhz) + 4) / 5));
-              const text = mhz >= 1000 ? `${(mhz/1000).toFixed(1)} GHz` : mhz >= 1 ? `${mhz.toFixed(1)} MHz` : `${(mhz*1000).toFixed(0)} kHz`;
-              const dash = 28.274;
-              return (
-                <>
-                  <svg width="14" height="14" viewBox="0 0 16 16" style={{ marginRight: 6, transform: 'rotate(135deg)', overflow: 'visible' }}>
-                    <circle cx="8" cy="8" r="6" fill="none" stroke="var(--bg3)" strokeWidth="2.5" strokeLinecap="round" strokeDasharray={`${dash} 37.699`} />
-                    <circle cx="8" cy="8" r="6" fill="none" stroke={pct > 0.9 ? 'var(--red)' : pct > 0.7 ? 'var(--amber)' : 'var(--accent)'} strokeWidth="2.5" strokeLinecap="round" strokeDasharray={`${dash} 37.699`} strokeDashoffset={dash * (1 - pct)} style={{ transition: 'stroke-dashoffset 0.2s, stroke 0.2s' }} />
-                  </svg>
-                  <span style={{ display: 'inline-block', minWidth: '56px', textAlign: 'right' }}>{text}</span>
-                </>
-              )
-            })()}
-          </span>
         </div>
       </div>
       {showWelcome && <WelcomeModal onClose={dismissWelcome} onBrewCoffee={onBrewCoffee} />}
@@ -914,7 +912,15 @@ export default function App() {
         <PopoutWindow title="Hardware - sim8085" theme={theme}
           {...popoutCrtProps}
           onClose={() => setBreadboardPoppedOut(false)}>
+        <div className="panel" style={{ flex: 1, border: 'none', borderRadius: 0 }}>
+          <div className="panel-hd" style={{ flexShrink: 0 }}>
+            <span><span className="panel-icon">🔌</span>HARDWARE</span>
+            <div className="panel-hd-right">
+              <Speedometer mhz={engine.mhz} running={engine.running} size="sm" style={{ borderLeft: 'none', paddingLeft: 0 }} />
+            </div>
+          </div>
           <BreadboardView engine={engine} panels={panels} togglePanel={togglePanel} ppiPos={ppiPos} setPpiPos={setPpiPos} pitPos={pitPos} setPitPos={setPitPos} ledPos={ledPos} setLedPos={setLedPos} isPoppedOut />
+        </div>
         </PopoutWindow>
       )}
     </div>

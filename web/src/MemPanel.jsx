@@ -109,6 +109,7 @@ export function MemPanel({ memStart, onJump, regs, buildId, changedAddrs, progra
     function onUp() {
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup', onUp)
+      localStorage.setItem('sim8085_mem_row_height', targetEl.style.height)
     }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)

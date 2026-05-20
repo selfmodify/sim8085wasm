@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react';
 import { PanelHelp } from './PanelHelp.jsx';
+import { PopoutWindow } from './PopoutWindow.jsx';
 
 // ── 7-segment LED digit ──────────────────────────────────────────────────
 function SevenSeg({ value }) {
@@ -20,20 +22,69 @@ function SevenSeg({ value }) {
   )
 }
 
-export function LedDisplay({ leds }) {
+export function LedDisplay({ leds, theme, popoutCrtProps }) {
   const LABELS = ['ST1','ST0','A3','A2','A1','A0','D1','D0']
-  return (
-    <div className="panel led-panel">
-      <div className="panel-hd"><span className="panel-icon">💡</span>LED DISPLAY<PanelHelp panel="LED DISPLAY" /></div>
-      <div className="led-digits">
-        {leds.map((v,i) => (
-          <div key={LABELS[i]} className={`led-digit${i < 2 ? ' led-digit-st' : ''}`}>
-            <SevenSeg value={v} />
-            <div className="led-val">{v.toString(16).toUpperCase().padStart(2,'0')}</div>
-            <div className="led-lbl">{LABELS[i]}</div>
-          </div>
-        ))}
-      </div>
+  const [poppedOut, setPoppedOut] = useState(() => localStorage.getItem('sim8085_led_popped_out') === 'true')
+
+  useEffect(() => {
+    localStorage.setItem('sim8085_led_popped_out', String(poppedOut))
+  }, [poppedOut])
+
+  const content = (
+    <div className="led-digits" style={poppedOut ? { flex: 1, overflowY: 'auto' } : undefined}>
+      {leds.map((v,i) => (
+        <div key={LABELS[i]} className={`led-digit${i < 2 ? ' led-digit-st' : ''}`}>
+          <SevenSeg value={v} />
+          <div className="led-val">{v.toString(16).toUpperCase().padStart(2,'0')}</div>
+          <div className="led-lbl">{LABELS[i]}</div>
+        </div>
+      ))}
     </div>
+  )
+
+  return (
+    <>
+      <div className="panel led-panel">
+        {poppedOut ? (
+          <>
+            <div className="panel-hd">
+              <span><span className="panel-icon">💡</span>LED DISPLAY</span>
+              <div className="panel-hd-right">
+                <PanelHelp panel="LED DISPLAY" />
+              </div>
+            </div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: 'var(--text2)', minHeight: 90 }}>
+              <div style={{ fontSize: 24, marginBottom: 8 }}>🪟</div>
+              <div style={{ fontSize: 12 }}>Opened in another window.</div>
+              <button className="btn btn-xs" style={{ marginTop: 12 }} onClick={() => setPoppedOut(false)}>Bring it back</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="panel-hd">
+              <span><span className="panel-icon">💡</span>LED DISPLAY</span>
+              <div className="panel-hd-right">
+                <button className="reg-base-btn" style={{ marginRight: 6 }} onClick={() => setPoppedOut(true)} title="Open in separate window">⧉</button>
+                <PanelHelp panel="LED DISPLAY" />
+              </div>
+            </div>
+            {content}
+          </>
+        )}
+      </div>
+      {poppedOut && (
+        <PopoutWindow title="LED Display - sim8085" theme={theme} onClose={() => setPoppedOut(false)} {...popoutCrtProps}>
+          <div className="panel led-panel" style={{ flex: 1, border: 'none', borderRadius: 0, paddingBottom: 0 }}>
+            <div className="panel-hd">
+              <span><span className="panel-icon">💡</span>LED DISPLAY</span>
+              <div className="panel-hd-right">
+                <PanelHelp panel="LED DISPLAY" />
+              </div>
+            </div>
+            {content}
+          </div>
+        </PopoutWindow>
+      )}
+    </>
   )
 }
