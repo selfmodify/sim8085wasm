@@ -249,7 +249,10 @@ export function DisasmPanel({ regs, breakpoints, onToggleBp, onClearAllBps, onSe
                 })()}
               </span>
               {cond && bp && <span className="disasm-cond">{cond}</span>}
-              {row.cycles > 0 && <span className="disasm-cycles">{row.cycles}T</span>}
+              <span style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+                {row.len > 0 && <span className="disasm-cycles" style={{ marginLeft: 0, ...(cur ? { color: 'var(--accent)', fontWeight: 700 } : {}) }} title="Instruction byte size">{row.len}B</span>}
+                {row.cycles > 0 && <span className="disasm-cycles" style={{ marginLeft: 0, ...(cur ? { color: 'var(--accent)', fontWeight: 700 } : {}) }} title="Clock cycles (T-states)">{row.cycles}T</span>}
+              </span>
               <span className="disasm-hitcnt" title={hasHit ? "Execution count" : undefined}>
                 {hasHit ? fmtCount(hit) : ''}
               </span>

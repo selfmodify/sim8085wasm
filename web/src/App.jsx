@@ -236,14 +236,24 @@ export default function App() {
   }, [src])
 
   useEffect(() => {
-    sim.simInit()
-    const hash = window.location.hash
-    if (hash.startsWith('#gist=')) {
-      loadFromGist(hash.slice(6))
-      window.history.replaceState(null, '', window.location.pathname)
-    } else {
-      engine.doAssemble(src)
+    const initApp = async () => {
+      const pref = localStorage.getItem('sim8085_engine') || 'wasm'
+      if (pref === 'wasm') {
+        const res = await switchEngine('wasm')
+        if (!res.ok) { engine.setEngineMode('js'); localStorage.setItem('sim8085_engine', 'js') }
+      } else {
+        engine.setEngineMode('js')
+      }
+      sim.simInit()
+      const hash = window.location.hash
+      if (hash.startsWith('#gist=')) {
+        loadFromGist(hash.slice(6))
+        window.history.replaceState(null, '', window.location.pathname)
+      } else {
+        engine.doAssemble(srcRef.current)
+      }
     }
+    initApp()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const hotkeysRef = useRef(null)
@@ -743,8 +753,8 @@ export default function App() {
                 <button className={`view-tab${activeView === 'simulator' ? ' active' : ''}`} onClick={() => handleSetView('simulator')} title="Code editor, memory, and debugger">Simulator</button>
                 <button className={`view-tab${activeView === 'breadboard' ? ' active' : ''}`} onClick={() => handleSetView('breadboard')} title="Interactive hardware peripherals">Hardware</button>
                 <button className={`view-tab${activeView === 'challenges' ? ' active' : ''}`} onClick={() => handleSetView('challenges')} title="Programming challenges">Challenges</button>
-                <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 4px' }} className="mobile-hidden" />
-                <button className="view-tab mobile-hidden" onClick={() => window.dispatchEvent(new Event('sim-dock-all'))} title="Dock all popped-out windows (F12)" style={{ padding: '8px 12px' }}>⧉ Dock All</button>
+                <div style={{ width: 2, height: 20, background: 'var(--border2)', margin: '0 12px', borderRadius: '1px' }} className="mobile-hidden" />
+                <button className="btn mobile-hidden" onClick={() => window.dispatchEvent(new Event('sim-dock-all'))} title="Dock all popped-out windows (F12)">⧉ Dock All</button>
               </div>
             </div>
             {/* Editor/Code/Regs tabs — inline in topbar on mobile, hidden on desktop */}
@@ -875,21 +885,21 @@ export default function App() {
         <div className="statusbar-counters">
           <button 
             className={`engine-chip engine-chip-${engine.engineMode}`} 
-            title={engine.engineSwitching ? 'Switching engine…' : `Engine: ${engine.engineMode.toUpperCase()} — Click to switch`}
+            title={engine.engineSwitching ? 'Switching engine…' : `Engine: ${engine.engineMode.toUpperCase()} — Click to switch (WASM is WebAssembly and runs faster)`}
             disabled={engine.engineSwitching}
             onClick={() => engine.handleEngineSwitch(engine.engineMode === 'js' ? 'wasm' : 'js')}
           >
             {engine.engineSwitching ? '…' : `Engine: ${engine.engineMode.toUpperCase()} ⇄`}
           </button>
-          <button className="build-chip" title="Build timestamp — Click to rebuild" style={{ marginLeft: '6px' }} onClick={handleBuild}>
-            Build: {BUILD_TIME_STR}
-          </button>
+          <span className="build-chip" title="Simulator web app release version" style={{ marginLeft: '6px', cursor: 'help' }}>
+            App Ver: {BUILD_TIME_STR}
+          </span>
           <span className="sbar-sep" style={{ marginLeft: '6px' }}>·</span>
           {engine.isDirty && <><span className="sbar-counter" style={{ color: 'var(--amber)', fontWeight: 600 }}>• editor out of sync</span><span className="sbar-sep">·</span></>}
-          {engine.running && SPEEDS[runSpeed].warp && <><span className="sbar-counter" style={{ color: 'var(--accent)', fontWeight: 600 }} title="UI is updating once per second to maximize throughput">⚡ UI Throttled</span><span className="sbar-sep">·</span></>}
-          <span className="sbar-counter sc-steps" title={`${engine.steps.toLocaleString()} instructions executed`}>{fmtCount(engine.steps)} steps</span>
+          {engine.running && SPEEDS[runSpeed].warp && <><span className="sbar-counter" style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'help' }} title="Running at maximum speed. Visual UI updates are throttled to 1 frame per second to maximize CPU throughput.">⚡ Warp Mode</span><span className="sbar-sep">·</span></>}
+          <span className="sbar-counter sc-steps" title={`${engine.steps.toLocaleString()} instructions executed (A step is one complete assembly instruction, which may take multiple T-states)`} style={{ cursor: 'help' }}>{fmtCount(engine.steps)} steps</span>
           <span className="sbar-sep">·</span>
-          <span className="sbar-counter sc-cycles" title={`${engine.cycles.toLocaleString()} T-states elapsed`}>{fmtCount(engine.cycles)} T</span>
+          <span className="sbar-counter sc-cycles" title={`${engine.cycles.toLocaleString()} T-states elapsed (A T-state is a single clock cycle of the 8085 microprocessor)`} style={{ cursor: 'help' }}>{fmtCount(engine.cycles)} T</span>
         </div>
       </div>
       {showWelcome && <WelcomeModal onClose={dismissWelcome} onBrewCoffee={onBrewCoffee} />}

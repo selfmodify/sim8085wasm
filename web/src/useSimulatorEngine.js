@@ -59,7 +59,7 @@ export function useSimulatorEngine(srcRef) {
   const [sod, setSod] = useState(0)
   const [memStart, setMemStart] = useState(MEM_START_DEFAULT)
   const [appState, setAppState] = useState('idle')
-  const [engineMode, setEngineMode] = useState('js')
+  const [engineMode, setEngineMode] = useState(() => localStorage.getItem('sim8085_engine') || 'wasm')
   const [engineSwitching, setEngineSwitching] = useState(false)
   const engineSwitchingRef = useRef(false)
   const [msg, setMsg] = useState('Load an example or write code, then click Build.')
@@ -740,9 +740,11 @@ export function useSimulatorEngine(srcRef) {
       if (!result.ok) {
         setMsg(`✗ WASM unavailable: ${result.error}`)
         setEngineMode('js')
+        localStorage.setItem('sim8085_engine', 'js')
         return
       }
       setEngineMode(mode)
+      localStorage.setItem('sim8085_engine', mode)
       sim.simInit()
       doAssemble(srcRef.current)
     } finally {
@@ -808,7 +810,7 @@ export function useSimulatorEngine(srcRef) {
     sid, setSid, sod,
     memStart, setMemStart,
     appState, setAppState,
-    engineMode, engineSwitching,
+    engineMode, engineSwitching, setEngineMode,
     msg, setMsg,
     steps, mhz, cycles,
     pcFlash,
